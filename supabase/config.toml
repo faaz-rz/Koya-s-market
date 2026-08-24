@@ -1,0 +1,13 @@
+project_id = "koyas-supermarket"
+
+[functions.create-razorpay-order]
+verify_jwt = true
+
+[functions.verify-razorpay-payment]
+verify_jwt = true
+
+[functions.razorpay-webhook]
+verify_jwt = false
+
+[functions.send-order-notifications]
+verify_jwt = false

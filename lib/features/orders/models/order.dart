@@ -1,0 +1,97 @@
+import '../../checkout/models/checkout_models.dart';
+
+enum PaymentStatus { pending, paid, failed, cancelled }
+
+enum OrderStatus {
+  placed,
+  confirmed,
+  preparing,
+  readyForPickup,
+  collected,
+  readyForDispatch,
+  outForDelivery,
+  delivered,
+  cancelled,
+  rejected,
+}
+
+class OrderItemSnapshot {
+  const OrderItemSnapshot({
+    required this.productId,
+    required this.name,
+    required this.unit,
+    required this.unitPricePaise,
+    required this.quantity,
+    required this.visualKey,
+  });
+
+  final String productId;
+  final String name;
+  final String unit;
+  final int unitPricePaise;
+  final int quantity;
+  final String visualKey;
+
+  int get totalPaise => unitPricePaise * quantity;
+}
+
+class CustomerOrder {
+  const CustomerOrder({
+    required this.id,
+    required this.items,
+    required this.fulfilmentType,
+    required this.fulfilmentDate,
+    required this.slotLabel,
+    required this.subtotalPaise,
+    required this.deliveryChargePaise,
+    required this.discountPaise,
+    required this.totalPaise,
+    required this.paymentMethod,
+    required this.paymentStatus,
+    required this.status,
+    required this.createdAt,
+    this.reference,
+    this.addressText,
+    this.deliveryInstructions = '',
+  });
+
+  final String id;
+  final List<OrderItemSnapshot> items;
+  final FulfilmentType fulfilmentType;
+  final DateTime fulfilmentDate;
+  final String slotLabel;
+  final String? addressText;
+  final int subtotalPaise;
+  final int deliveryChargePaise;
+  final int discountPaise;
+  final int totalPaise;
+  final PaymentMethod paymentMethod;
+  final PaymentStatus paymentStatus;
+  final OrderStatus status;
+  final String deliveryInstructions;
+  final DateTime createdAt;
+  final String? reference;
+
+  String get displayReference => reference ?? id;
+
+  CustomerOrder copyWith({OrderStatus? status, PaymentStatus? paymentStatus}) {
+    return CustomerOrder(
+      id: id,
+      items: items,
+      fulfilmentType: fulfilmentType,
+      fulfilmentDate: fulfilmentDate,
+      slotLabel: slotLabel,
+      addressText: addressText,
+      subtotalPaise: subtotalPaise,
+      deliveryChargePaise: deliveryChargePaise,
+      discountPaise: discountPaise,
+      totalPaise: totalPaise,
+      paymentMethod: paymentMethod,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
+      status: status ?? this.status,
+      deliveryInstructions: deliveryInstructions,
+      createdAt: createdAt,
+      reference: reference,
+    );
+  }
+}

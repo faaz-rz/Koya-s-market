@@ -1,0 +1,12 @@
+# Copy this file to android/key.properties for a local release build.
+# android/key.properties and keystore files are intentionally gitignored.
+storeFile=/absolute/path/to/koyas-upload-keystore.jks
+storePassword=replace-with-keystore-password
+keyAlias=koyas-upload
+keyPassword=replace-with-key-password
+
+# CI may use these environment variables instead of this file:
+# KOYAS_ANDROID_KEYSTORE_PATH
+# KOYAS_ANDROID_KEYSTORE_PASSWORD
+# KOYAS_ANDROID_KEY_ALIAS
+# KOYAS_ANDROID_KEY_PASSWORD

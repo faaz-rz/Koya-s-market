@@ -1,0 +1,37 @@
+import 'package:flutter/material.dart';
+
+import '../theme/app_colors.dart';
+import '../theme/app_shadows.dart';
+import '../theme/app_spacing.dart';
+
+class KoyasSurface extends StatelessWidget {
+  const KoyasSurface({
+    required this.child,
+    this.padding = const EdgeInsets.all(AppSpacing.lg),
+    this.color = AppColors.surface,
+    this.radius = AppRadii.xl,
+    this.elevated = false,
+    this.borderColor = AppColors.outline,
+    super.key,
+  });
+
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final Color color;
+  final double radius;
+  final bool elevated;
+  final Color borderColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: borderColor),
+        boxShadow: elevated ? AppShadows.medium : AppShadows.low,
+      ),
+      child: Padding(padding: padding, child: child),
+    );
+  }
+}
