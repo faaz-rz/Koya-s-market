@@ -62,6 +62,8 @@ class FulfilmentScreen extends ConsumerWidget {
                     title: 'Home delivery',
                     subtitle: !store.deliveryEnabled
                         ? 'Currently unavailable'
+                        : store.baseDeliveryChargePaise == 0
+                        ? 'Free delivery'
                         : store.subtotalPaise >=
                               store.freeDeliveryThresholdPaise
                         ? 'Free delivery unlocked'
@@ -79,7 +81,7 @@ class FulfilmentScreen extends ConsumerWidget {
                         SizedBox(width: AppSpacing.md),
                         Expanded(
                           child: Text(
-                            'Koyas Fresh Market\nRoad No. 12, Banjara Hills, Hyderabad',
+                            'Koya Stores\nRoad No. 12, Banjara Hills, Hyderabad',
                           ),
                         ),
                       ],

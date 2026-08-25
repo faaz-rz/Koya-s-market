@@ -53,6 +53,12 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync> {
           table: 'orders',
           callback: (_) => _scheduleRefresh(),
         )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'store_settings',
+          callback: (_) => _scheduleRefresh(),
+        )
         .subscribe();
     _channel = channel;
   }

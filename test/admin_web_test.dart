@@ -189,4 +189,180 @@ void main() {
     expect(find.text('Product name'), findsOneWidget);
     expect(find.text('Stock quantity'), findsOneWidget);
   });
+
+  testWidgets('admin can make delivery free or set a custom charge', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 2200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const ProviderScope(child: KoyasAdminApp()));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('admin-email')),
+      'staff@koyas.in',
+    );
+    await tester.tap(find.byKey(const Key('admin-login')));
+    await tester.pumpAndSettle();
+
+    final context = tester.element(find.byType(Scaffold).first);
+    final container = ProviderScope.containerOf(context);
+    final editPricing = find.byKey(const Key('admin-edit-delivery-pricing'));
+    await tester.scrollUntilVisible(
+      editPricing,
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(editPricing);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('admin-free-delivery')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('admin-save-delivery-pricing')));
+    await tester.pumpAndSettle();
+
+    expect(container.read(storeProvider).baseDeliveryChargePaise, 0);
+
+    await tester.tap(editPricing);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('admin-free-delivery')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('admin-delivery-charge')),
+      '75',
+    );
+    await tester.enterText(
+      find.byKey(const Key('admin-free-delivery-threshold')),
+      '500',
+    );
+    await tester.tap(find.byKey(const Key('admin-save-delivery-pricing')));
+    await tester.pumpAndSettle();
+
+    final updated = container.read(storeProvider);
+    expect(updated.baseDeliveryChargePaise, 7500);
+    expect(updated.freeDeliveryThresholdPaise, 50000);
+  });
+
+  testWidgets('admin creates and removes a custom product offer', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 2200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const ProviderScope(child: KoyasAdminApp()));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('admin-email')),
+      'staff@koyas.in',
+    );
+    await tester.tap(find.byKey(const Key('admin-login')));
+    await tester.pumpAndSettle();
+
+    final context = tester.element(find.byType(Scaffold).first);
+    final container = ProviderScope.containerOf(context);
+    final product = container
+        .read(storeProvider)
+        .products
+        .firstWhere((product) => product.pricePaise > 100);
+    final offerPaise = product.pricePaise ~/ 2;
+    expect(
+      container
+          .read(storeProvider)
+          .products
+          .every((product) => product.discountPricePaise == null),
+      isTrue,
+    );
+
+    final addOffer = find.byKey(const Key('admin-add-offer'));
+    await tester.scrollUntilVisible(
+      addOffer,
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(addOffer);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('admin-offer-product-search')),
+      product.name,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(Key('admin-offer-product-${product.id}')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('admin-offer-price')),
+      (offerPaise / 100).toStringAsFixed(2),
+    );
+    await tester.tap(find.byKey(const Key('admin-save-offer')));
+    await tester.pumpAndSettle();
+
+    expect(
+      container.read(storeProvider).productById(product.id)?.discountPricePaise,
+      offerPaise,
+    );
+    final offerRow = find.byKey(Key('admin-active-offer-${product.id}'));
+    await tester.ensureVisible(offerRow);
+    final changeOffer = find.descendant(
+      of: offerRow,
+      matching: find.text('Change'),
+    );
+    await tester.tap(changeOffer);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('admin-remove-offer')));
+    await tester.pumpAndSettle();
+
+    expect(
+      container.read(storeProvider).productById(product.id)?.discountPricePaise,
+      isNull,
+    );
+  });
+
+  testWidgets('admin switches daily, monthly, and yearly sales analytics', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const ProviderScope(child: KoyasAdminApp()));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('admin-email')),
+      'staff@koyas.in',
+    );
+    await tester.tap(find.byKey(const Key('admin-login')));
+    await tester.pumpAndSettle();
+
+    final analytics = find.byKey(const Key('admin-sales-analytics'));
+    await tester.scrollUntilVisible(
+      analytics,
+      600,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(analytics, findsOneWidget);
+    expect(find.text('Most ordered products'), findsOneWidget);
+    expect(find.text('Sales value'), findsOneWidget);
+    expect(find.text('Items sold'), findsOneWidget);
+    expect(find.text('Average order'), findsOneWidget);
+
+    final daily = find.byKey(const Key('admin-analytics-daily'));
+    final monthly = find.byKey(const Key('admin-analytics-monthly'));
+    final yearly = find.byKey(const Key('admin-analytics-yearly'));
+    expect(tester.widget<ChoiceChip>(daily).selected, isTrue);
+
+    await tester.tap(monthly);
+    await tester.pumpAndSettle();
+    expect(tester.widget<ChoiceChip>(monthly).selected, isTrue);
+
+    await tester.tap(yearly);
+    await tester.pumpAndSettle();
+    expect(tester.widget<ChoiceChip>(yearly).selected, isTrue);
+    expect(tester.takeException(), isNull);
+  });
 }

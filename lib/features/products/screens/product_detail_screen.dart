@@ -180,28 +180,35 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                 if (family.hasMultipleSizes) ...[
                   const SizedBox(height: AppSpacing.xxl),
                   Text(
-                    'Choose quantity',
+                    'Choose a pack size',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  Wrap(
-                    spacing: AppSpacing.sm,
-                    runSpacing: AppSpacing.sm,
-                    children: family.variants
-                        .map((variant) {
-                          final label = ProductVariants.variantLabel(variant)!;
-                          return ChoiceChip(
-                            key: Key('product-size-${variant.id}'),
-                            selected: variant.id == product.id,
-                            onSelected: (_) =>
-                                setState(() => _selectedProductId = variant.id),
-                            label: Text(
-                              '$label · ${formatPrice(variant.effectivePricePaise)}'
-                              '${variant.isAvailable ? '' : ' · Out of stock'}',
-                            ),
-                          );
-                        })
-                        .toList(growable: false),
+                  Text(
+                    '${family.variants.length} options available',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.inkSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  SizedBox(
+                    height: 126,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: family.variants.length,
+                      separatorBuilder: (_, _) =>
+                          const SizedBox(width: AppSpacing.sm),
+                      itemBuilder: (context, index) {
+                        final variant = family.variants[index];
+                        return _PackSizeCard(
+                          key: Key('product-size-${variant.id}'),
+                          product: variant,
+                          selected: variant.id == product.id,
+                          onTap: () =>
+                              setState(() => _selectedProductId = variant.id),
+                        );
+                      },
+                    ),
                   ),
                 ],
                 const SizedBox(height: AppSpacing.lg),
@@ -283,6 +290,96 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PackSizeCard extends StatelessWidget {
+  const _PackSizeCard({
+    required this.product,
+    required this.selected,
+    required this.onTap,
+    super.key,
+  });
+
+  final Product product;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = ProductVariants.variantLabel(product) ?? product.unit;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label:
+          '$size, ${formatPrice(product.effectivePricePaise)}'
+          '${product.isAvailable ? '' : ', out of stock'}',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadii.lg),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          width: 148,
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.brandSoft : AppColors.surface,
+            borderRadius: BorderRadius.circular(AppRadii.lg),
+            border: Border.all(
+              color: selected ? AppColors.brand600 : AppColors.outline,
+              width: selected ? 2 : 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      size,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: selected ? AppColors.brand700 : AppColors.ink,
+                      ),
+                    ),
+                  ),
+                  if (selected)
+                    const Icon(
+                      Icons.check_circle_rounded,
+                      size: 18,
+                      color: AppColors.brand600,
+                    ),
+                ],
+              ),
+              const Spacer(),
+              Text(
+                formatPrice(product.effectivePricePaise),
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+              if (product.discountPricePaise != null)
+                Text(
+                  '${formatPrice(product.pricePaise)} · ${product.discountPercent}% OFF',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: AppColors.offer),
+                )
+              else
+                Text(
+                  product.isAvailable ? 'In stock' : 'Out of stock',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: product.isAvailable
+                        ? AppColors.inkSecondary
+                        : AppColors.error,
+                  ),
+                ),
+            ],
           ),
         ),
       ),

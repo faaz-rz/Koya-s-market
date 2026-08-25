@@ -171,7 +171,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ? (_otpSent
                                 ? 'Verify and continue'
                                 : 'Send secure code')
-                          : 'Continue to Koyas',
+                          : 'Continue to Koya Stores',
                       loading: _loading,
                       icon: Icons.arrow_forward_rounded,
                       onPressed: _continue,

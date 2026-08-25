@@ -33,7 +33,6 @@ void main() {
     final repository = File(
       'lib/features/store/data/supabase_store_repository.dart',
     ).readAsStringSync();
-
     expect(migration, contains('drop policy if exists products_admin_write'));
     expect(migration, contains('function public.admin_save_product'));
     expect(migration, contains('if not public.is_admin()'));
@@ -45,6 +44,36 @@ void main() {
     expect(repository, contains("_client.rpc(\n        'admin_save_product'"));
     expect(repository, isNot(contains("from('products').insert")));
     expect(repository, isNot(contains("from('products').update")));
+  });
+
+  test('delivery pricing is MFA-admin-only, validated, and audited', () {
+    final migration = File(
+      'supabase/migrations/202608240001_admin_delivery_and_offers.sql',
+    ).readAsStringSync();
+    final repository = File(
+      'lib/features/store/data/supabase_store_repository.dart',
+    ).readAsStringSync();
+    final realtime = File(
+      'lib/features/store/widgets/store_realtime_sync.dart',
+    ).readAsStringSync();
+
+    expect(
+      migration,
+      contains('function public.admin_update_delivery_pricing'),
+    );
+    expect(migration, contains('if not public.is_admin()'));
+    expect(migration, contains("'update_delivery_pricing'"));
+    expect(migration, contains('to_jsonb(previous), to_jsonb(updated)'));
+    expect(
+      migration,
+      contains(
+        'revoke all on function public.admin_update_delivery_pricing(integer, integer)',
+      ),
+    );
+    expect(migration, contains('set discount_price_paise = null'));
+    expect(repository, contains("'admin_update_delivery_pricing'"));
+    expect(repository, isNot(contains("from('store_settings').update")));
+    expect(realtime, contains("table: 'store_settings'"));
   });
 
   test('production login does not expose demo identity or raw auth errors', () {

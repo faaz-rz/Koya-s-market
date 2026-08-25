@@ -287,7 +287,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                         ),
                         const SizedBox(height: AppSpacing.sm),
                         Text(
-                          'Manage Koyas orders, products and stock from your browser.',
+                          'Manage Koya Stores orders, products and stock from your browser.',
                           style: Theme.of(context).textTheme.bodyLarge
                               ?.copyWith(color: AppColors.inkSecondary),
                         ),

@@ -7,6 +7,7 @@ import '../../core/config/app_environment.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/koyas_button.dart';
+import '../../core/widgets/koyas_logo.dart';
 import '../../features/auth/data/auth_repository.dart';
 import '../../features/store/data/supabase_store_repository.dart';
 import '../../features/store/providers/store_provider.dart';
@@ -70,39 +71,33 @@ class _AdminSplashScreenState extends ConsumerState<AdminSplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.brand600,
+      backgroundColor: AppColors.brand500,
       body: SafeArea(
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 96,
-                height: 96,
-                decoration: const BoxDecoration(
-                  color: AppColors.surface,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.admin_panel_settings_rounded,
-                  color: AppColors.brand600,
-                  size: 52,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xxl),
-              Text(
-                'Koyas Admin',
-                style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                  color: AppColors.surface,
-                  fontSize: 40,
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 560),
+                  child: const AspectRatio(
+                    aspectRatio: 2,
+                    child: Image(
+                      image: AssetImage(KoyasLogo.fullAsset),
+                      fit: BoxFit.cover,
+                      filterQuality: FilterQuality.high,
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.lg),
               Text(
-                'Store operations',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyLarge?.copyWith(color: AppColors.brandSoft),
+                'STAFF OPERATIONS',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: AppColors.heritageIvory,
+                  letterSpacing: 3,
+                ),
               ),
               if (_error != null) ...[
                 const SizedBox(height: AppSpacing.xxl),

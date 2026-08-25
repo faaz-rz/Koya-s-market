@@ -1,11 +1,11 @@
 {
-    "name": "Koyas Admin",
-    "short_name": "Koyas Admin",
+    "name": "Koya Stores Admin",
+    "short_name": "Koya Admin",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#F7F8F3",
-    "theme_color": "#5B741E",
-    "description": "Secure staff dashboard for Koyas supermarket operations.",
+    "background_color": "#5B4D49",
+    "theme_color": "#5B4D49",
+    "description": "Secure staff dashboard for Koya Stores operations.",
     "orientation": "any",
     "prefer_related_applications": false,
     "icons": [

@@ -39,7 +39,7 @@ class PaymentRepository {
       keyId: data['key_id'] as String,
       amountPaise: data['amount'] as int,
       currency: data['currency'] as String? ?? 'INR',
-      merchantName: data['merchant_name'] as String? ?? 'Koyas Fresh Market',
+      merchantName: data['merchant_name'] as String? ?? 'Koya Stores',
     );
   }
 

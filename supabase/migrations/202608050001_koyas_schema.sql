@@ -1,4 +1,4 @@
--- Koyas Supermarket: compact production schema for Supabase/PostgreSQL.
+-- Koya Stores: compact production schema for Supabase/PostgreSQL.
 create extension if not exists pgcrypto;
 
 create type public.fulfilment_type as enum ('pickup', 'delivery');
@@ -74,7 +74,7 @@ create index addresses_user_idx on public.addresses(user_id);
 
 create table public.store_settings (
   id smallint primary key default 1 check (id = 1),
-  store_name text not null default 'Koyas Fresh Market',
+  store_name text not null default 'Koya Stores',
   store_address text not null,
   contact_phone text not null,
   opening_hours text not null,

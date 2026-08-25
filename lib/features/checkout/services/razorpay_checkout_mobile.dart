@@ -27,7 +27,7 @@ class RazorpayCheckout {
         'amount': order.amountPaise,
         'currency': order.currency,
         'name': order.merchantName,
-        'description': 'Koyas supermarket order',
+        'description': 'Koya Stores order',
         'prefill': {'email': customerEmail, 'contact': customerPhone},
         'theme': {'color': '#5B741E'},
         'retry': {'enabled': true, 'max_count': 2},

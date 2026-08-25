@@ -85,16 +85,10 @@ class SupabaseStoreRepository {
         .from('serviceable_pincodes')
         .select('pincode')
         .eq('active', true);
-    final orderRows = isAdmin
-        ? await _client
-              .from('orders')
-              .select('*, order_items(*)')
-              .order('created_at', ascending: false)
-        : await _client
-              .from('orders')
-              .select('*, order_items(*)')
-              .eq('user_id', user.id)
-              .order('created_at', ascending: false);
+    final orderRows = await _loadOrderRows(
+      includeAllCustomers: isAdmin,
+      userId: user.id,
+    );
 
     final categories = categoryRows
         .map(
@@ -177,7 +171,7 @@ class SupabaseStoreRepository {
             ? profileRow!['full_name'] as String
             : metadataName?.trim().isNotEmpty == true
             ? metadataName!
-            : 'Koyas customer',
+            : 'Koya Stores customer',
         email: user.email ?? '',
         phone: profileRow?['phone'] as String? ?? user.phone ?? '',
       ),
@@ -231,6 +225,32 @@ class SupabaseStoreRepository {
       if (page.length < pageSize) break;
     }
     return products;
+  }
+
+  Future<List<Map<String, dynamic>>> _loadOrderRows({
+    required bool includeAllCustomers,
+    required String userId,
+  }) async {
+    const pageSize = 500;
+    final orders = <Map<String, dynamic>>[];
+    for (var offset = 0; ; offset += pageSize) {
+      final page = includeAllCustomers
+          ? await _client
+                .from('orders')
+                .select('*, order_items(*)')
+                .order('created_at', ascending: false)
+                .range(offset, offset + pageSize - 1)
+          : await _client
+                .from('orders')
+                .select('*, order_items(*)')
+                .eq('user_id', userId)
+                .order('created_at', ascending: false)
+                .range(offset, offset + pageSize - 1);
+      final typedPage = page.cast<Map<String, dynamic>>();
+      orders.addAll(typedPage);
+      if (typedPage.length < pageSize) break;
+    }
+    return orders;
   }
 
   Future<String> placeOrder({
@@ -387,6 +407,19 @@ class SupabaseStoreRepository {
         // The new product image is already saved; stale-image cleanup can retry.
       }
     }
+  }
+
+  Future<void> updateDeliveryPricing({
+    required int deliveryChargePaise,
+    required int freeDeliveryThresholdPaise,
+  }) async {
+    await _client.rpc(
+      'admin_update_delivery_pricing',
+      params: {
+        'requested_delivery_charge_paise': deliveryChargePaise,
+        'requested_free_delivery_threshold_paise': freeDeliveryThresholdPaise,
+      },
+    );
   }
 
   /// Sets the client's counted on-hand quantity without overwriting price,

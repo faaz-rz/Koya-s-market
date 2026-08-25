@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 abstract final class AppColors {
+  static const heritageIvory = Color(0xFFFFFCF2);
+
   static const canvas = Color(0xFFF7F8F3);
   static const surface = Color(0xFFFFFFFF);
   static const surfaceMuted = Color(0xFFEEF1E8);

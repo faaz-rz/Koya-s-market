@@ -11,6 +11,7 @@ import '../../store/providers/store_provider.dart';
 import '../models/product.dart';
 import '../product_variants.dart';
 import 'product_visual.dart';
+import 'product_variant_sheet.dart';
 
 class ProductCard extends ConsumerWidget {
   const ProductCard({required this.product, this.family, super.key});
@@ -36,15 +37,10 @@ class ProductCard extends ConsumerWidget {
       ),
     );
     final displayName = family?.name ?? product.name;
-    final priceProduct = variants.reduce(
-      (current, candidate) =>
-          candidate.effectivePricePaise < current.effectivePricePaise
-          ? candidate
-          : current,
-    );
+    final priceProduct = family?.representative ?? product;
     final available = variants.any((variant) => variant.isAvailable);
-    final sizeLabels = family?.sizeLabels ?? const <String>[];
-    final visibleSizeLabels = sizeLabels.take(3).join(', ');
+    final selectedSize =
+        ProductVariants.variantLabel(priceProduct) ?? priceProduct.unit;
     return Semantics(
       button: true,
       label: '$displayName, ${formatPrice(priceProduct.effectivePricePaise)}',
@@ -116,8 +112,7 @@ class ProductCard extends ConsumerWidget {
               const SizedBox(height: AppSpacing.xs),
               Text(
                 hasMultipleSizes
-                    ? '${variants.length} sizes · $visibleSizeLabels'
-                          '${sizeLabels.length > 3 ? '…' : ''}'
+                    ? '$selectedSize · ${variants.length} options'
                     : [
                         product.unit,
                         if (product.subcategory.isNotEmpty) product.subcategory,
@@ -134,8 +129,7 @@ class ProductCard extends ConsumerWidget {
                 runSpacing: AppSpacing.xxs,
                 children: [
                   Text(
-                    '${hasMultipleSizes ? 'From ' : ''}'
-                    '${formatPrice(priceProduct.effectivePricePaise)}',
+                    formatPrice(priceProduct.effectivePricePaise),
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   if (priceProduct.discountPricePaise != null)
@@ -157,15 +151,33 @@ class ProductCard extends ConsumerWidget {
               else if (hasMultipleSizes)
                 SizedBox(
                   width: double.infinity,
-                  height: 44,
-                  child: FilledButton.tonalIcon(
+                  height: 48,
+                  child: OutlinedButton(
                     key: Key('choose-size-${product.id}'),
-                    onPressed: () => context.push('/product/${product.id}'),
-                    icon: const Icon(Icons.tune_rounded, size: 18),
-                    label: Text(
-                      quantity == 0
-                          ? 'Choose size'
-                          : 'Choose size · $quantity in cart',
+                    onPressed: () => showProductVariantSheet(
+                      context: context,
+                      family: family!,
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(48, 48),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm,
+                        vertical: AppSpacing.xs,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadii.md),
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(quantity == 0 ? 'ADD' : '$quantity IN CART'),
+                        Text(
+                          '${variants.length} options',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: AppColors.brand700),
+                        ),
+                      ],
                     ),
                   ),
                 )

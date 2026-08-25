@@ -47,7 +47,7 @@ Deno.serve(async (request) => {
         key_id: keyId,
         amount: order.total_paise,
         currency: "INR",
-        merchant_name: "Koyas Fresh Market",
+        merchant_name: "Koya Stores",
       });
     }
 
@@ -100,7 +100,7 @@ Deno.serve(async (request) => {
       key_id: keyId,
       amount: order.total_paise,
       currency: "INR",
-      merchant_name: "Koyas Fresh Market",
+      merchant_name: "Koya Stores",
     });
   } catch (error) {
     if (error instanceof RangeError) return json({ error: "Payload too large" }, 413);

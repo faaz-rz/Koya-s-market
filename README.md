@@ -1,4 +1,4 @@
-# Koyas Supermarket
+# Koya Stores
 
 A professional Flutter ordering application for one small Indian supermarket,
 with store pickup, manually arranged home delivery, payment at handover, push
@@ -76,7 +76,7 @@ flutter pub get
 flutter run
 ```
 
-Customer demo: use the prefilled email and select **Continue to Koyas**.
+Customer demo: use the prefilled email and select **Continue to Koya Stores**.
 
 Run the separate staff website in Chrome:
 

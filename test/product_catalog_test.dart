@@ -43,13 +43,9 @@ void main() {
     );
     expect(products.every((product) => product.pricePaise > 0), isTrue);
     expect(
-      products.every(
-        (product) =>
-            product.discountPricePaise == null ||
-            (product.discountPricePaise! > 0 &&
-                product.discountPricePaise! < product.pricePaise),
-      ),
+      products.every((product) => product.discountPricePaise == null),
       isTrue,
+      reason: 'Offers must be created by staff, not imported by default',
     );
 
     final photographedProducts = products

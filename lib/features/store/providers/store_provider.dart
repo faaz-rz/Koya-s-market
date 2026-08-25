@@ -618,6 +618,30 @@ class StoreController extends Notifier<StoreState> {
     state = state.copyWith(products: products);
   }
 
+  void adminUpdateDeliveryPricing({
+    required int deliveryChargePaise,
+    required int freeDeliveryThresholdPaise,
+  }) {
+    if (!state.isAdminView) {
+      throw const StoreValidationException('Administrator access required.');
+    }
+    if (deliveryChargePaise < 0 || deliveryChargePaise > 1000000) {
+      throw const StoreValidationException(
+        'Delivery charge must be between ₹0 and ₹10,000.',
+      );
+    }
+    if (freeDeliveryThresholdPaise < 0 ||
+        freeDeliveryThresholdPaise > 100000000) {
+      throw const StoreValidationException(
+        'Free-delivery threshold is outside the allowed range.',
+      );
+    }
+    state = state.copyWith(
+      baseDeliveryChargePaise: deliveryChargePaise,
+      freeDeliveryThresholdPaise: freeDeliveryThresholdPaise,
+    );
+  }
+
   void _updateOrder(
     String id,
     CustomerOrder Function(CustomerOrder order) transform,

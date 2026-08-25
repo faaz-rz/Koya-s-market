@@ -7,6 +7,7 @@ import '../../../core/config/app_environment.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/koyas_button.dart';
+import '../../../core/widgets/koyas_logo.dart';
 import '../../store/data/supabase_store_repository.dart';
 import '../../store/providers/store_provider.dart';
 import '../../notifications/services/push_notification_service.dart';
@@ -54,7 +55,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       if (mounted) {
         setState(
           () => _error =
-              'We could not connect to Koyas. Check your connection and try again.',
+              'We could not connect to Koya Stores. Check your connection and try again.',
         );
       }
     }
@@ -63,31 +64,24 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.brand600,
+      backgroundColor: AppColors.brand500,
       body: SafeArea(
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 104,
-                height: 104,
-                decoration: const BoxDecoration(
-                  color: AppColors.surface,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.eco_rounded,
-                  color: AppColors.brand600,
-                  size: 58,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xxl),
-              Text(
-                'Koyas',
-                style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                  color: AppColors.surface,
-                  fontSize: 40,
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 560),
+                  child: const AspectRatio(
+                    aspectRatio: 2,
+                    child: Image(
+                      image: AssetImage(KoyasLogo.fullAsset),
+                      fit: BoxFit.cover,
+                      filterQuality: FilterQuality.high,
+                    ),
+                  ),
                 ),
               ),
               if (_error != null) ...[
@@ -109,13 +103,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                   onPressed: _route,
                 ),
               ],
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                'Fresh. Local. Convenient.',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyLarge?.copyWith(color: AppColors.brandSoft),
-              ),
             ],
           ),
         ),

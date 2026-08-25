@@ -12,7 +12,7 @@ class KoyasApp extends ConsumerWidget {
     final router = ref.watch(appRouterProvider);
 
     return MaterialApp.router(
-      title: 'Koyas Supermarket',
+      title: 'Koya Stores',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       routerConfig: router,

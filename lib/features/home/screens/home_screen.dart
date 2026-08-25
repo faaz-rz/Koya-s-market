@@ -48,7 +48,7 @@ class HomeScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: AppSpacing.md),
                     Text(
-                      'Pickup from Koyas or get your order delivered today.',
+                      'Pickup from Koya Stores or get your order delivered today.',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: AppColors.inkSecondary,
                       ),

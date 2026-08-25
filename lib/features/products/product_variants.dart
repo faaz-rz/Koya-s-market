@@ -39,8 +39,20 @@ class ProductFamily {
 }
 
 abstract final class ProductVariants {
+  static final RegExp _compoundQuantityPattern = RegExp(
+    r'\b(\d+)\s*[x×]\s*(\d+(?:\.\d+)?)\s*(kg|kgs|kilograms?|g|gm|gms|grams?|ml|millilit(?:er|re)s?|l|ltr|lit(?:er|re)s?)\b',
+    caseSensitive: false,
+  );
   static final RegExp _quantityPattern = RegExp(
     r'\b(\d+(?:\.\d+)?)\s*(kg|kgs|kilograms?|g|gm|gms|grams?|ml|millilit(?:er|re)s?|l|ltr|lit(?:er|re)s?)\b',
+    caseSensitive: false,
+  );
+  static final RegExp _packOfPattern = RegExp(
+    r'\bpack\s+of\s+(\d+)\b',
+    caseSensitive: false,
+  );
+  static final RegExp _countPattern = RegExp(
+    r'\b(\d+)\s*(packs?|pcs?|pieces?|count|ct)\b',
     caseSensitive: false,
   );
   static final RegExp _pricePackPattern = RegExp(
@@ -52,17 +64,17 @@ abstract final class ProductVariants {
     caseSensitive: false,
   );
 
-  static String? variantLabel(Product product) =>
-      _sizeFromName(product.name)?.label;
+  static String? variantLabel(Product product) => _sizeFor(product)?.label;
 
   static String familyName(Product product) {
     final withoutBillingSuffix = product.name
         .replaceAll(_pricePackPattern, '')
         .replaceAll(_generatedVariantPattern, '');
-    final withoutQuantity = withoutBillingSuffix.replaceAll(
-      _quantityPattern,
-      '',
-    );
+    final withoutQuantity = withoutBillingSuffix
+        .replaceAll(_compoundQuantityPattern, '')
+        .replaceAll(_quantityPattern, '')
+        .replaceAll(_packOfPattern, '')
+        .replaceAll(_countPattern, '');
     return withoutQuantity
         .replaceAll(RegExp(r'\s+'), ' ')
         .replaceAll(RegExp(r'\s+([),.])'), r'$1')
@@ -99,7 +111,7 @@ abstract final class ProductVariants {
     final result = <String, ProductFamily>{};
 
     for (final product in products) {
-      final size = _sizeFromName(product.name);
+      final size = _sizeFor(product);
       if (size == null) {
         result[product.id] = _single(product);
         continue;
@@ -120,7 +132,7 @@ abstract final class ProductVariants {
       // customers do not see duplicate 500 g choices.
       final preferredBySize = <String, Product>{};
       for (final candidate in candidates) {
-        final sizeKey = _sizeFromName(candidate.name)!.key;
+        final sizeKey = _sizeFor(candidate)!.key;
         final current = preferredBySize[sizeKey];
         if (current == null || _isPreferred(candidate, current)) {
           preferredBySize[sizeKey] = candidate;
@@ -184,8 +196,8 @@ abstract final class ProductVariants {
   }
 
   static int _compareBySize(Product left, Product right) {
-    final leftSize = _sizeFromName(left.name)!;
-    final rightSize = _sizeFromName(right.name)!;
+    final leftSize = _sizeFor(left)!;
+    final rightSize = _sizeFor(right)!;
     final dimensionOrder = leftSize.dimension.compareTo(rightSize.dimension);
     if (dimensionOrder != 0) return dimensionOrder;
     final amountOrder = leftSize.baseAmount.compareTo(rightSize.baseAmount);
@@ -193,21 +205,72 @@ abstract final class ProductVariants {
     return left.effectivePricePaise.compareTo(right.effectivePricePaise);
   }
 
-  static _ProductSize? _sizeFromName(String name) {
-    final match = _quantityPattern.firstMatch(name);
-    if (match == null) return null;
+  static _ProductSize? _sizeFor(Product product) =>
+      _sizeFromText(product.name) ?? _sizeFromText(product.unit);
+
+  static _ProductSize? _sizeFromText(String value) {
+    final compoundMatch = _compoundQuantityPattern.firstMatch(value);
+    if (compoundMatch != null) {
+      final count = int.parse(compoundMatch.group(1)!);
+      final amount = double.parse(compoundMatch.group(2)!);
+      final normalized = _normalizedMeasurement(
+        amount: amount,
+        rawUnit: compoundMatch.group(3)!,
+      );
+      return _ProductSize(
+        label: '$count × ${normalized.label}',
+        key:
+            '${normalized.dimension}:${normalized.baseAmount.toStringAsFixed(3)}:pack:$count',
+        dimension: normalized.dimension,
+        baseAmount: normalized.baseAmount * count,
+      );
+    }
+
+    final match = _quantityPattern.firstMatch(value);
+    if (match == null) return _countSizeFromText(value);
     final amount = double.parse(match.group(1)!);
-    final rawUnit = match.group(2)!.toLowerCase();
+    final normalized = _normalizedMeasurement(
+      amount: amount,
+      rawUnit: match.group(2)!,
+    );
+    return _ProductSize(
+      label: normalized.label,
+      key:
+          '${normalized.dimension}:${normalized.baseAmount.toStringAsFixed(3)}',
+      dimension: normalized.dimension,
+      baseAmount: normalized.baseAmount,
+    );
+  }
+
+  static _ProductSize? _countSizeFromText(String value) {
+    final packOfMatch = _packOfPattern.firstMatch(value);
+    final regularMatch = _countPattern.firstMatch(value);
+    final rawCount = packOfMatch?.group(1) ?? regularMatch?.group(1);
+    if (rawCount == null) return null;
+    final count = int.parse(rawCount);
+    return _ProductSize(
+      label: 'Pack of $count',
+      key: 'count:$count',
+      dimension: 2,
+      baseAmount: count.toDouble(),
+    );
+  }
+
+  static _NormalizedMeasurement _normalizedMeasurement({
+    required double amount,
+    required String rawUnit,
+  }) {
+    final unitValue = rawUnit.toLowerCase();
     final isMass =
-        rawUnit.startsWith('g') ||
-        rawUnit.startsWith('kg') ||
-        rawUnit.startsWith('kilogram');
+        unitValue.startsWith('g') ||
+        unitValue.startsWith('kg') ||
+        unitValue.startsWith('kilogram');
     final isLargeUnit =
-        rawUnit.startsWith('kg') ||
-        rawUnit.startsWith('kilogram') ||
-        rawUnit == 'l' ||
-        rawUnit.startsWith('ltr') ||
-        rawUnit.startsWith('lit');
+        unitValue.startsWith('kg') ||
+        unitValue.startsWith('kilogram') ||
+        unitValue == 'l' ||
+        unitValue.startsWith('ltr') ||
+        unitValue.startsWith('lit');
     final unit = isMass
         ? (isLargeUnit ? 'kg' : 'g')
         : (isLargeUnit ? 'L' : 'ml');
@@ -215,13 +278,24 @@ abstract final class ProductVariants {
     final displayAmount = amount == amount.roundToDouble()
         ? amount.toInt().toString()
         : amount.toString().replaceFirst(RegExp(r'0+$'), '');
-    return _ProductSize(
+    return _NormalizedMeasurement(
       label: '$displayAmount $unit',
-      key: '${isMass ? 'mass' : 'volume'}:${baseAmount.toStringAsFixed(3)}',
       dimension: isMass ? 0 : 1,
       baseAmount: baseAmount,
     );
   }
+}
+
+class _NormalizedMeasurement {
+  const _NormalizedMeasurement({
+    required this.label,
+    required this.dimension,
+    required this.baseAmount,
+  });
+
+  final String label;
+  final int dimension;
+  final double baseAmount;
 }
 
 class _ProductSize {

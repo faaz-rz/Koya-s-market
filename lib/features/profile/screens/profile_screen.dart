@@ -365,7 +365,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         trailing: const Icon(Icons.chevron_right_rounded),
                         onTap: () => ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Call Koyas at +91 40 4000 2020.'),
+                            content: Text(
+                              'Call Koya Stores at +91 40 4000 2020.',
+                            ),
                           ),
                         ),
                       ),
@@ -381,7 +383,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 const SizedBox(height: AppSpacing.lg),
                 Center(
                   child: Text(
-                    'Koyas Market · Version 1.0.0',
+                    'Koya Stores · Version 1.0.0',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppColors.inkTertiary,
                     ),

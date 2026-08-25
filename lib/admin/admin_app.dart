@@ -11,7 +11,7 @@ class KoyasAdminApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(adminRouterProvider);
     return MaterialApp.router(
-      title: 'Koyas Admin',
+      title: 'Koya Stores Admin',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       routerConfig: router,

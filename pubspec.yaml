@@ -1,5 +1,5 @@
 name: koyas_supermarket
-description: "Koyas supermarket ordering app for pickup and local delivery."
+description: "Koya Stores ordering app for pickup and local delivery."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -71,6 +71,7 @@ flutter:
   uses-material-design: true
 
   assets:
+    - assets/branding/
     - assets/product_images/
     - assets/product_images/web/
 

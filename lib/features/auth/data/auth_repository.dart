@@ -75,8 +75,8 @@ class AuthRepository {
 
     final response = await _client.auth.mfa.enroll(
       factorType: FactorType.totp,
-      issuer: 'Koyas Admin',
-      friendlyName: 'Koyas staff authenticator',
+      issuer: 'Koya Stores Admin',
+      friendlyName: 'Koya Stores staff authenticator',
     );
     final secret = response.totp?.secret;
     if (secret == null || secret.isEmpty) {
