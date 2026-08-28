@@ -48,6 +48,7 @@ class CartScreen extends ConsumerWidget {
                   final wide = constraints.maxWidth >= 840;
                   final items = _CartItems(
                     onIncrement: (id) => _increment(context, ref, id),
+                    onAddMore: () => context.go('/home'),
                   );
                   final summary = const _OrderSummary();
                   return SingleChildScrollView(
@@ -87,9 +88,10 @@ class CartScreen extends ConsumerWidget {
 }
 
 class _CartItems extends ConsumerWidget {
-  const _CartItems({required this.onIncrement});
+  const _CartItems({required this.onIncrement, required this.onAddMore});
 
   final ValueChanged<String> onIncrement;
+  final VoidCallback onAddMore;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -165,6 +167,16 @@ class _CartItems extends ConsumerWidget {
                 ],
               ),
             ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            key: const Key('cart-add-more-items'),
+            onPressed: onAddMore,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Add more items'),
           ),
         ),
       ],

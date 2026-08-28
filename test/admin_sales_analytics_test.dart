@@ -108,6 +108,21 @@ void main() {
         ],
       ),
       _order(
+        id: 'pending-cash',
+        createdAt: DateTime(2026, 8, 24, 14),
+        paymentStatus: PaymentStatus.pending,
+        items: const [
+          OrderItemSnapshot(
+            productId: 'rice',
+            name: 'Rice',
+            unit: '1 kg',
+            unitPricePaise: 2000,
+            quantity: 30,
+            visualKey: 'grocery',
+          ),
+        ],
+      ),
+      _order(
         id: 'previous-year',
         createdAt: DateTime(2025, 12, 31, 12),
         items: const [
@@ -217,6 +232,49 @@ void main() {
     expect(analytics.topProducts.first.orderCount, 2);
     expect(analytics.topProducts.first.salesPaise, 4500);
   });
+
+  test('sales are recognized when payment is received, not when ordered', () {
+    final now = DateTime(2026, 8, 24, 18);
+    final analytics = AdminSalesAnalyticsCalculator.calculate(
+      orders: [
+        _order(
+          id: 'paid-today',
+          createdAt: DateTime(2026, 7, 31, 20),
+          paidAt: DateTime(2026, 8, 24, 9),
+          items: const [
+            OrderItemSnapshot(
+              productId: 'tea',
+              name: 'Tea',
+              unit: '250 g',
+              unitPricePaise: 500,
+              quantity: 2,
+              visualKey: 'grocery',
+            ),
+          ],
+        ),
+        _order(
+          id: 'uncollected-cash',
+          createdAt: DateTime(2026, 8, 24, 10),
+          paymentStatus: PaymentStatus.pending,
+          items: const [
+            OrderItemSnapshot(
+              productId: 'rice',
+              name: 'Rice',
+              unit: '1 kg',
+              unitPricePaise: 2000,
+              quantity: 10,
+              visualKey: 'grocery',
+            ),
+          ],
+        ),
+      ],
+      period: AdminAnalyticsPeriod.daily,
+      now: now,
+    );
+
+    expect(analytics.orderCount, 1);
+    expect(analytics.salesPaise, 1000);
+  });
 }
 
 CustomerOrder _order({
@@ -226,6 +284,7 @@ CustomerOrder _order({
   FulfilmentType fulfilmentType = FulfilmentType.pickup,
   OrderStatus status = OrderStatus.delivered,
   PaymentStatus paymentStatus = PaymentStatus.paid,
+  DateTime? paidAt,
   int deliveryChargePaise = 0,
   int discountPaise = 0,
 }) {
@@ -246,5 +305,6 @@ CustomerOrder _order({
     paymentStatus: paymentStatus,
     status: status,
     createdAt: createdAt,
+    paidAt: paidAt,
   );
 }

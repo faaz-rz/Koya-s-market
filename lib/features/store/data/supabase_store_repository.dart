@@ -106,7 +106,6 @@ class SupabaseStoreRepository {
         .where((row) => categoryVisuals.containsKey(row['category_id']))
         .map((row) {
           final imagePath = row['image_path'] as String?;
-          final externalImageUrl = row['external_image_url'] as String?;
           final available = row['available'] as bool? ?? true;
           return Product(
             id: row['id'] as String,
@@ -124,14 +123,18 @@ class SupabaseStoreRepository {
             printName: row['source_print_name'] as String? ?? '',
             itemCode: row['source_item_code'] as String? ?? '',
             barcode: row['barcode'] as String? ?? '',
+            // Production clients only fetch product media from the controlled
+            // Supabase bucket. Imported third-party URLs would disclose each
+            // customer's IP address and user agent to unrelated hosts.
             imageUrl: imagePath == null || imagePath.isEmpty
-                ? externalImageUrl
+                ? null
                 : _client.storage
                       .from('product-images')
                       .getPublicUrl(imagePath),
             imagePath: imagePath ?? '',
             imageAttribution: row['image_attribution'] as String? ?? '',
             featured: row['featured'] as bool? ?? false,
+            active: row['active'] as bool? ?? true,
           );
         })
         .toList(growable: false);
@@ -347,7 +350,11 @@ class SupabaseStoreRepository {
     );
   }
 
-  Future<void> saveProduct(Product product, {ProductImageUpload? image}) async {
+  Future<void> saveProduct(
+    Product product, {
+    ProductImageUpload? image,
+    bool removeImage = false,
+  }) async {
     final user = _client.auth.currentUser;
     if (user == null) throw const AuthException('Authentication required.');
 
@@ -369,7 +376,7 @@ class SupabaseStoreRepository {
 
     try {
       await _client.rpc(
-        'admin_save_product',
+        'admin_save_product_v2',
         params: {
           'target_product_id': _isUuid(product.id) ? product.id : null,
           'product_category_id': product.categoryId,
@@ -380,9 +387,16 @@ class SupabaseStoreRepository {
           'product_discount_price_paise': product.discountPricePaise,
           'product_stock_quantity': product.stockQuantity,
           'product_featured': product.featured,
+          'product_active': product.active,
+          'product_available': product.active,
           'product_subcategory': product.subcategory,
           'product_brand': product.brand,
+          'product_billing_name': product.billingName,
+          'product_print_name': product.printName,
+          'product_item_code': product.itemCode,
+          'product_barcode': product.barcode,
           'product_image_path': uploadedPath,
+          'remove_product_image': removeImage,
         },
       );
     } catch (_) {
@@ -396,7 +410,7 @@ class SupabaseStoreRepository {
       rethrow;
     }
 
-    if (uploadedPath != null &&
+    if ((uploadedPath != null || removeImage) &&
         product.imagePath.isNotEmpty &&
         product.imagePath != uploadedPath) {
       try {
@@ -409,13 +423,15 @@ class SupabaseStoreRepository {
     }
   }
 
-  Future<void> updateDeliveryPricing({
+  Future<void> updateOrderPricing({
+    required int minimumOrderPaise,
     required int deliveryChargePaise,
     required int freeDeliveryThresholdPaise,
   }) async {
     await _client.rpc(
-      'admin_update_delivery_pricing',
+      'admin_update_order_pricing',
       params: {
+        'requested_minimum_order_paise': minimumOrderPaise,
         'requested_delivery_charge_paise': deliveryChargePaise,
         'requested_free_delivery_threshold_paise': freeDeliveryThresholdPaise,
       },
@@ -478,6 +494,29 @@ class SupabaseStoreRepository {
       },
     );
   }
+
+  Future<void> rejectOrder(String orderId) =>
+      _updateAdminOrderStatus(orderId, OrderStatus.rejected);
+
+  Future<void> cancelOrderByAdmin(String orderId) =>
+      _updateAdminOrderStatus(orderId, OrderStatus.cancelled);
+
+  Future<void> _updateAdminOrderStatus(String orderId, OrderStatus status) =>
+      _client.rpc(
+        'update_order_status',
+        params: {
+          'target_order_id': orderId,
+          'next_status': _orderStatusToDatabase(status),
+          'ready_at': null,
+          'delivery_name': null,
+          'delivery_phone': null,
+        },
+      );
+
+  Future<void> markOrderPaid(String orderId) => _client.rpc(
+    'admin_mark_order_paid',
+    params: {'target_order_id': orderId},
+  );
 
   Future<void> cancelOrder(String orderId) => _client.rpc(
     'cancel_own_order',
@@ -563,7 +602,16 @@ class SupabaseStoreRepository {
       ),
       status: _orderStatusFromDatabase(row['order_status'] as String),
       deliveryInstructions: row['delivery_instructions'] as String? ?? '',
+      customerName: row['customer_name_snapshot'] as String? ?? '',
+      customerPhone: row['customer_phone_snapshot'] as String? ?? '',
+      deliveryRecipientName:
+          row['delivery_recipient_name_snapshot'] as String? ?? '',
+      deliveryRecipientPhone:
+          row['delivery_recipient_phone_snapshot'] as String? ?? '',
       createdAt: DateTime.parse(row['created_at'] as String).toLocal(),
+      paidAt: row['paid_at'] == null
+          ? null
+          : DateTime.parse(row['paid_at'] as String).toLocal(),
     );
   }
 

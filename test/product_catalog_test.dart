@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:koyas_supermarket/features/store/data/demo_store_data.dart';
 import 'package:koyas_supermarket/features/store/data/generated_product_catalog.dart';
 
 void main() {
@@ -14,6 +15,28 @@ void main() {
 
     final bytes = await rootBundle.load(nestedAsset);
     expect(bytes.lengthInBytes, greaterThan(0));
+  });
+
+  test('every storefront category image is bundled with the app', () async {
+    const categoryImages = [
+      'grocery-staples.png',
+      'breakfast-ready-to-cook.png',
+      'snacks-sweets.png',
+      'beverages.png',
+      'dairy-frozen.png',
+      'fresh-produce.png',
+      'personal-care.png',
+      'baby-care.png',
+      'home-care.png',
+      'health-wellness.png',
+      'pooja-festive.png',
+      'household-general.png',
+    ];
+
+    for (final image in categoryImages) {
+      final bytes = await rootBundle.load('assets/category_images/$image');
+      expect(bytes.lengthInBytes, greaterThan(0), reason: image);
+    }
   });
 
   test('generated product master catalogue is internally consistent', () {
@@ -183,6 +206,20 @@ void main() {
       products
           .where((product) => product.brand == 'Pril')
           .every((product) => product.name.startsWith('Pril Dishwash')),
+      isTrue,
+    );
+  });
+
+  test('client demo keeps every catalogue item available for testing', () {
+    expect(
+      DemoStoreData.products,
+      hasLength(GeneratedProductCatalog.customerProductCount),
+    );
+    expect(
+      DemoStoreData.products.every(
+        (product) =>
+            product.stockQuantity >= DemoStoreData.minimumDemoStockQuantity,
+      ),
       isTrue,
     );
   });

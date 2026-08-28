@@ -108,11 +108,14 @@ class ProductVisual extends StatelessWidget {
       );
     }
     final imageUrl = product.imageUrl;
-    if (imageUrl != null && imageUrl.isNotEmpty) {
+    final imageUri = imageUrl == null ? null : Uri.tryParse(imageUrl);
+    if (imageUri != null &&
+        imageUri.scheme == 'https' &&
+        imageUri.host.isNotEmpty) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(radius),
         child: CachedNetworkImage(
-          imageUrl: imageUrl,
+          imageUrl: imageUri.toString(),
           fit: BoxFit.contain,
           placeholder: (context, url) => _Fallback(
             visualKey: product.visualKey,

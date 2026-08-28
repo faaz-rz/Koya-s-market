@@ -1,11 +1,33 @@
 import 'models/product.dart';
 
+enum ProductSearchSuggestionKind { product, brand, category }
+
+class ProductSearchSuggestion {
+  const ProductSearchSuggestion({
+    required this.kind,
+    required this.label,
+    required this.query,
+    required this.detail,
+    this.product,
+  });
+
+  final ProductSearchSuggestionKind kind;
+  final String label;
+  final String query;
+  final String detail;
+  final Product? product;
+}
+
 /// Local, relevance-ranked catalogue search for the customer and admin apps.
 ///
 /// Product data stays on-device, while semantic tags make intent searches such
 /// as "washing" behave like grocery-app search without requiring a paid search
 /// service.
 abstract final class ProductSearch {
+  static final _catalogueIndexes = Expando<_CatalogueSearchIndex>(
+    'product-search-index',
+  );
+
   static const _stopWords = <String>{
     'a',
     'an',
@@ -18,25 +40,45 @@ abstract final class ProductSearch {
     'show',
     'the',
     'to',
+    'want',
+    'buy',
+    'need',
     'with',
   };
 
   static const _tokenAliases = <String, String>{
     'agarbathi': 'agarbatti',
+    'aata': 'atta',
+    'biskit': 'biscuit',
+    'biskut': 'biscuit',
     'biscuits': 'biscuit',
     'biscot': 'biscuit',
     'biscots': 'biscuit',
     'biscut': 'biscuit',
     'biscuts': 'biscuit',
     'cookies': 'biscuit',
+    'chai': 'tea',
+    'chawal': 'rice',
+    'cheeni': 'sugar',
+    'coldrink': 'drink',
+    'coldrinks': 'drink',
+    'daal': 'dal',
+    'dall': 'dal',
     'detergents': 'detergent',
     'dishes': 'dish',
+    'doodh': 'milk',
     'groceries': 'grocery',
     'lotions': 'lotion',
+    'masale': 'masala',
+    'masalas': 'masala',
+    'namkeen': 'snack',
     'powders': 'powder',
     'shampoos': 'shampoo',
     'soaps': 'soap',
+    'saboon': 'soap',
+    'sabun': 'soap',
     'sweets': 'sweet',
+    'tel': 'oil',
     'utensils': 'utensil',
     'washed': 'wash',
     'washer': 'wash',
@@ -47,24 +89,37 @@ abstract final class ProductSearch {
     required Iterable<Product> products,
     required String query,
     String? categoryId,
+    bool Function(Product product)? filter,
   }) {
-    final categoryProducts = products
-        .where(
-          (product) => categoryId == null || product.categoryId == categoryId,
-        )
-        .toList(growable: false);
+    final index = _indexFor(products);
+    bool included(_SearchDocument document) =>
+        (categoryId == null || document.product.categoryId == categoryId) &&
+        (filter == null || filter(document.product));
     final normalizedQuery = _normalize(query);
-    if (normalizedQuery.isEmpty) return categoryProducts;
+    if (normalizedQuery.isEmpty) {
+      return index.documents
+          .where(included)
+          .map((document) => document.product)
+          .toList(growable: false);
+    }
 
     final queryTokens = _tokens(
       normalizedQuery,
     ).where((token) => !_stopWords.contains(token)).toSet();
-    if (queryTokens.isEmpty) return categoryProducts;
+    if (queryTokens.isEmpty) {
+      return index.documents
+          .where(included)
+          .map((document) => document.product)
+          .toList(growable: false);
+    }
 
     final ranked = <({Product product, int score})>[];
-    for (final product in categoryProducts) {
-      final score = _score(product, normalizedQuery, queryTokens);
-      if (score > 0) ranked.add((product: product, score: score));
+    for (final document in index.documents) {
+      if (!included(document)) continue;
+      final score = _score(document, normalizedQuery, queryTokens);
+      if (score > 0) {
+        ranked.add((product: document.product, score: score));
+      }
     }
     ranked.sort((left, right) {
       final scoreOrder = right.score.compareTo(left.score);
@@ -80,31 +135,100 @@ abstract final class ProductSearch {
     return ranked.map((result) => result.product).toList(growable: false);
   }
 
+  /// Builds compact type-ahead suggestions from the same ranked catalogue
+  /// results used by [search]. This keeps suggestions and the product grid in
+  /// sync and does not require a remote search service.
+  static List<ProductSearchSuggestion> suggestions({
+    required Iterable<Product> products,
+    required String query,
+    String? categoryId,
+    bool Function(Product product)? filter,
+    int limit = 8,
+  }) {
+    final normalizedQuery = _normalize(query);
+    if (normalizedQuery.length < 2 || limit <= 0) return const [];
+
+    final ranked = search(
+      products: products,
+      query: query,
+      categoryId: categoryId,
+      filter: filter,
+    );
+    if (ranked.isEmpty) return const [];
+
+    final suggestions = <ProductSearchSuggestion>[];
+    final seen = <String>{};
+    final productSuggestionsPerBrand = <String, int>{};
+
+    void add(ProductSearchSuggestion suggestion) {
+      if (suggestions.length >= limit) return;
+      final key = '${suggestion.kind.name}:${_normalize(suggestion.query)}';
+      if (seen.add(key)) suggestions.add(suggestion);
+    }
+
+    for (final product in ranked.take(limit * 5)) {
+      final brand = product.brand.trim();
+      if (brand.isNotEmpty && _normalize(brand).contains(normalizedQuery)) {
+        add(
+          ProductSearchSuggestion(
+            kind: ProductSearchSuggestionKind.brand,
+            label: brand,
+            query: brand,
+            detail: 'Brand',
+          ),
+        );
+      }
+
+      final subcategory = product.subcategory.trim();
+      if (subcategory.isNotEmpty &&
+          _normalize(subcategory).contains(normalizedQuery)) {
+        add(
+          ProductSearchSuggestion(
+            kind: ProductSearchSuggestionKind.category,
+            label: subcategory,
+            query: subcategory,
+            detail: 'Category',
+          ),
+        );
+      }
+
+      final hasProductImage =
+          product.imageAsset.isNotEmpty ||
+          product.imagePath.isNotEmpty ||
+          product.imageUrl?.isNotEmpty == true ||
+          product.imageBytes?.isNotEmpty == true;
+      final presentableProduct = brand.isNotEmpty || hasProductImage;
+      final brandKey = _normalize(brand);
+      final brandSuggestionCount = productSuggestionsPerBrand[brandKey] ?? 0;
+      if (presentableProduct &&
+          (brandKey.isEmpty || brandSuggestionCount < 2)) {
+        add(
+          ProductSearchSuggestion(
+            kind: ProductSearchSuggestionKind.product,
+            label: product.name,
+            query: product.name,
+            detail: [if (brand.isNotEmpty) brand, product.unit].join(' · '),
+            product: product,
+          ),
+        );
+        productSuggestionsPerBrand[brandKey] = brandSuggestionCount + 1;
+      }
+      if (suggestions.length >= limit) break;
+    }
+    return suggestions;
+  }
+
   static int _score(
-    Product product,
+    _SearchDocument document,
     String normalizedQuery,
     Set<String> queryTokens,
   ) {
-    final name = _SearchField(_normalize(product.name), 120);
-    final brand = _SearchField(_normalize(product.brand), 100);
-    final subcategory = _SearchField(_normalize(product.subcategory), 90);
-    final description = _SearchField(_normalize(product.description), 45);
-    final billingName = _SearchField(_normalize(product.billingName), 35);
-    final printName = _SearchField(_normalize(product.printName), 30);
-    final itemCode = _SearchField(_normalize(product.itemCode), 30);
-    final barcode = _SearchField(_normalize(product.barcode), 30);
-    final semantic = _SearchField(_semanticTags(product), 80);
-    final fields = <_SearchField>[
-      name,
-      brand,
-      subcategory,
-      description,
-      semantic,
-      billingName,
-      printName,
-      itemCode,
-      barcode,
-    ];
+    final product = document.product;
+    final name = document.name;
+    final brand = document.brand;
+    final subcategory = document.subcategory;
+    final itemCode = document.itemCode;
+    final barcode = document.barcode;
 
     var score = 0;
     if (name.text == normalizedQuery) score += 1600;
@@ -117,9 +241,27 @@ abstract final class ProductSearch {
       score += 2000;
     }
 
+    final broadLaundryIntent =
+        queryTokens.length == 1 &&
+        queryTokens.any(
+          const {'wash', 'washing', 'laundry', 'clothes'}.contains,
+        );
+    final clearlyLaundry =
+        !document.productText.contains('dishwash') &&
+        !document.productText.contains('dish wash') &&
+        const [
+          'laundry',
+          'detergent',
+          'fabric conditioner',
+          'stain remover',
+          'washing powder',
+          'washing liquid',
+        ].any(document.productText.contains);
+    if (broadLaundryIntent && clearlyLaundry) score += 650;
+
     for (final queryToken in queryTokens) {
       var bestTokenScore = 0;
-      for (final field in fields) {
+      for (final field in document.fields) {
         for (final candidateToken in field.tokens) {
           final tokenScore = _tokenScore(
             queryToken,
@@ -248,6 +390,13 @@ abstract final class ProductSearch {
       .map((token) => _tokenAliases[token] ?? token)
       .toList(growable: false);
 
+  static _CatalogueSearchIndex _indexFor(Iterable<Product> products) {
+    if (products is List<Product>) {
+      return _catalogueIndexes[products] ??= _CatalogueSearchIndex(products);
+    }
+    return _CatalogueSearchIndex(products.toList(growable: false));
+  }
+
   static String _normalize(String value) {
     var result = value.toLowerCase().replaceAll('&', ' and ');
     const accents = <String, String>{
@@ -301,6 +450,63 @@ abstract final class ProductSearch {
     }
     return previous[right.length];
   }
+}
+
+final class _CatalogueSearchIndex {
+  _CatalogueSearchIndex(List<Product> products)
+    : documents = products.map(_SearchDocument.new).toList(growable: false);
+
+  final List<_SearchDocument> documents;
+}
+
+final class _SearchDocument {
+  _SearchDocument(this.product)
+    : productText = ProductSearch._normalize(
+        '${product.name} ${product.subcategory} ${product.description}',
+      ),
+      name = _SearchField(ProductSearch._normalize(product.name), 120),
+      brand = _SearchField(ProductSearch._normalize(product.brand), 100),
+      subcategory = _SearchField(
+        ProductSearch._normalize(product.subcategory),
+        90,
+      ),
+      description = _SearchField(
+        ProductSearch._normalize(product.description),
+        45,
+      ),
+      billingName = _SearchField(
+        ProductSearch._normalize(product.billingName),
+        35,
+      ),
+      printName = _SearchField(ProductSearch._normalize(product.printName), 30),
+      itemCode = _SearchField(ProductSearch._normalize(product.itemCode), 30),
+      barcode = _SearchField(ProductSearch._normalize(product.barcode), 30),
+      semantic = _SearchField(ProductSearch._semanticTags(product), 80) {
+    fields = [
+      name,
+      brand,
+      subcategory,
+      description,
+      semantic,
+      billingName,
+      printName,
+      itemCode,
+      barcode,
+    ];
+  }
+
+  final Product product;
+  final String productText;
+  final _SearchField name;
+  final _SearchField brand;
+  final _SearchField subcategory;
+  final _SearchField description;
+  final _SearchField billingName;
+  final _SearchField printName;
+  final _SearchField itemCode;
+  final _SearchField barcode;
+  final _SearchField semantic;
+  late final List<_SearchField> fields;
 }
 
 final class _SearchField {

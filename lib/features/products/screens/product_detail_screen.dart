@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/app_breakpoints.dart';
 import '../../../core/utils/price_format.dart';
+import '../../cart/widgets/active_cart_ribbon.dart';
 import '../../cart/widgets/quantity_stepper.dart';
 import '../../store/providers/store_provider.dart';
 import '../models/product.dart';
@@ -70,29 +71,35 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           const SizedBox(width: AppSpacing.sm),
         ],
       ),
-      bottomNavigationBar: SafeArea(
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          decoration: const BoxDecoration(
-            color: AppColors.surface,
-            border: Border(top: BorderSide(color: AppColors.outline)),
-          ),
-          child: quantity == 0
-              ? FilledButton.icon(
-                  key: const Key('detail-add-to-cart'),
-                  onPressed: product.isAvailable
-                      ? () => ref
-                            .read(storeProvider.notifier)
-                            .addToCart(product.id)
-                      : null,
-                  icon: const Icon(Icons.add_shopping_cart_rounded),
-                  label: Text(
-                    product.isAvailable ? 'Add to cart' : 'Out of stock',
-                  ),
-                )
-              : Row(
-                  children: [
-                    Expanded(
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const ActiveCartRibbon(respectBottomSafeArea: false),
+          SafeArea(
+            top: false,
+            child: Container(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              decoration: const BoxDecoration(
+                color: AppColors.surface,
+                border: Border(top: BorderSide(color: AppColors.outline)),
+              ),
+              child: quantity == 0
+                  ? SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        key: const Key('detail-add-to-cart'),
+                        onPressed: product.isAvailable
+                            ? () => ref
+                                  .read(storeProvider.notifier)
+                                  .addToCart(product.id)
+                            : null,
+                        icon: const Icon(Icons.add_shopping_cart_rounded),
+                        label: Text(
+                          product.isAvailable ? 'Add to cart' : 'Out of stock',
+                        ),
+                      ),
+                    )
+                  : Center(
                       child: QuantityStepper(
                         quantity: quantity,
                         onIncrement: () => ref
@@ -103,16 +110,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             .decrementCart(product.id),
                       ),
                     ),
-                    const SizedBox(width: AppSpacing.md),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: () => context.push('/cart'),
-                        child: const Text('View cart'),
-                      ),
-                    ),
-                  ],
-                ),
-        ),
+            ),
+          ),
+        ],
       ),
       body: Align(
         alignment: Alignment.topCenter,

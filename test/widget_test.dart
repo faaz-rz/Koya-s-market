@@ -5,6 +5,7 @@ import 'package:koyas_supermarket/app/app.dart';
 import 'package:koyas_supermarket/app/router/app_router.dart';
 import 'package:koyas_supermarket/features/checkout/models/checkout_models.dart';
 import 'package:koyas_supermarket/core/theme/app_colors.dart';
+import 'package:koyas_supermarket/core/utils/product_grid_layout.dart';
 import 'package:koyas_supermarket/features/orders/models/order.dart';
 import 'package:koyas_supermarket/features/products/models/product.dart';
 import 'package:koyas_supermarket/features/products/widgets/product_card.dart';
@@ -26,7 +27,10 @@ void main() {
     await tester.tap(find.byKey(const Key('customer-login')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Fresh groceries,\nwithout the rush.'), findsOneWidget);
+    expect(
+      find.text('Your neighbourhood supermarket,\nnow at your fingertips.'),
+      findsOneWidget,
+    );
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Categories'), findsOneWidget);
     expect(find.text('Orders'), findsOneWidget);
@@ -35,11 +39,157 @@ void main() {
     expect(find.text('Store administration'), findsNothing);
   });
 
-  test('cart validates minimum amount and stock', () {
+  testWidgets('bottom tabs replace content without overlapping pages', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ProviderScope(child: KoyasApp()));
+    await tester.pump(const Duration(milliseconds: 750));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('customer-login')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('customer-tab-orders')));
+    await tester.pump();
+    expect(find.text('Your orders'), findsOneWidget);
+    expect(
+      find.text('Your neighbourhood supermarket,\nnow at your fingertips.'),
+      findsNothing,
+    );
+
+    await tester.tap(find.byKey(const Key('customer-tab-home')));
+    await tester.pump();
+    expect(
+      find.text('Your neighbourhood supermarket,\nnow at your fingertips.'),
+      findsOneWidget,
+    );
+    expect(find.text('Your orders'), findsNothing);
+  });
+
+  testWidgets('active cart ribbon opens cart and Add more returns home', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 720);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 1.25;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+    await tester.pumpWidget(const ProviderScope(child: KoyasApp()));
+    await tester.pump(const Duration(milliseconds: 750));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('customer-login')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('customer-login')));
+    await tester.pumpAndSettle();
+
+    final context = tester.element(find.byType(Scaffold).first);
+    final container = ProviderScope.containerOf(context);
+    final product = container
+        .read(storeProvider)
+        .products
+        .firstWhere((item) => item.billingName == 'A ATTA MULTI 5KG');
+    container.read(storeProvider.notifier).addToCart(product.id);
+    await tester.pumpAndSettle();
+
+    final ribbon = find.byKey(const ValueKey('active-cart-ribbon'));
+    expect(ribbon, findsOneWidget);
+    expect(find.text('1 item in cart'), findsOneWidget);
+    expect(find.text('View cart'), findsOneWidget);
+    expect(
+      tester.getBottomLeft(ribbon).dy,
+      lessThanOrEqualTo(tester.getTopLeft(find.byType(NavigationBar)).dy),
+    );
+
+    await tester.tap(find.byKey(const Key('view-active-cart')));
+    await tester.pumpAndSettle();
+    expect(find.text('Your cart'), findsOneWidget);
+    expect(find.byKey(const Key('cart-add-more-items')), findsOneWidget);
+    expect(ribbon, findsNothing);
+
+    await tester.ensureVisible(find.byKey(const Key('cart-add-more-items')));
+    await tester.tap(find.byKey(const Key('cart-add-more-items')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Your neighbourhood supermarket,\nnow at your fingertips.'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('customer-tab-home')), findsOneWidget);
+    expect(ribbon, findsOneWidget);
+    expect(container.read(storeProvider).cartCount, 1);
+
+    container.read(storeProvider.notifier).removeFromCart(product.id);
+    await tester.pumpAndSettle();
+    expect(ribbon, findsNothing);
+  });
+
+  testWidgets('search stays visible with active cart and iOS keyboard', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
+
+    await tester.pumpWidget(const ProviderScope(child: KoyasApp()));
+    await tester.pump(const Duration(milliseconds: 750));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('customer-login')));
+    await tester.pumpAndSettle();
+
+    final context = tester.element(find.byType(Scaffold).first);
+    final container = ProviderScope.containerOf(context);
+    final products = container.read(storeProvider).products.take(2);
+    for (final product in products) {
+      container.read(storeProvider.notifier).addToCart(product.id);
+    }
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(TextField).first);
+    await tester.pumpAndSettle();
+    tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+    await tester.pumpAndSettle();
+
+    final search = find.byKey(const Key('product-search'));
+    final ribbon = find.byKey(const ValueKey('active-cart-ribbon'));
+    expect(search, findsOneWidget);
+    expect(tester.getSize(search).width, greaterThan(280));
+    expect(
+      tester.getBottomLeft(search).dy,
+      lessThan(tester.getTopLeft(ribbon).dy),
+    );
+
+    await tester.enterText(search, 'milk');
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(find.byKey(const Key('search-suggestions')), findsOneWidget);
+    expect(find.textContaining('Search for "milk"'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  test('orders have no minimum until staff configures one', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
     final controller = container.read(storeProvider.notifier);
 
+    expect(container.read(storeProvider).minimumOrderPaise, 0);
+    controller.loginDemo();
+    controller.addToCart(productId(container, 'PEDA COLOUR'));
+    expect(controller.placeOrder, returnsNormally);
+  });
+
+  test('cart enforces the admin minimum and available stock', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final controller = container.read(storeProvider.notifier);
+
+    controller.loginDemo(email: 'staff@koyas.in', isAdmin: true);
+    controller.adminUpdateOrderPricing(
+      minimumOrderPaise: 19900,
+      deliveryChargePaise: 4900,
+      freeDeliveryThresholdPaise: 79900,
+    );
     final lowPriceProductId = productId(container, 'PEDA COLOUR');
     final stock = container
         .read(storeProvider)
@@ -227,6 +377,91 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('phone product grid always fits three complete product cards', (
+    tester,
+  ) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    const widths = <double>[320, 360, 412, 480, 599];
+    const products = <Product>[
+      Product(
+        id: 'responsive-1',
+        categoryId: 'category-test',
+        name: 'Very Long Premium Basmati Rice Family Pack',
+        description: 'Responsive grid test',
+        unit: '5 kg family pack',
+        pricePaise: 125500,
+        stockQuantity: 5,
+        visualKey: 'staples',
+        brand: 'India Gate',
+        subcategory: 'Rice',
+      ),
+      Product(
+        id: 'responsive-2',
+        categoryId: 'category-test',
+        name: 'Medimix Ayurvedic Bathing Soap',
+        description: 'Responsive grid test',
+        unit: 'Pack of 4',
+        pricePaise: 5400,
+        stockQuantity: 5,
+        visualKey: 'personal',
+        brand: 'Medimix',
+        subcategory: 'Bathing Soap',
+      ),
+      Product(
+        id: 'responsive-3',
+        categoryId: 'category-test',
+        name: 'Stayfree Secure Sanitary Pads XL',
+        description: 'Responsive grid test',
+        unit: 'Pack of 37',
+        pricePaise: 3700,
+        stockQuantity: 5,
+        visualKey: 'health',
+        brand: 'Stayfree',
+        subcategory: 'Personal Care',
+      ),
+    ];
+
+    for (final width in widths) {
+      tester.view.physicalSize = Size(width, 900);
+      tester.view.devicePixelRatio = 1;
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: MediaQuery(
+              data: MediaQueryData(
+                size: Size(width, 900),
+                textScaler: const TextScaler.linear(1.3),
+              ),
+              child: Scaffold(
+                body: LayoutBuilder(
+                  builder: (context, constraints) => GridView.builder(
+                    padding: const EdgeInsets.all(20),
+                    itemCount: products.length,
+                    gridDelegate: ProductGridLayout.delegate(
+                      context,
+                      constraints.maxWidth - 40,
+                    ),
+                    itemBuilder: (context, index) =>
+                        ProductCard(product: products[index]),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final grid = tester.widget<GridView>(find.byType(GridView));
+      final delegate =
+          grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+      expect(delegate.crossAxisCount, 3, reason: 'width $width');
+      expect(find.text('ADD'), findsNWidgets(3));
+      expect(tester.takeException(), isNull, reason: 'width $width');
+    }
+  });
+
   testWidgets('order details omit tracking and provide a route home', (
     tester,
   ) async {
@@ -261,7 +496,10 @@ void main() {
 
     await tester.tap(find.text('Back to home'));
     await tester.pumpAndSettle();
-    expect(find.text('Fresh groceries,\nwithout the rush.'), findsOneWidget);
+    expect(
+      find.text('Your neighbourhood supermarket,\nnow at your fingertips.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('pickup checkout skips date and time selection', (tester) async {

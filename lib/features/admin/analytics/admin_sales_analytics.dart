@@ -55,12 +55,12 @@ abstract final class AdminSalesAnalyticsCalculator {
     required AdminAnalyticsPeriod period,
     required DateTime now,
   }) {
-    final periodOrders = orders.where(
-      (order) =>
-          !order.createdAt.isAfter(now) &&
-          _inPeriod(order.createdAt, now, period) &&
-          _countsAsSale(order),
-    );
+    final periodOrders = orders.where((order) {
+      final recognizedAt = order.paidAt ?? order.createdAt;
+      return !recognizedAt.isAfter(now) &&
+          _inPeriod(recognizedAt, now, period) &&
+          _countsAsSale(order);
+    });
     var orderCount = 0;
     var salesPaise = 0;
     var productSalesPaise = 0;
@@ -132,8 +132,7 @@ abstract final class AdminSalesAnalyticsCalculator {
   static bool _countsAsSale(CustomerOrder order) =>
       order.status != OrderStatus.cancelled &&
       order.status != OrderStatus.rejected &&
-      order.paymentStatus != PaymentStatus.failed &&
-      order.paymentStatus != PaymentStatus.cancelled;
+      order.paymentStatus == PaymentStatus.paid;
 
   static bool _inPeriod(
     DateTime value,

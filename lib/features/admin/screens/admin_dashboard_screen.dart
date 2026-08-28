@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,8 +28,84 @@ import '../../store/data/supabase_store_repository.dart';
 import '../../store/providers/store_provider.dart';
 import '../../store/widgets/store_realtime_sync.dart';
 
+enum AdminSection { overview, analytics, pricing, orders, inventory }
+
+extension _AdminPaymentStatusUi on PaymentStatus {
+  String get adminLabel => switch (this) {
+    PaymentStatus.pending => 'Payment pending',
+    PaymentStatus.paid => 'Payment received',
+    PaymentStatus.failed => 'Payment failed',
+    PaymentStatus.cancelled => 'Payment cancelled',
+  };
+
+  Color get adminColor => switch (this) {
+    PaymentStatus.pending => AppColors.warning,
+    PaymentStatus.paid => AppColors.success,
+    PaymentStatus.failed || PaymentStatus.cancelled => AppColors.error,
+  };
+}
+
+extension AdminSectionUi on AdminSection {
+  String get path => switch (this) {
+    AdminSection.overview => '/dashboard',
+    AdminSection.analytics => '/analytics',
+    AdminSection.pricing => '/pricing',
+    AdminSection.orders => '/orders',
+    AdminSection.inventory => '/inventory',
+  };
+
+  String get title => switch (this) {
+    AdminSection.overview => 'Store dashboard',
+    AdminSection.analytics => 'Sales analytics',
+    AdminSection.pricing => 'Order pricing & offers',
+    AdminSection.orders => 'Order queue',
+    AdminSection.inventory => 'Inventory',
+  };
+
+  String get navigationLabel => switch (this) {
+    AdminSection.overview => 'Overview',
+    AdminSection.analytics => 'Analytics',
+    AdminSection.pricing => 'Pricing',
+    AdminSection.orders => 'Orders',
+    AdminSection.inventory => 'Inventory',
+  };
+
+  String get description => switch (this) {
+    AdminSection.overview =>
+      'A quick view of today’s orders, revenue, and stock health.',
+    AdminSection.analytics =>
+      'Review sales performance and the products customers order most.',
+    AdminSection.pricing =>
+      'Control minimum ordering, delivery charges, and product offers.',
+    AdminSection.orders =>
+      'Review fulfilment queues and advance customer order statuses.',
+    AdminSection.inventory =>
+      'Search products, update physical stock, and manage the catalogue.',
+  };
+
+  IconData get icon => switch (this) {
+    AdminSection.overview => Icons.dashboard_outlined,
+    AdminSection.analytics => Icons.analytics_outlined,
+    AdminSection.pricing => Icons.local_offer_outlined,
+    AdminSection.orders => Icons.receipt_long_outlined,
+    AdminSection.inventory => Icons.inventory_2_outlined,
+  };
+
+  IconData get selectedIcon => switch (this) {
+    AdminSection.overview => Icons.dashboard_rounded,
+    AdminSection.analytics => Icons.analytics_rounded,
+    AdminSection.pricing => Icons.local_offer_rounded,
+    AdminSection.orders => Icons.receipt_long_rounded,
+    AdminSection.inventory => Icons.inventory_2_rounded,
+  };
+
+  String get keyName => 'admin-nav-${name.toLowerCase()}';
+}
+
 class AdminDashboardScreen extends ConsumerStatefulWidget {
-  const AdminDashboardScreen({super.key});
+  const AdminDashboardScreen({this.section = AdminSection.overview, super.key});
+
+  final AdminSection section;
 
   @override
   ConsumerState<AdminDashboardScreen> createState() =>
@@ -38,21 +116,6 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   String _filter = 'Active';
   AdminAnalyticsPeriod _analyticsPeriod = AdminAnalyticsPeriod.daily;
   bool _refreshing = false;
-  final _scrollController = ScrollController();
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _scrollTo(double offset) {
-    _scrollController.animateTo(
-      offset.clamp(0, _scrollController.position.maxScrollExtent),
-      duration: const Duration(milliseconds: 420),
-      curve: Curves.easeOutCubic,
-    );
-  }
 
   bool _terminal(OrderStatus status) => {
     OrderStatus.delivered,
@@ -149,137 +212,150 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         .where(
           (order) =>
               order.paymentStatus == PaymentStatus.paid &&
-              DateUtils.isSameDay(order.createdAt, DateTime.now()),
+              DateUtils.isSameDay(
+                order.paidAt ?? order.createdAt,
+                DateTime.now(),
+              ),
         )
         .fold<int>(0, (sum, order) => sum + order.totalPaise);
     final lowStock = store.products
         .where(
-          (product) => product.stockQuantity > 0 && product.stockQuantity <= 12,
+          (product) =>
+              product.active &&
+              product.stockQuantity > 0 &&
+              product.stockQuantity <= 12,
         )
         .toList(growable: false);
     final outOfStockCount = store.products
-        .where((product) => product.stockQuantity == 0)
+        .where((product) => product.active && product.stockQuantity == 0)
         .length;
+    void selectSection(AdminSection section) {
+      if (section != widget.section) context.go(section.path);
+    }
+
     return StoreRealtimeSync(
-      child: Scaffold(
-        backgroundColor: AppColors.canvas,
-        body: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final desktop = constraints.maxWidth >= 980;
-              final content = _DashboardContent(
-                scrollController: _scrollController,
-                store: store,
-                activeCount: activeCount,
-                todayRevenue: todayRevenue,
-                lowStockCount: lowStock.length,
-                outOfStockCount: outOfStockCount,
-                visibleOrders: visibleOrders,
-                filter: _filter,
-                onFilterChanged: (value) => setState(() => _filter = value),
-                analyticsPeriod: _analyticsPeriod,
-                onAnalyticsPeriodChanged: (value) =>
-                    setState(() => _analyticsPeriod = value),
-                terminal: _terminal,
-                onSignOut: _signOut,
-                onRefresh: AppEnvironment.hasSupabaseConfig
-                    ? _refreshDashboard
-                    : null,
-                refreshing: _refreshing,
-              );
-              if (!desktop) return content;
-              return Row(
-                children: [
-                  _AdminSidebar(
-                    onDashboard: () => _scrollTo(0),
-                    onAnalytics: () => _scrollTo(520),
-                    onSalesControls: () => _scrollTo(1250),
-                    onOrders: () => _scrollTo(1900),
-                    onInventory: () => _scrollTo(2700),
-                    onSignOut: _signOut,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final desktop = constraints.maxWidth >= 980;
+          final content = _DashboardContent(
+            section: widget.section,
+            store: store,
+            activeCount: activeCount,
+            todayRevenue: todayRevenue,
+            lowStockCount: lowStock.length,
+            outOfStockCount: outOfStockCount,
+            visibleOrders: visibleOrders,
+            filter: _filter,
+            onFilterChanged: (value) => setState(() => _filter = value),
+            analyticsPeriod: _analyticsPeriod,
+            onAnalyticsPeriodChanged: (value) =>
+                setState(() => _analyticsPeriod = value),
+            terminal: _terminal,
+            onSignOut: _signOut,
+            onRefresh: AppEnvironment.hasSupabaseConfig
+                ? _refreshDashboard
+                : null,
+            refreshing: _refreshing,
+          );
+          return Scaffold(
+            backgroundColor: AppColors.canvas,
+            body: SafeArea(
+              child: desktop
+                  ? Row(
+                      children: [
+                        _AdminSidebar(
+                          selected: widget.section,
+                          onSelected: selectSection,
+                        ),
+                        const VerticalDivider(width: 1),
+                        Expanded(child: content),
+                      ],
+                    )
+                  : content,
+            ),
+            bottomNavigationBar: desktop
+                ? null
+                : _AdminBottomNavigation(
+                    selected: widget.section,
+                    onSelected: selectSection,
                   ),
-                  const VerticalDivider(width: 1),
-                  Expanded(child: content),
-                ],
-              );
-            },
-          ),
-        ),
+          );
+        },
       ),
     );
   }
 }
 
 class _AdminSidebar extends StatelessWidget {
-  const _AdminSidebar({
-    required this.onDashboard,
-    required this.onAnalytics,
-    required this.onSalesControls,
-    required this.onOrders,
-    required this.onInventory,
-    required this.onSignOut,
-  });
+  const _AdminSidebar({required this.selected, required this.onSelected});
 
-  final VoidCallback onDashboard;
-  final VoidCallback onAnalytics;
-  final VoidCallback onSalesControls;
-  final VoidCallback onOrders;
-  final VoidCallback onInventory;
-  final VoidCallback onSignOut;
+  final AdminSection selected;
+  final ValueChanged<AdminSection> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 240,
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const KoyasLogo(compact: true),
-            const SizedBox(height: AppSpacing.xxxl),
-            FilledButton.tonalIcon(
-              onPressed: onDashboard,
-              icon: const Icon(Icons.dashboard_rounded),
-              label: const Text('Dashboard'),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            ListTile(
-              leading: const Icon(Icons.analytics_outlined),
-              title: const Text('Analytics'),
-              onTap: onAnalytics,
-            ),
-            ListTile(
-              leading: const Icon(Icons.local_offer_outlined),
-              title: const Text('Delivery & offers'),
-              onTap: onSalesControls,
-            ),
-            ListTile(
-              leading: const Icon(Icons.receipt_long_outlined),
-              title: const Text('Orders'),
-              onTap: onOrders,
-            ),
-            ListTile(
-              leading: const Icon(Icons.inventory_2_outlined),
-              title: const Text('Inventory'),
-              onTap: onInventory,
-            ),
-            const Spacer(),
-            OutlinedButton.icon(
-              onPressed: onSignOut,
-              icon: const Icon(Icons.logout_rounded),
-              label: const Text('Sign out'),
-            ),
-          ],
+    return NavigationRail(
+      key: const Key('admin-side-navigation'),
+      extended: true,
+      minExtendedWidth: 248,
+      selectedIndex: selected.index,
+      onDestinationSelected: (index) => onSelected(AdminSection.values[index]),
+      leading: const Padding(
+        padding: EdgeInsets.fromLTRB(
+          AppSpacing.xl,
+          AppSpacing.lg,
+          AppSpacing.xl,
+          AppSpacing.xxxl,
         ),
+        child: KoyasLogo(compact: true),
       ),
+      destinations: [
+        for (final section in AdminSection.values)
+          NavigationRailDestination(
+            icon: Icon(section.icon, key: Key(section.keyName)),
+            selectedIcon: Icon(
+              section.selectedIcon,
+              key: Key('${section.keyName}-selected'),
+            ),
+            label: Text(section.navigationLabel),
+          ),
+      ],
+    );
+  }
+}
+
+class _AdminBottomNavigation extends StatelessWidget {
+  const _AdminBottomNavigation({
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final AdminSection selected;
+  final ValueChanged<AdminSection> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return NavigationBar(
+      key: const Key('admin-bottom-navigation'),
+      selectedIndex: selected.index,
+      labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+      onDestinationSelected: (index) => onSelected(AdminSection.values[index]),
+      destinations: [
+        for (final section in AdminSection.values)
+          NavigationDestination(
+            key: Key(section.keyName),
+            icon: Icon(section.icon),
+            selectedIcon: Icon(section.selectedIcon),
+            label: section.navigationLabel,
+          ),
+      ],
     );
   }
 }
 
 class _DashboardContent extends ConsumerWidget {
   const _DashboardContent({
-    required this.scrollController,
+    required this.section,
     required this.store,
     required this.activeCount,
     required this.todayRevenue,
@@ -296,7 +372,7 @@ class _DashboardContent extends ConsumerWidget {
     required this.refreshing,
   });
 
-  final ScrollController scrollController;
+  final AdminSection section;
   final StoreState store;
   final int activeCount;
   final int todayRevenue;
@@ -331,20 +407,71 @@ class _DashboardContent extends ConsumerWidget {
         .where(
           (order) =>
               order.paymentStatus == PaymentStatus.paid &&
-              order.createdAt.year == now.year &&
-              order.createdAt.month == now.month,
+              (order.paidAt ?? order.createdAt).year == now.year &&
+              (order.paidAt ?? order.createdAt).month == now.month,
         )
         .fold<int>(0, (sum, order) => sum + order.totalPaise);
-    final activeOffers = store.products
-        .where((product) => product.discountPricePaise != null)
-        .toList(growable: false);
-    final analytics = AdminSalesAnalyticsCalculator.calculate(
-      orders: store.orders,
-      period: analyticsPeriod,
-      now: now,
-    );
+    final sectionBody = switch (section) {
+      AdminSection.overview => _OverviewSection(
+        ordersToday: ordersToday,
+        activeCount: activeCount,
+        todayRevenue: todayRevenue,
+        pickupOrders: pickupOrders,
+        completedOrders: completedOrders,
+        monthRevenue: monthRevenue,
+        lowStockCount: lowStockCount,
+        outOfStockCount: outOfStockCount,
+      ),
+      AdminSection.analytics => _AdminAnalyticsPanel(
+        analytics: AdminSalesAnalyticsCalculator.calculate(
+          orders: store.orders,
+          period: analyticsPeriod,
+          now: now,
+        ),
+        now: now,
+        onPeriodChanged: onAnalyticsPeriodChanged,
+      ),
+      AdminSection.pricing => _PricingSection(
+        store: store,
+        activeOffers: store.products
+            .where(
+              (product) => product.active && product.discountPricePaise != null,
+            )
+            .toList(growable: false),
+        onEditPricing: () => _editOrderPricing(context, ref),
+        onAddOffer: () => _addOffer(context, ref),
+        onManageOffer: () => _manageOffer(context, ref),
+        onEditOffer: (product) => _editOffer(context, ref, product),
+      ),
+      AdminSection.orders => _OrdersSection(
+        visibleOrders: visibleOrders,
+        filter: filter,
+        onFilterChanged: onFilterChanged,
+        terminal: terminal,
+        onAdvance: (order) => _advanceOrder(context, ref, order),
+        onReject: (order) =>
+            _closeOrder(context, ref, order, nextStatus: OrderStatus.rejected),
+        onCancel: (order) =>
+            _closeOrder(context, ref, order, nextStatus: OrderStatus.cancelled),
+        onMarkPaid: (order) => _markPaymentReceived(context, ref, order),
+      ),
+      AdminSection.inventory => _CategoryInventory(
+        categories: store.categories,
+        products: store.products,
+        onAddProduct: (categoryId) =>
+            _editProduct(context, ref, initialCategoryId: categoryId),
+        onEditProduct: (product) =>
+            _editProduct(context, ref, product: product),
+        onProductActiveChanged: (product, active) =>
+            _setProductActive(context, ref, product, active),
+        onStockChanged: (product, quantity) =>
+            _updateStock(context, ref, product, quantity),
+        onStockAdjusted: (product, delta) =>
+            _adjustStock(context, ref, product, delta),
+      ),
+    };
     return CustomScrollView(
-      controller: scrollController,
+      key: PageStorageKey<String>('admin-section-${section.name}'),
       slivers: [
         SliverPadding(
           padding: const EdgeInsets.all(AppSpacing.xxl),
@@ -357,12 +484,14 @@ class _DashboardContent extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Store dashboard',
+                          section.title,
                           style: Theme.of(context).textTheme.headlineLarge,
                         ),
                         const SizedBox(height: AppSpacing.xs),
                         Text(
-                          DateFormat('EEEE, d MMMM').format(DateTime.now()),
+                          section == AdminSection.overview
+                              ? '${section.description} ${DateFormat('EEEE, d MMMM').format(now)}.'
+                              : section.description,
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(color: AppColors.inkSecondary),
                         ),
@@ -401,175 +530,9 @@ class _DashboardContent extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: AppSpacing.xxxl),
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: MediaQuery.sizeOf(context).width >= 760 ? 3 : 1,
-                mainAxisSpacing: AppSpacing.md,
-                crossAxisSpacing: AppSpacing.md,
-                childAspectRatio: MediaQuery.sizeOf(context).width >= 760
-                    ? 2.2
-                    : 3.1,
-                children: [
-                  _MetricCard(
-                    label: 'Orders today',
-                    value: '$ordersToday',
-                    icon: Icons.today_rounded,
-                    color: AppColors.info,
-                  ),
-                  _MetricCard(
-                    label: 'Active orders',
-                    value: '$activeCount',
-                    icon: Icons.receipt_long_rounded,
-                    color: AppColors.brand600,
-                  ),
-                  _MetricCard(
-                    label: 'Paid today',
-                    value: formatPrice(todayRevenue),
-                    icon: Icons.trending_up_rounded,
-                    color: AppColors.success,
-                  ),
-                  _MetricCard(
-                    label: 'Pickup queue',
-                    value: '$pickupOrders',
-                    icon: Icons.storefront_outlined,
-                    color: AppColors.offer,
-                  ),
-                  _MetricCard(
-                    label: 'Completed',
-                    value: '$completedOrders',
-                    icon: Icons.task_alt_rounded,
-                    color: AppColors.success,
-                  ),
-                  _MetricCard(
-                    label: 'Paid this month',
-                    value: formatPrice(monthRevenue),
-                    icon: Icons.calendar_month_outlined,
-                    color: AppColors.brand600,
-                  ),
-                  _MetricCard(
-                    label: 'Low stock',
-                    value: '$lowStockCount items',
-                    icon: Icons.inventory_2_outlined,
-                    color: lowStockCount > 0
-                        ? AppColors.warning
-                        : AppColors.success,
-                  ),
-                  _MetricCard(
-                    label: 'Out of stock',
-                    value: '$outOfStockCount items',
-                    icon: Icons.remove_shopping_cart_outlined,
-                    color: outOfStockCount > 0
-                        ? AppColors.error
-                        : AppColors.success,
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.section),
-              _AdminAnalyticsPanel(
-                analytics: analytics,
-                now: now,
-                onPeriodChanged: onAnalyticsPeriodChanged,
-              ),
-              const SizedBox(height: AppSpacing.section),
-              Text(
-                'Delivery & offers',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                'These settings are controlled by staff and reflected in customer checkout.',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: AppColors.inkSecondary),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final delivery = _DeliveryPricingCard(
-                    store: store,
-                    onEdit: () => _editDeliveryPricing(context, ref),
-                  );
-                  final offers = _OfferManagementCard(
-                    offers: activeOffers,
-                    onAdd: () => _addOffer(context, ref),
-                    onManage: () => _manageOffer(context, ref),
-                    onEdit: (product) => _editOffer(context, ref, product),
-                  );
-                  if (constraints.maxWidth < 760) {
-                    return Column(
-                      children: [
-                        delivery,
-                        const SizedBox(height: AppSpacing.md),
-                        offers,
-                      ],
-                    );
-                  }
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: delivery),
-                      const SizedBox(width: AppSpacing.md),
-                      Expanded(child: offers),
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: AppSpacing.section),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Order queue',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                  ),
-                  PopupMenuButton<String>(
-                    initialValue: filter,
-                    onSelected: onFilterChanged,
-                    itemBuilder: (context) => [
-                      for (final value in const [
-                        'Active',
-                        'All',
-                        'Pickup',
-                        'Delivery',
-                        'Completed',
-                      ])
-                        PopupMenuItem(value: value, child: Text(value)),
-                    ],
-                    child: Chip(
-                      avatar: const Icon(Icons.filter_list_rounded, size: 18),
-                      label: Text(filter),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-              if (visibleOrders.isEmpty)
-                const KoyasSurface(child: Text('No orders match this filter.'))
-              else
-                ...visibleOrders.map(
-                  (order) => Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                    child: _AdminOrderRow(
-                      order: order,
-                      canAdvance: !terminal(order.status),
-                      onAdvance: () => _advanceOrder(context, ref, order),
-                    ),
-                  ),
-                ),
-              const SizedBox(height: AppSpacing.section),
-              _CategoryInventory(
-                categories: store.categories,
-                products: store.products,
-                onAddProduct: (categoryId) =>
-                    _editProduct(context, ref, initialCategoryId: categoryId),
-                onEditProduct: (product) =>
-                    _editProduct(context, ref, product: product),
-                onStockChanged: (product, quantity) =>
-                    _updateStock(context, ref, product, quantity),
-                onStockAdjusted: (product, delta) =>
-                    _adjustStock(context, ref, product, delta),
+              KeyedSubtree(
+                key: ValueKey<AdminSection>(section),
+                child: sectionBody,
               ),
             ],
           ),
@@ -597,11 +560,19 @@ class _DashboardContent extends ConsumerWidget {
     try {
       if (AppEnvironment.hasSupabaseConfig) {
         final repository = SupabaseStoreRepository();
-        await repository.saveProduct(updated, image: result.image);
+        await repository.saveProduct(
+          updated,
+          image: result.image,
+          removeImage: result.removeImage,
+        );
         final bundle = await repository.loadStore();
         ref.read(storeProvider.notifier).hydrateRemoteBundle(bundle);
       } else {
-        ref.read(storeProvider.notifier).adminSaveProduct(updated);
+        ref
+            .read(storeProvider.notifier)
+            .adminSaveProduct(
+              result.removeImage ? updated.copyWith(clearImage: true) : updated,
+            );
       }
     } catch (_) {
       if (context.mounted) {
@@ -624,16 +595,81 @@ class _DashboardContent extends ConsumerWidget {
     }
   }
 
-  Future<void> _editDeliveryPricing(BuildContext context, WidgetRef ref) async {
-    final result = await showDialog<_DeliveryPricingResult>(
+  Future<void> _setProductActive(
+    BuildContext context,
+    WidgetRef ref,
+    Product product,
+    bool active,
+  ) async {
+    if (!active) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text('Archive ${product.name}?'),
+          content: const Text(
+            'Archived products disappear from the customer catalogue but keep '
+            'their order history and can be restored later.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              key: const Key('admin-confirm-archive-product'),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Archive product'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+
+    final updated = product.copyWith(active: active);
+    try {
+      if (AppEnvironment.hasSupabaseConfig) {
+        final repository = SupabaseStoreRepository();
+        await repository.saveProduct(updated);
+        final bundle = await repository.loadStore();
+        ref.read(storeProvider.notifier).hydrateRemoteBundle(bundle);
+      } else {
+        ref.read(storeProvider.notifier).adminSaveProduct(updated);
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              active
+                  ? 'Product could not be restored.'
+                  : 'Product could not be archived.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(active ? 'Product restored.' : 'Product archived.'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _editOrderPricing(BuildContext context, WidgetRef ref) async {
+    final result = await showDialog<_OrderPricingResult>(
       context: context,
-      builder: (context) => _DeliveryPricingDialog(store: store),
+      builder: (context) => _OrderPricingDialog(store: store),
     );
     if (result == null) return;
     try {
       if (AppEnvironment.hasSupabaseConfig) {
         final repository = SupabaseStoreRepository();
-        await repository.updateDeliveryPricing(
+        await repository.updateOrderPricing(
+          minimumOrderPaise: result.minimumOrderPaise,
           deliveryChargePaise: result.deliveryChargePaise,
           freeDeliveryThresholdPaise: result.freeDeliveryThresholdPaise,
         );
@@ -642,7 +678,8 @@ class _DashboardContent extends ConsumerWidget {
       } else {
         ref
             .read(storeProvider.notifier)
-            .adminUpdateDeliveryPricing(
+            .adminUpdateOrderPricing(
+              minimumOrderPaise: result.minimumOrderPaise,
               deliveryChargePaise: result.deliveryChargePaise,
               freeDeliveryThresholdPaise: result.freeDeliveryThresholdPaise,
             );
@@ -650,7 +687,7 @@ class _DashboardContent extends ConsumerWidget {
     } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Delivery pricing could not be saved.')),
+          const SnackBar(content: Text('Order pricing could not be saved.')),
         );
       }
       return;
@@ -659,9 +696,9 @@ class _DashboardContent extends ConsumerWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            result.deliveryChargePaise == 0
-                ? 'Delivery is now free.'
-                : 'Delivery pricing updated.',
+            result.minimumOrderPaise == 0
+                ? 'Order pricing updated. There is no minimum order.'
+                : 'Order pricing updated.',
           ),
         ),
       );
@@ -813,6 +850,436 @@ class _DashboardContent extends ConsumerWidget {
       }
     }
   }
+
+  Future<void> _closeOrder(
+    BuildContext context,
+    WidgetRef ref,
+    CustomerOrder order, {
+    required OrderStatus nextStatus,
+  }) async {
+    final rejecting = nextStatus == OrderStatus.rejected;
+    final action = rejecting ? 'Reject' : 'Cancel';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('$action order?'),
+        content: Text(
+          '$action ${order.displayReference}? Reserved stock will be returned to inventory.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Keep order'),
+          ),
+          FilledButton(
+            key: Key(
+              rejecting
+                  ? 'admin-confirm-reject-${order.id}'
+                  : 'admin-confirm-cancel-${order.id}',
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(action),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      if (AppEnvironment.hasSupabaseConfig) {
+        final repository = SupabaseStoreRepository();
+        if (rejecting) {
+          await repository.rejectOrder(order.id);
+        } else {
+          await repository.cancelOrderByAdmin(order.id);
+        }
+        final bundle = await repository.loadStore();
+        ref.read(storeProvider.notifier).hydrateRemoteBundle(bundle);
+      } else if (rejecting) {
+        ref.read(storeProvider.notifier).adminRejectOrder(order.id);
+      } else {
+        ref.read(storeProvider.notifier).adminCancelOrder(order.id);
+      }
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Order ${rejecting ? 'rejected' : 'cancelled'}.'),
+          ),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Order could not be ${rejecting ? 'rejected' : 'cancelled'}.',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _markPaymentReceived(
+    BuildContext context,
+    WidgetRef ref,
+    CustomerOrder order,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Record payment received?'),
+        content: Text(
+          'Confirm that ${formatPrice(order.totalPaise)} was received for ${order.displayReference}.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Not yet'),
+          ),
+          FilledButton.icon(
+            key: Key('admin-confirm-payment-${order.id}'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            icon: const Icon(Icons.payments_rounded),
+            label: const Text('Confirm payment'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      if (AppEnvironment.hasSupabaseConfig) {
+        final repository = SupabaseStoreRepository();
+        await repository.markOrderPaid(order.id);
+        final bundle = await repository.loadStore();
+        ref.read(storeProvider.notifier).hydrateRemoteBundle(bundle);
+      } else {
+        ref.read(storeProvider.notifier).adminMarkOrderPaid(order.id);
+      }
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Payment recorded as received.')),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Payment could not be recorded.')),
+        );
+      }
+    }
+  }
+}
+
+class _OverviewSection extends StatelessWidget {
+  const _OverviewSection({
+    required this.ordersToday,
+    required this.activeCount,
+    required this.todayRevenue,
+    required this.pickupOrders,
+    required this.completedOrders,
+    required this.monthRevenue,
+    required this.lowStockCount,
+    required this.outOfStockCount,
+  });
+
+  final int ordersToday;
+  final int activeCount;
+  final int todayRevenue;
+  final int pickupOrders;
+  final int completedOrders;
+  final int monthRevenue;
+  final int lowStockCount;
+  final int outOfStockCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      key: const Key('admin-overview-section'),
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 1050
+            ? 4
+            : constraints.maxWidth >= 480
+            ? 2
+            : 1;
+        return GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: columns,
+          mainAxisSpacing: AppSpacing.md,
+          crossAxisSpacing: AppSpacing.md,
+          childAspectRatio: columns == 1 ? 3.1 : 2.05,
+          children: [
+            _MetricCard(
+              label: 'Orders today',
+              value: '$ordersToday',
+              icon: Icons.today_rounded,
+              color: AppColors.info,
+            ),
+            _MetricCard(
+              label: 'Active orders',
+              value: '$activeCount',
+              icon: Icons.receipt_long_rounded,
+              color: AppColors.brand600,
+            ),
+            _MetricCard(
+              label: 'Paid today',
+              value: formatPrice(todayRevenue),
+              icon: Icons.trending_up_rounded,
+              color: AppColors.success,
+            ),
+            _MetricCard(
+              label: 'Pickup queue',
+              value: '$pickupOrders',
+              icon: Icons.storefront_outlined,
+              color: AppColors.offer,
+            ),
+            _MetricCard(
+              label: 'Completed',
+              value: '$completedOrders',
+              icon: Icons.task_alt_rounded,
+              color: AppColors.success,
+            ),
+            _MetricCard(
+              label: 'Paid this month',
+              value: formatPrice(monthRevenue),
+              icon: Icons.calendar_month_outlined,
+              color: AppColors.brand600,
+            ),
+            _MetricCard(
+              label: 'Low stock',
+              value: '$lowStockCount items',
+              icon: Icons.inventory_2_outlined,
+              color: lowStockCount > 0 ? AppColors.warning : AppColors.success,
+            ),
+            _MetricCard(
+              label: 'Out of stock',
+              value: '$outOfStockCount items',
+              icon: Icons.remove_shopping_cart_outlined,
+              color: outOfStockCount > 0 ? AppColors.error : AppColors.success,
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _PricingSection extends StatelessWidget {
+  const _PricingSection({
+    required this.store,
+    required this.activeOffers,
+    required this.onEditPricing,
+    required this.onAddOffer,
+    required this.onManageOffer,
+    required this.onEditOffer,
+  });
+
+  final StoreState store;
+  final List<Product> activeOffers;
+  final VoidCallback onEditPricing;
+  final VoidCallback onAddOffer;
+  final VoidCallback onManageOffer;
+  final ValueChanged<Product> onEditOffer;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      key: const Key('admin-pricing-section'),
+      builder: (context, constraints) {
+        final pricing = _OrderPricingCard(store: store, onEdit: onEditPricing);
+        final offers = _OfferManagementCard(
+          offers: activeOffers,
+          onAdd: onAddOffer,
+          onManage: onManageOffer,
+          onEdit: onEditOffer,
+        );
+        if (constraints.maxWidth < 760) {
+          return Column(
+            children: [
+              pricing,
+              const SizedBox(height: AppSpacing.md),
+              offers,
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: pricing),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(child: offers),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _OrdersSection extends StatelessWidget {
+  const _OrdersSection({
+    required this.visibleOrders,
+    required this.filter,
+    required this.onFilterChanged,
+    required this.terminal,
+    required this.onAdvance,
+    required this.onReject,
+    required this.onCancel,
+    required this.onMarkPaid,
+  });
+
+  final List<CustomerOrder> visibleOrders;
+  final String filter;
+  final ValueChanged<String> onFilterChanged;
+  final bool Function(OrderStatus) terminal;
+  final ValueChanged<CustomerOrder> onAdvance;
+  final ValueChanged<CustomerOrder> onReject;
+  final ValueChanged<CustomerOrder> onCancel;
+  final ValueChanged<CustomerOrder> onMarkPaid;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      key: const Key('admin-orders-section'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(
+          alignment: Alignment.centerRight,
+          child: PopupMenuButton<String>(
+            initialValue: filter,
+            onSelected: onFilterChanged,
+            itemBuilder: (context) => [
+              for (final value in const [
+                'Active',
+                'All',
+                'Pickup',
+                'Delivery',
+                'Completed',
+              ])
+                PopupMenuItem(value: value, child: Text(value)),
+            ],
+            child: Chip(
+              avatar: const Icon(Icons.filter_list_rounded, size: 18),
+              label: Text(filter),
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        if (visibleOrders.isEmpty)
+          const KoyasSurface(child: Text('No orders match this filter.'))
+        else
+          for (final order in visibleOrders)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.md),
+              child: _AdminOrderRow(
+                order: order,
+                canAdvance: !terminal(order.status),
+                onAdvance: () => onAdvance(order),
+                onReject: () => onReject(order),
+                onCancel: () => onCancel(order),
+                onMarkPaid: () => onMarkPaid(order),
+              ),
+            ),
+      ],
+    );
+  }
+}
+
+class _BrandFilterOption {
+  const _BrandFilterOption({
+    required this.value,
+    required this.label,
+    required this.productCount,
+  });
+
+  final String value;
+  final String label;
+  final int productCount;
+}
+
+class _BrandFilterDialog extends StatefulWidget {
+  const _BrandFilterDialog({
+    required this.options,
+    required this.selectedValue,
+  });
+
+  final List<_BrandFilterOption> options;
+  final String selectedValue;
+
+  @override
+  State<_BrandFilterDialog> createState() => _BrandFilterDialogState();
+}
+
+class _BrandFilterDialogState extends State<_BrandFilterDialog> {
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final normalizedQuery = _query.trim().toLowerCase();
+    final visibleOptions = widget.options
+        .where(
+          (option) =>
+              normalizedQuery.isEmpty ||
+              option.label.toLowerCase().contains(normalizedQuery),
+        )
+        .toList(growable: false);
+    return AlertDialog(
+      title: const Text('Filter by brand'),
+      content: SizedBox(
+        width: 460,
+        height: 520,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              key: const Key('admin-brand-search'),
+              autofocus: true,
+              onChanged: (value) => setState(() => _query = value),
+              decoration: const InputDecoration(
+                labelText: 'Search brands',
+                prefixIcon: Icon(Icons.search_rounded),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Expanded(
+              child: visibleOptions.isEmpty
+                  ? const Center(child: Text('No brands match this search.'))
+                  : ListView.separated(
+                      itemCount: visibleOptions.length,
+                      separatorBuilder: (_, _) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final option = visibleOptions[index];
+                        final selected = option.value == widget.selectedValue;
+                        return ListTile(
+                          key: Key('admin-brand-option-${option.value}'),
+                          selected: selected,
+                          leading: Icon(
+                            selected
+                                ? Icons.check_circle_rounded
+                                : Icons.circle_outlined,
+                            color: selected
+                                ? AppColors.brand700
+                                : AppColors.inkTertiary,
+                          ),
+                          title: Text(option.label),
+                          trailing: Text('${option.productCount}'),
+                          onTap: () => Navigator.of(context).pop(option.value),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
 }
 
 class _CategoryInventory extends StatefulWidget {
@@ -821,6 +1288,7 @@ class _CategoryInventory extends StatefulWidget {
     required this.products,
     required this.onAddProduct,
     required this.onEditProduct,
+    required this.onProductActiveChanged,
     required this.onStockChanged,
     required this.onStockAdjusted,
   });
@@ -829,6 +1297,8 @@ class _CategoryInventory extends StatefulWidget {
   final List<Product> products;
   final ValueChanged<String?> onAddProduct;
   final ValueChanged<Product> onEditProduct;
+  final Future<void> Function(Product product, bool active)
+  onProductActiveChanged;
   final Future<void> Function(Product product, int quantity) onStockChanged;
   final Future<void> Function(Product product, int delta) onStockAdjusted;
 
@@ -838,11 +1308,29 @@ class _CategoryInventory extends StatefulWidget {
 
 class _CategoryInventoryState extends State<_CategoryInventory> {
   static const _displayLimit = 100;
+  static const _allBrands = '__all_brands__';
+  static const _unbranded = '__unbranded__';
 
   String? _selectedCategoryId;
+  String _selectedBrand = _allBrands;
   String _query = '';
+  String _catalogueFilter = 'Active';
   String _stockFilter = 'All';
+  Timer? _searchDebounce;
   final Set<String> _busyProductIds = {};
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 160), () {
+      if (mounted) setState(() => _query = value.trim());
+    });
+  }
 
   Future<void> _setStock(Product product, int quantity) async {
     if (_busyProductIds.contains(product.id)) return;
@@ -865,12 +1353,46 @@ class _CategoryInventoryState extends State<_CategoryInventory> {
     }
   }
 
+  Future<void> _setProductActive(Product product, bool active) async {
+    if (_busyProductIds.contains(product.id)) return;
+    setState(() => _busyProductIds.add(product.id));
+    try {
+      await widget.onProductActiveChanged(product, active);
+    } finally {
+      if (mounted) setState(() => _busyProductIds.remove(product.id));
+    }
+  }
+
   Future<void> _showStockEditor(Product product) async {
     final quantity = await showDialog<int>(
       context: context,
       builder: (_) => _StockEditorDialog(product: product),
     );
     if (quantity != null) await _setStock(product, quantity);
+  }
+
+  Future<void> _chooseBrand(List<_BrandFilterOption> options) async {
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (context) =>
+          _BrandFilterDialog(options: options, selectedValue: _selectedBrand),
+    );
+    if (selected != null && mounted) {
+      setState(() => _selectedBrand = selected);
+    }
+  }
+
+  String _brandValue(Product product) {
+    final brand = product.brand.trim();
+    return brand.isEmpty ? _unbranded : brand;
+  }
+
+  int _inventoryOrder(Product first, Product second) {
+    final brandComparison = _brandValue(
+      first,
+    ).toLowerCase().compareTo(_brandValue(second).toLowerCase());
+    if (brandComparison != 0) return brandComparison;
+    return first.name.toLowerCase().compareTo(second.name.toLowerCase());
   }
 
   @override
@@ -884,16 +1406,68 @@ class _CategoryInventoryState extends State<_CategoryInventory> {
         : widget.categories.firstWhere(
             (category) => category.id == selectedCategoryId,
           );
-    final categoryProducts = widget.products
+    bool matchesCatalogueStatus(Product product) => switch (_catalogueFilter) {
+      'Active' => product.active,
+      'Archived' => !product.active,
+      _ => true,
+    };
+    final catalogueProducts = widget.products
+        .where(matchesCatalogueStatus)
+        .toList(growable: false);
+    final categoryProducts = catalogueProducts
         .where(
           (product) =>
               selectedCategoryId == null ||
               product.categoryId == selectedCategoryId,
         )
         .toList(growable: false);
+    final brandCounts = <String, int>{};
+    for (final product in categoryProducts) {
+      final brand = _brandValue(product);
+      brandCounts.update(brand, (count) => count + 1, ifAbsent: () => 1);
+    }
+    final availableBrands =
+        brandCounts.keys
+            .where((brand) => brand != _unbranded)
+            .toList(growable: false)
+          ..sort(
+            (first, second) =>
+                first.toLowerCase().compareTo(second.toLowerCase()),
+          );
+    final selectedBrand =
+        _selectedBrand == _allBrands || brandCounts.containsKey(_selectedBrand)
+        ? _selectedBrand
+        : _allBrands;
+    final brandOptions = <_BrandFilterOption>[
+      _BrandFilterOption(
+        value: _allBrands,
+        label: 'All brands',
+        productCount: categoryProducts.length,
+      ),
+      for (final brand in availableBrands)
+        _BrandFilterOption(
+          value: brand,
+          label: brand,
+          productCount: brandCounts[brand]!,
+        ),
+      if (brandCounts.containsKey(_unbranded))
+        _BrandFilterOption(
+          value: _unbranded,
+          label: 'No brand',
+          productCount: brandCounts[_unbranded]!,
+        ),
+    ];
+    final selectedBrandOption = brandOptions.firstWhere(
+      (option) => option.value == selectedBrand,
+    );
     final searchedProducts = ProductSearch.search(
-      products: categoryProducts,
+      products: widget.products,
       query: _query,
+      categoryId: selectedCategoryId,
+      filter: (product) =>
+          matchesCatalogueStatus(product) &&
+          (selectedBrand == _allBrands ||
+              _brandValue(product) == selectedBrand),
     );
     final visibleProducts = searchedProducts
         .where((product) {
@@ -905,7 +1479,8 @@ class _CategoryInventoryState extends State<_CategoryInventory> {
             _ => true,
           };
         })
-        .toList(growable: false);
+        .toList(growable: true);
+    if (_query.trim().isEmpty) visibleProducts.sort(_inventoryOrder);
     final displayedProducts = visibleProducts
         .take(_displayLimit)
         .toList(growable: false);
@@ -959,13 +1534,45 @@ class _CategoryInventoryState extends State<_CategoryInventory> {
           ],
         ),
         const SizedBox(height: AppSpacing.lg),
+        Wrap(
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.sm,
+          children: [
+            for (final filter in const ['Active', 'Archived', 'All'])
+              ChoiceChip(
+                key: Key('admin-catalogue-${filter.toLowerCase()}'),
+                avatar: Icon(
+                  filter == 'Archived'
+                      ? Icons.archive_outlined
+                      : filter == 'Active'
+                      ? Icons.storefront_outlined
+                      : Icons.all_inbox_outlined,
+                  size: 18,
+                ),
+                label: Text(
+                  '$filter (${switch (filter) {
+                    'Active' => widget.products.where((product) => product.active).length,
+                    'Archived' => widget.products.where((product) => !product.active).length,
+                    _ => widget.products.length,
+                  }})',
+                ),
+                selected: _catalogueFilter == filter,
+                onSelected: (_) => setState(() {
+                  _catalogueFilter = filter;
+                  _selectedBrand = _allBrands;
+                  if (filter == 'Archived') _stockFilter = 'All';
+                }),
+              ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
               ChoiceChip(
                 key: const Key('admin-category-all'),
-                label: Text('All (${widget.products.length})'),
+                label: Text('All (${catalogueProducts.length})'),
                 selected: selectedCategoryId == null,
                 selectedColor: AppColors.brandSoft,
                 backgroundColor: AppColors.surface,
@@ -976,7 +1583,10 @@ class _CategoryInventoryState extends State<_CategoryInventory> {
                       : AppColors.ink,
                   fontWeight: FontWeight.w700,
                 ),
-                onSelected: (_) => setState(() => _selectedCategoryId = null),
+                onSelected: (_) => setState(() {
+                  _selectedCategoryId = null;
+                  _selectedBrand = _allBrands;
+                }),
               ),
               const SizedBox(width: AppSpacing.sm),
               for (final category in widget.categories) ...[
@@ -992,7 +1602,7 @@ class _CategoryInventoryState extends State<_CategoryInventory> {
                         : AppColors.inkSecondary,
                   ),
                   label: Text(
-                    '${category.name} (${widget.products.where((product) => product.categoryId == category.id).length})',
+                    '${category.name} (${catalogueProducts.where((product) => product.categoryId == category.id).length})',
                   ),
                   selected: selectedCategoryId == category.id,
                   selectedColor: AppColors.brandSoft,
@@ -1004,8 +1614,10 @@ class _CategoryInventoryState extends State<_CategoryInventory> {
                         : AppColors.ink,
                     fontWeight: FontWeight.w700,
                   ),
-                  onSelected: (_) =>
-                      setState(() => _selectedCategoryId = category.id),
+                  onSelected: (_) => setState(() {
+                    _selectedCategoryId = category.id;
+                    _selectedBrand = _allBrands;
+                  }),
                 ),
                 const SizedBox(width: AppSpacing.sm),
               ],
@@ -1013,14 +1625,49 @@ class _CategoryInventoryState extends State<_CategoryInventory> {
           ),
         ),
         const SizedBox(height: AppSpacing.md),
-        TextField(
-          key: const Key('admin-product-search'),
-          onChanged: (value) => setState(() => _query = value),
-          decoration: const InputDecoration(
-            labelText: 'Search inventory',
-            hintText: 'Product, brand, category, or need',
-            prefixIcon: Icon(Icons.search_rounded),
-          ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final search = TextField(
+              key: const Key('admin-product-search'),
+              onChanged: _onSearchChanged,
+              decoration: const InputDecoration(
+                labelText: 'Search inventory',
+                hintText: 'Product, brand, barcode, SKU, or need',
+                prefixIcon: Icon(Icons.search_rounded),
+              ),
+            );
+            final brand = SizedBox(
+              width: constraints.maxWidth < 720 ? double.infinity : 300,
+              child: OutlinedButton.icon(
+                key: const Key('admin-brand-filter'),
+                onPressed: () => _chooseBrand(brandOptions),
+                icon: const Icon(Icons.branding_watermark_outlined),
+                label: Text(
+                  '${selectedBrandOption.label} (${selectedBrandOption.productCount})',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            );
+            if (constraints.maxWidth < 720) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  search,
+                  const SizedBox(height: AppSpacing.md),
+                  brand,
+                ],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: search),
+                const SizedBox(width: AppSpacing.md),
+                brand,
+              ],
+            );
+          },
         ),
         const SizedBox(height: AppSpacing.md),
         Wrap(
@@ -1049,9 +1696,11 @@ class _CategoryInventoryState extends State<_CategoryInventory> {
           spacing: AppSpacing.sm,
           runSpacing: AppSpacing.sm,
           children: [
-            Chip(
+            ActionChip(
+              key: const Key('admin-all-products-summary'),
               avatar: const Icon(Icons.sell_outlined, size: 18),
               label: Text('${visibleProducts.length} products'),
+              onPressed: () => setState(() => _stockFilter = 'All'),
               backgroundColor: AppColors.surface,
               labelStyle: Theme.of(
                 context,
@@ -1065,7 +1714,8 @@ class _CategoryInventoryState extends State<_CategoryInventory> {
                 context,
               ).textTheme.labelLarge?.copyWith(color: AppColors.ink),
             ),
-            Chip(
+            ActionChip(
+              key: const Key('admin-low-stock-summary'),
               avatar: Icon(
                 visibleLowStock == 0
                     ? Icons.check_circle_outline_rounded
@@ -1076,18 +1726,21 @@ class _CategoryInventoryState extends State<_CategoryInventory> {
                     : AppColors.warning,
               ),
               label: Text('$visibleLowStock low stock'),
+              onPressed: () => setState(() => _stockFilter = 'Low stock'),
               backgroundColor: AppColors.surface,
               labelStyle: Theme.of(
                 context,
               ).textTheme.labelLarge?.copyWith(color: AppColors.ink),
             ),
-            Chip(
+            ActionChip(
+              key: const Key('admin-out-of-stock-summary'),
               avatar: const Icon(
                 Icons.remove_shopping_cart_outlined,
                 size: 18,
                 color: AppColors.error,
               ),
               label: Text('$visibleOutOfStock out of stock'),
+              onPressed: () => setState(() => _stockFilter = 'Out of stock'),
               backgroundColor: AppColors.surface,
               labelStyle: Theme.of(
                 context,
@@ -1138,6 +1791,8 @@ class _CategoryInventoryState extends State<_CategoryInventory> {
                         _showStockEditor(displayedProducts[index]),
                     onEdit: () =>
                         widget.onEditProduct(displayedProducts[index]),
+                    onActiveChanged: (active) =>
+                        _setProductActive(displayedProducts[index], active),
                   ),
                   if (index != displayedProducts.length - 1)
                     const Padding(
@@ -1265,6 +1920,7 @@ class _InventoryProductRow extends StatelessWidget {
     required this.onIncrease,
     required this.onSetStock,
     required this.onEdit,
+    required this.onActiveChanged,
     super.key,
   });
 
@@ -1274,15 +1930,20 @@ class _InventoryProductRow extends StatelessWidget {
   final VoidCallback onIncrease;
   final VoidCallback onSetStock;
   final VoidCallback onEdit;
+  final ValueChanged<bool> onActiveChanged;
 
   @override
   Widget build(BuildContext context) {
-    final stockColor = product.stockQuantity == 0
+    final stockColor = !product.active
+        ? AppColors.inkSecondary
+        : product.stockQuantity == 0
         ? AppColors.error
         : product.stockQuantity <= 12
         ? AppColors.warning
         : AppColors.success;
-    final stockBackground = product.stockQuantity == 0
+    final stockBackground = !product.active
+        ? AppColors.surfaceMuted
+        : product.stockQuantity == 0
         ? AppColors.errorSoft
         : product.stockQuantity <= 12
         ? AppColors.warningSoft
@@ -1359,7 +2020,9 @@ class _InventoryProductRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadii.full),
       ),
       child: Text(
-        product.stockQuantity == 0
+        !product.active
+            ? 'Archived'
+            : product.stockQuantity == 0
             ? 'Out of stock'
             : '${product.stockQuantity} in stock',
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -1374,7 +2037,9 @@ class _InventoryProductRow extends StatelessWidget {
         IconButton.outlined(
           key: Key('admin-stock-decrease-${product.id}'),
           tooltip: 'Decrease ${product.name} stock',
-          onPressed: busy || product.stockQuantity == 0 ? null : onDecrease,
+          onPressed: busy || !product.active || product.stockQuantity == 0
+              ? null
+              : onDecrease,
           icon: const Icon(Icons.remove_rounded),
         ),
         SizedBox(
@@ -1395,16 +2060,55 @@ class _InventoryProductRow extends StatelessWidget {
         IconButton.filledTonal(
           key: Key('admin-stock-increase-${product.id}'),
           tooltip: 'Increase ${product.name} stock',
-          onPressed: busy ? null : onIncrease,
+          onPressed: busy || !product.active ? null : onIncrease,
           icon: const Icon(Icons.add_rounded),
         ),
         const SizedBox(width: AppSpacing.sm),
         TextButton(
           key: Key('admin-stock-set-${product.id}'),
-          onPressed: busy ? null : onSetStock,
+          onPressed: busy || !product.active ? null : onSetStock,
           child: const Text('Set'),
         ),
       ],
+    );
+
+    final actionsMenu = PopupMenuButton<String>(
+      key: Key('admin-product-actions-${product.id}'),
+      tooltip: 'Manage ${product.name}',
+      enabled: !busy,
+      onSelected: (action) {
+        switch (action) {
+          case 'edit':
+            onEdit();
+            break;
+          case 'toggle-active':
+            onActiveChanged(!product.active);
+            break;
+        }
+      },
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: 'edit',
+          child: ListTile(
+            leading: Icon(Icons.edit_outlined),
+            title: Text('Edit product'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          value: 'toggle-active',
+          child: ListTile(
+            leading: Icon(
+              product.active
+                  ? Icons.archive_outlined
+                  : Icons.unarchive_outlined,
+            ),
+            title: Text(product.active ? 'Archive product' : 'Restore product'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      ],
+      icon: const Icon(Icons.more_vert_rounded),
     );
 
     return LayoutBuilder(
@@ -1416,11 +2120,7 @@ class _InventoryProductRow extends StatelessWidget {
               Row(
                 children: [
                   Expanded(child: details),
-                  IconButton(
-                    tooltip: 'Edit ${product.name}',
-                    onPressed: onEdit,
-                    icon: const Icon(Icons.edit_outlined),
-                  ),
+                  actionsMenu,
                 ],
               ),
               const SizedBox(height: AppSpacing.md),
@@ -1435,11 +2135,7 @@ class _InventoryProductRow extends StatelessWidget {
             const SizedBox(width: AppSpacing.lg),
             controls,
             const SizedBox(width: AppSpacing.sm),
-            IconButton(
-              tooltip: 'Edit ${product.name}',
-              onPressed: onEdit,
-              icon: const Icon(Icons.edit_outlined),
-            ),
+            actionsMenu,
           ],
         );
       },
@@ -1502,15 +2198,58 @@ class _AdminOrderRow extends StatelessWidget {
     required this.order,
     required this.canAdvance,
     required this.onAdvance,
+    required this.onReject,
+    required this.onCancel,
+    required this.onMarkPaid,
   });
 
   final CustomerOrder order;
   final bool canAdvance;
   final VoidCallback onAdvance;
+  final VoidCallback onReject;
+  final VoidCallback onCancel;
+  final VoidCallback onMarkPaid;
+
+  String get _contactName {
+    final value = order.fulfilmentType == FulfilmentType.delivery
+        ? (order.deliveryRecipientName.isNotEmpty
+              ? order.deliveryRecipientName
+              : order.customerName)
+        : order.customerName;
+    return value.trim().isEmpty ? 'Contact not recorded' : value;
+  }
+
+  String get _contactSummary {
+    final phone = order.fulfilmentType == FulfilmentType.delivery
+        ? (order.deliveryRecipientPhone.isNotEmpty
+              ? order.deliveryRecipientPhone
+              : order.customerPhone)
+        : order.customerPhone;
+    final destination = order.fulfilmentType == FulfilmentType.delivery
+        ? order.addressText ?? 'Address not recorded'
+        : 'Store pickup';
+    return phone.trim().isEmpty ? destination : '$phone · $destination';
+  }
+
+  bool get _canRecordPayment {
+    if (order.paymentStatus != PaymentStatus.pending) return false;
+    return switch (order.paymentMethod) {
+      PaymentMethod.payAtStore => {
+        OrderStatus.readyForPickup,
+        OrderStatus.collected,
+      }.contains(order.status),
+      PaymentMethod.cashOnDelivery => {
+        OrderStatus.outForDelivery,
+        OrderStatus.delivered,
+      }.contains(order.status),
+      PaymentMethod.online => false,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
     return KoyasSurface(
+      key: Key('admin-order-${order.id}'),
       child: Wrap(
         spacing: AppSpacing.lg,
         runSpacing: AppSpacing.md,
@@ -1540,6 +2279,28 @@ class _AdminOrderRow extends StatelessWidget {
               '${order.items.length} items · ${formatPrice(order.totalPaise)}',
             ),
           ),
+          SizedBox(
+            width: 260,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _contactName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+                Text(
+                  _contactSummary,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.inkSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
           Container(
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.md,
@@ -1557,8 +2318,56 @@ class _AdminOrderRow extends StatelessWidget {
               ),
             ),
           ),
-          if (canAdvance)
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
+            decoration: BoxDecoration(
+              color: order.paymentStatus.adminColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(AppRadii.full),
+            ),
+            child: Text(
+              order.paymentStatus.adminLabel,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: order.paymentStatus.adminColor,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          OutlinedButton.icon(
+            key: Key('admin-order-details-${order.id}'),
+            onPressed: () => showDialog<void>(
+              context: context,
+              builder: (context) => _AdminOrderDetailsDialog(order: order),
+            ),
+            icon: const Icon(Icons.visibility_outlined, size: 18),
+            label: const Text('View details'),
+          ),
+          if (_canRecordPayment)
+            FilledButton.icon(
+              key: Key('admin-mark-paid-${order.id}'),
+              onPressed: onMarkPaid,
+              icon: const Icon(Icons.payments_rounded, size: 18),
+              label: const Text('Mark payment received'),
+            ),
+          if (order.status == OrderStatus.placed)
+            TextButton.icon(
+              key: Key('admin-reject-${order.id}'),
+              onPressed: onReject,
+              icon: const Icon(Icons.block_rounded, size: 18),
+              label: const Text('Reject'),
+            ),
+          if (order.status == OrderStatus.confirmed)
+            TextButton.icon(
+              key: Key('admin-cancel-${order.id}'),
+              onPressed: onCancel,
+              icon: const Icon(Icons.cancel_outlined, size: 18),
+              label: const Text('Cancel order'),
+            ),
+          if (canAdvance && !_canRecordPayment)
             FilledButton.tonalIcon(
+              key: Key('admin-advance-${order.id}'),
               onPressed: onAdvance,
               icon: const Icon(Icons.arrow_forward_rounded, size: 18),
               label: Text(
@@ -1569,13 +2378,316 @@ class _AdminOrderRow extends StatelessWidget {
                     : 'Advance status',
               ),
             )
-          else
+          else if (!canAdvance)
             Text(
               'Complete',
               style: Theme.of(
                 context,
               ).textTheme.labelLarge?.copyWith(color: AppColors.inkTertiary),
+            )
+          else
+            Text(
+              'Record payment before completion',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: AppColors.warning,
+                fontWeight: FontWeight.w700,
+              ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AdminOrderDetailsDialog extends StatelessWidget {
+  const _AdminOrderDetailsDialog({required this.order});
+
+  final CustomerOrder order;
+
+  String _value(String value) => value.trim().isEmpty ? 'Not recorded' : value;
+
+  String get _paymentMethodLabel => switch (order.paymentMethod) {
+    PaymentMethod.cashOnDelivery => 'Cash or UPI on delivery',
+    PaymentMethod.payAtStore => 'Cash or UPI at pickup',
+    PaymentMethod.online => 'Online payment',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final delivery = order.fulfilmentType == FulfilmentType.delivery;
+    final recipientName = delivery
+        ? _value(
+            order.deliveryRecipientName.isNotEmpty
+                ? order.deliveryRecipientName
+                : order.customerName,
+          )
+        : _value(order.customerName);
+    final recipientPhone = delivery
+        ? _value(
+            order.deliveryRecipientPhone.isNotEmpty
+                ? order.deliveryRecipientPhone
+                : order.customerPhone,
+          )
+        : _value(order.customerPhone);
+
+    return Dialog(
+      key: Key('admin-order-details-dialog-${order.id}'),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 720,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.xl,
+                AppSpacing.xl,
+                AppSpacing.md,
+                AppSpacing.md,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Order ${order.displayReference}',
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          '${order.status.label} · ${DateFormat('d MMM y, h:mm a').format(order.createdAt)}',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: AppColors.inkSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    key: Key('admin-close-order-details-${order.id}'),
+                    tooltip: 'Close details',
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(AppSpacing.xl),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _AdminOrderDetailSection(
+                      title: delivery ? 'Delivery' : 'Pickup customer',
+                      icon: delivery
+                          ? Icons.delivery_dining_rounded
+                          : Icons.storefront_rounded,
+                      children: [
+                        _AdminOrderDetailField(
+                          label: delivery ? 'Recipient' : 'Customer',
+                          value: recipientName,
+                        ),
+                        _AdminOrderDetailField(
+                          label: 'Phone',
+                          value: recipientPhone,
+                        ),
+                        if (delivery) ...[
+                          _AdminOrderDetailField(
+                            label: 'Delivery address',
+                            value: _value(order.addressText ?? ''),
+                          ),
+                          _AdminOrderDetailField(
+                            label: 'Delivery instructions',
+                            value: order.deliveryInstructions.trim().isEmpty
+                                ? 'No delivery instructions'
+                                : order.deliveryInstructions,
+                          ),
+                        ],
+                        if (delivery &&
+                            (order.customerName != recipientName ||
+                                order.customerPhone != recipientPhone)) ...[
+                          _AdminOrderDetailField(
+                            label: 'Ordering customer',
+                            value: _value(order.customerName),
+                          ),
+                          _AdminOrderDetailField(
+                            label: 'Customer phone',
+                            value: _value(order.customerPhone),
+                          ),
+                        ],
+                        _AdminOrderDetailField(
+                          label: 'Fulfilment',
+                          value:
+                              '${DateFormat('EEE, d MMM y').format(order.fulfilmentDate)} · ${order.slotLabel}',
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    _AdminOrderDetailSection(
+                      title: 'Payment',
+                      icon: Icons.payments_outlined,
+                      children: [
+                        _AdminOrderDetailField(
+                          label: 'Method',
+                          value: _paymentMethodLabel,
+                        ),
+                        _AdminOrderDetailField(
+                          label: 'Status',
+                          value: order.paymentStatus.adminLabel,
+                        ),
+                        if (order.paidAt != null)
+                          _AdminOrderDetailField(
+                            label: 'Received at',
+                            value: DateFormat(
+                              'd MMM y, h:mm a',
+                            ).format(order.paidAt!),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    _AdminOrderDetailSection(
+                      title: 'Items (${order.items.length})',
+                      icon: Icons.shopping_basket_outlined,
+                      children: [
+                        for (final item in order.items)
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: AppSpacing.sm,
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${item.quantity} × ${item.name} · ${item.unit}',
+                                  ),
+                                ),
+                                const SizedBox(width: AppSpacing.md),
+                                Text(formatPrice(item.totalPaise)),
+                              ],
+                            ),
+                          ),
+                        const Divider(),
+                        _AdminOrderAmountRow(
+                          label: 'Subtotal',
+                          amountPaise: order.subtotalPaise,
+                        ),
+                        _AdminOrderAmountRow(
+                          label: 'Delivery',
+                          amountPaise: order.deliveryChargePaise,
+                        ),
+                        _AdminOrderAmountRow(
+                          label: 'Total',
+                          amountPaise: order.totalPaise,
+                          emphasized: true,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AdminOrderDetailSection extends StatelessWidget {
+  const _AdminOrderDetailSection({
+    required this.title,
+    required this.icon,
+    required this.children,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.canvas,
+        borderRadius: BorderRadius.circular(AppRadii.lg),
+        border: Border.all(color: AppColors.outline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 20, color: AppColors.brand600),
+              const SizedBox(width: AppSpacing.sm),
+              Text(title, style: Theme.of(context).textTheme.titleMedium),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+class _AdminOrderDetailField extends StatelessWidget {
+  const _AdminOrderDetailField({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 145,
+            child: Text(
+              label,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.inkSecondary),
+            ),
+          ),
+          Expanded(child: SelectableText(value)),
+        ],
+      ),
+    );
+  }
+}
+
+class _AdminOrderAmountRow extends StatelessWidget {
+  const _AdminOrderAmountRow({
+    required this.label,
+    required this.amountPaise,
+    this.emphasized = false,
+  });
+
+  final String label;
+  final int amountPaise;
+  final bool emphasized;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = emphasized
+        ? Theme.of(context).textTheme.titleSmall
+        : Theme.of(context).textTheme.bodyMedium;
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.xs),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: style)),
+          Text(formatPrice(amountPaise), style: style),
         ],
       ),
     );
@@ -1934,8 +3046,8 @@ class _TopProductAnalyticsRow extends StatelessWidget {
   }
 }
 
-class _DeliveryPricingCard extends StatelessWidget {
-  const _DeliveryPricingCard({required this.store, required this.onEdit});
+class _OrderPricingCard extends StatelessWidget {
+  const _OrderPricingCard({required this.store, required this.onEdit});
 
   final StoreState store;
   final VoidCallback onEdit;
@@ -1944,7 +3056,7 @@ class _DeliveryPricingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final free = store.baseDeliveryChargePaise == 0;
     return KoyasSurface(
-      key: const Key('admin-delivery-pricing'),
+      key: const Key('admin-order-pricing'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1954,7 +3066,7 @@ class _DeliveryPricingCard extends StatelessWidget {
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
-                  'Delivery pricing',
+                  'Order pricing',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
@@ -1968,6 +3080,15 @@ class _DeliveryPricingCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.md),
           Text(
+            store.minimumOrderPaise == 0
+                ? 'No minimum order is active.'
+                : 'Minimum order: ${formatPrice(store.minimumOrderPaise)}.',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppColors.inkSecondary),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
             free
                 ? 'Free delivery is active for every customer order.'
                 : '${formatPrice(store.baseDeliveryChargePaise)} per delivery, free for orders of ${formatPrice(store.freeDeliveryThresholdPaise)} or more.',
@@ -1977,10 +3098,10 @@ class _DeliveryPricingCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.lg),
           OutlinedButton.icon(
-            key: const Key('admin-edit-delivery-pricing'),
+            key: const Key('admin-edit-order-pricing'),
             onPressed: onEdit,
             icon: const Icon(Icons.edit_outlined),
-            label: const Text('Change delivery pricing'),
+            label: const Text('Change order pricing'),
           ),
         ],
       ),
@@ -2080,17 +3201,18 @@ class _OfferManagementCard extends StatelessWidget {
   }
 }
 
-class _DeliveryPricingDialog extends StatefulWidget {
-  const _DeliveryPricingDialog({required this.store});
+class _OrderPricingDialog extends StatefulWidget {
+  const _OrderPricingDialog({required this.store});
 
   final StoreState store;
 
   @override
-  State<_DeliveryPricingDialog> createState() => _DeliveryPricingDialogState();
+  State<_OrderPricingDialog> createState() => _OrderPricingDialogState();
 }
 
-class _DeliveryPricingDialogState extends State<_DeliveryPricingDialog> {
+class _OrderPricingDialogState extends State<_OrderPricingDialog> {
   final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _minimumOrder;
   late final TextEditingController _deliveryCharge;
   late final TextEditingController _freeThreshold;
   late bool _freeDelivery;
@@ -2099,6 +3221,9 @@ class _DeliveryPricingDialogState extends State<_DeliveryPricingDialog> {
   void initState() {
     super.initState();
     _freeDelivery = widget.store.baseDeliveryChargePaise == 0;
+    _minimumOrder = TextEditingController(
+      text: (widget.store.minimumOrderPaise / 100).toStringAsFixed(2),
+    );
     _deliveryCharge = TextEditingController(
       text: (widget.store.baseDeliveryChargePaise / 100).toStringAsFixed(2),
     );
@@ -2109,6 +3234,7 @@ class _DeliveryPricingDialogState extends State<_DeliveryPricingDialog> {
 
   @override
   void dispose() {
+    _minimumOrder.dispose();
     _deliveryCharge.dispose();
     _freeThreshold.dispose();
     super.dispose();
@@ -2122,7 +3248,8 @@ class _DeliveryPricingDialogState extends State<_DeliveryPricingDialog> {
   void _save() {
     if (!_formKey.currentState!.validate()) return;
     Navigator.of(context).pop(
-      _DeliveryPricingResult(
+      _OrderPricingResult(
+        minimumOrderPaise: _paise(_minimumOrder.text)!,
         deliveryChargePaise: _freeDelivery ? 0 : _paise(_deliveryCharge.text)!,
         freeDeliveryThresholdPaise: _freeDelivery
             ? widget.store.freeDeliveryThresholdPaise
@@ -2134,7 +3261,7 @@ class _DeliveryPricingDialogState extends State<_DeliveryPricingDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Delivery pricing'),
+      title: const Text('Order pricing'),
       content: SizedBox(
         width: 500,
         child: Form(
@@ -2144,10 +3271,29 @@ class _DeliveryPricingDialogState extends State<_DeliveryPricingDialog> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Choose free delivery or set the exact amount charged at checkout.',
+                'Set the minimum order and delivery pricing applied at checkout. Use ₹0 for no minimum order.',
                 style: Theme.of(
                   context,
                 ).textTheme.bodyMedium?.copyWith(color: AppColors.inkSecondary),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextFormField(
+                key: const Key('admin-minimum-order'),
+                controller: _minimumOrder,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'Minimum order (₹)',
+                  helperText: 'Enter ₹0 to allow orders of any value.',
+                  prefixIcon: Icon(Icons.shopping_cart_checkout_rounded),
+                ),
+                validator: (value) {
+                  final amount = _paise(value ?? '');
+                  return amount == null || amount < 0 || amount > 100000000
+                      ? 'Enter an amount from ₹0 to ₹10,00,000'
+                      : null;
+                },
               ),
               const SizedBox(height: AppSpacing.md),
               SwitchListTile.adaptive(
@@ -2208,7 +3354,7 @@ class _DeliveryPricingDialogState extends State<_DeliveryPricingDialog> {
           child: const Text('Cancel'),
         ),
         FilledButton(
-          key: const Key('admin-save-delivery-pricing'),
+          key: const Key('admin-save-order-pricing'),
           onPressed: _save,
           child: const Text('Save pricing'),
         ),
@@ -2235,6 +3381,7 @@ class _OfferProductPickerDialogState extends State<_OfferProductPickerDialog> {
     final matches = ProductSearch.search(
       products: widget.products,
       query: _query,
+      filter: (product) => product.active,
     ).take(80).toList(growable: false);
     return AlertDialog(
       title: const Text('Choose a product'),
@@ -2441,6 +3588,10 @@ class _ProductEditorDialog extends StatefulWidget {
 class _ProductEditorDialogState extends State<_ProductEditorDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _name;
+  late final TextEditingController _billingName;
+  late final TextEditingController _printName;
+  late final TextEditingController _itemCode;
+  late final TextEditingController _barcode;
   late final TextEditingController _brand;
   late final TextEditingController _subcategory;
   late final TextEditingController _description;
@@ -2450,7 +3601,9 @@ class _ProductEditorDialogState extends State<_ProductEditorDialog> {
   late final TextEditingController _stock;
   late String _categoryId;
   late bool _featured;
+  late bool _active;
   ProductImageUpload? _selectedImage;
+  bool _removeImage = false;
   String? _imageError;
   bool _pickingImage = false;
 
@@ -2459,6 +3612,10 @@ class _ProductEditorDialogState extends State<_ProductEditorDialog> {
     super.initState();
     final product = widget.product;
     _name = TextEditingController(text: product?.name ?? '');
+    _billingName = TextEditingController(text: product?.billingName ?? '');
+    _printName = TextEditingController(text: product?.printName ?? '');
+    _itemCode = TextEditingController(text: product?.itemCode ?? '');
+    _barcode = TextEditingController(text: product?.barcode ?? '');
     _brand = TextEditingController(text: product?.brand ?? '');
     _subcategory = TextEditingController(text: product?.subcategory ?? '');
     _description = TextEditingController(text: product?.description ?? '');
@@ -2483,11 +3640,16 @@ class _ProductEditorDialogState extends State<_ProductEditorDialog> {
             ? widget.initialCategoryId!
             : widget.categories.first.id);
     _featured = product?.featured ?? false;
+    _active = product?.active ?? true;
   }
 
   @override
   void dispose() {
     _name.dispose();
+    _billingName.dispose();
+    _printName.dispose();
+    _itemCode.dispose();
+    _barcode.dispose();
     _brand.dispose();
     _subcategory.dispose();
     _description.dispose();
@@ -2542,7 +3704,12 @@ class _ProductEditorDialogState extends State<_ProductEditorDialog> {
         bytes: bytes,
         fileName: file.name,
       );
-      if (mounted) setState(() => _selectedImage = upload);
+      if (mounted) {
+        setState(() {
+          _selectedImage = upload;
+          _removeImage = false;
+        });
+      }
     } on FormatException catch (error) {
       if (mounted) setState(() => _imageError = error.message.toString());
     } catch (_) {
@@ -2567,6 +3734,7 @@ class _ProductEditorDialogState extends State<_ProductEditorDialog> {
     Navigator.of(context).pop(
       _ProductEditorResult(
         image: _selectedImage,
+        removeImage: _removeImage,
         product: Product(
           id:
               existing?.id ??
@@ -2575,10 +3743,14 @@ class _ProductEditorDialogState extends State<_ProductEditorDialog> {
           name: _name.text.trim(),
           brand: _brand.text.trim(),
           subcategory: _subcategory.text.trim(),
-          billingName: existing?.billingName ?? _name.text.trim(),
-          printName: existing?.printName ?? _name.text.trim(),
-          itemCode: existing?.itemCode ?? '',
-          barcode: existing?.barcode ?? '',
+          billingName: _billingName.text.trim().isEmpty
+              ? _name.text.trim()
+              : _billingName.text.trim(),
+          printName: _printName.text.trim().isEmpty
+              ? _name.text.trim()
+              : _printName.text.trim(),
+          itemCode: _itemCode.text.trim(),
+          barcode: _barcode.text.trim(),
           imageAttribution: _selectedImage == null
               ? existing?.imageAttribution ?? ''
               : '',
@@ -2593,6 +3765,7 @@ class _ProductEditorDialogState extends State<_ProductEditorDialog> {
           visualKey: category.visualKey,
           imageUrl: existing?.imageUrl,
           featured: _featured,
+          active: _active,
         ),
       ),
     );
@@ -2622,7 +3795,7 @@ class _ProductEditorDialogState extends State<_ProductEditorDialog> {
                   clipBehavior: Clip.antiAlias,
                   child: _selectedImage != null
                       ? Image.memory(_selectedImage!.bytes, fit: BoxFit.contain)
-                      : widget.product != null
+                      : widget.product != null && !_removeImage
                       ? ProductVisual(product: widget.product!)
                       : const Center(
                           child: Column(
@@ -2652,13 +3825,48 @@ class _ProductEditorDialogState extends State<_ProductEditorDialog> {
                         : const Icon(Icons.photo_library_outlined),
                     label: Text(
                       _selectedImage != null ||
-                              widget.product?.imageUrl?.isNotEmpty == true ||
-                              widget.product?.imageAsset.isNotEmpty == true
+                              (!_removeImage &&
+                                  (widget.product?.imageUrl?.isNotEmpty ==
+                                          true ||
+                                      widget.product?.imageAsset.isNotEmpty ==
+                                          true ||
+                                      widget.product?.imagePath.isNotEmpty ==
+                                          true))
                           ? 'Replace picture'
                           : 'Add picture',
                     ),
                   ),
                 ),
+                if (_selectedImage != null ||
+                    (!_removeImage &&
+                        (widget.product?.imageUrl?.isNotEmpty == true ||
+                            widget.product?.imageAsset.isNotEmpty == true ||
+                            widget.product?.imagePath.isNotEmpty == true))) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      key: const Key('admin-remove-product-image'),
+                      onPressed: () => setState(() {
+                        _selectedImage = null;
+                        _removeImage = true;
+                      }),
+                      icon: const Icon(Icons.delete_outline_rounded),
+                      label: const Text('Remove picture'),
+                    ),
+                  ),
+                ],
+                if (_removeImage && widget.product != null) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: () => setState(() => _removeImage = false),
+                      icon: const Icon(Icons.undo_rounded),
+                      label: const Text('Keep current picture'),
+                    ),
+                  ),
+                ],
                 if (_selectedImage != null) ...[
                   const SizedBox(height: AppSpacing.xs),
                   Align(
@@ -2685,14 +3893,18 @@ class _ProductEditorDialogState extends State<_ProductEditorDialog> {
                 ],
                 const SizedBox(height: AppSpacing.md),
                 TextFormField(
+                  key: const Key('admin-product-name'),
                   controller: _name,
                   validator: (value) =>
                       _requiredLength(value, min: 2, max: 200),
-                  decoration: const InputDecoration(labelText: 'Product name'),
+                  decoration: const InputDecoration(
+                    labelText: 'Storefront product name',
+                    helperText: 'This is the name customers will see.',
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 DropdownButtonFormField<String>(
-                  value: _categoryId,
+                  initialValue: _categoryId,
                   decoration: const InputDecoration(labelText: 'Category'),
                   items: widget.categories
                       .map(
@@ -2711,6 +3923,7 @@ class _ProductEditorDialogState extends State<_ProductEditorDialog> {
                   children: [
                     Expanded(
                       child: TextFormField(
+                        key: const Key('admin-product-brand'),
                         controller: _brand,
                         validator: (value) => _optionalLength(value, 120),
                         decoration: const InputDecoration(labelText: 'Brand'),
@@ -2719,6 +3932,7 @@ class _ProductEditorDialogState extends State<_ProductEditorDialog> {
                     const SizedBox(width: AppSpacing.md),
                     Expanded(
                       child: TextFormField(
+                        key: const Key('admin-product-subcategory'),
                         controller: _subcategory,
                         validator: (value) => _optionalLength(value, 120),
                         decoration: const InputDecoration(
@@ -2730,6 +3944,7 @@ class _ProductEditorDialogState extends State<_ProductEditorDialog> {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 TextFormField(
+                  key: const Key('admin-product-description'),
                   controller: _description,
                   validator: (value) =>
                       _requiredLength(value, min: 2, max: 2000),
@@ -2738,6 +3953,7 @@ class _ProductEditorDialogState extends State<_ProductEditorDialog> {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 TextFormField(
+                  key: const Key('admin-product-unit'),
                   controller: _unit,
                   validator: (value) => _requiredLength(value, min: 1, max: 80),
                   decoration: const InputDecoration(
@@ -2745,11 +3961,73 @@ class _ProductEditorDialogState extends State<_ProductEditorDialog> {
                     hintText: '1 kg, 500 ml, 12 pieces',
                   ),
                 ),
+                const SizedBox(height: AppSpacing.sm),
+                ExpansionTile(
+                  key: const Key('admin-advanced-product-details'),
+                  tilePadding: EdgeInsets.zero,
+                  childrenPadding: const EdgeInsets.only(bottom: AppSpacing.md),
+                  initiallyExpanded:
+                      _itemCode.text.isNotEmpty || _barcode.text.isNotEmpty,
+                  leading: const Icon(Icons.tune_rounded),
+                  title: const Text('Billing, barcode & SKU details'),
+                  subtitle: const Text(
+                    'Optional internal names and codes used by staff.',
+                  ),
+                  children: [
+                    TextFormField(
+                      key: const Key('admin-product-billing-name'),
+                      controller: _billingName,
+                      validator: (value) => _optionalLength(value, 200),
+                      decoration: const InputDecoration(
+                        labelText: 'Billing name',
+                        hintText: 'Defaults to the storefront name',
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    TextFormField(
+                      key: const Key('admin-product-print-name'),
+                      controller: _printName,
+                      validator: (value) => _optionalLength(value, 200),
+                      decoration: const InputDecoration(
+                        labelText: 'Receipt / print name',
+                        hintText: 'Defaults to the storefront name',
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            key: const Key('admin-product-item-code'),
+                            controller: _itemCode,
+                            validator: (value) => _optionalLength(value, 80),
+                            decoration: const InputDecoration(
+                              labelText: 'SKU / item code',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(
+                          child: TextFormField(
+                            key: const Key('admin-product-barcode'),
+                            controller: _barcode,
+                            validator: (value) => _optionalLength(value, 80),
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Barcode',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
                 const SizedBox(height: AppSpacing.md),
                 Row(
                   children: [
                     Expanded(
                       child: TextFormField(
+                        key: const Key('admin-product-price'),
                         controller: _price,
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
@@ -2770,6 +4048,7 @@ class _ProductEditorDialogState extends State<_ProductEditorDialog> {
                     const SizedBox(width: AppSpacing.md),
                     Expanded(
                       child: TextFormField(
+                        key: const Key('admin-product-discount'),
                         controller: _discount,
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
@@ -2798,6 +4077,7 @@ class _ProductEditorDialogState extends State<_ProductEditorDialog> {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 TextFormField(
+                  key: const Key('admin-product-stock'),
                   controller: _stock,
                   keyboardType: TextInputType.number,
                   validator: (value) {
@@ -2817,6 +4097,18 @@ class _ProductEditorDialogState extends State<_ProductEditorDialog> {
                   onChanged: (value) => setState(() => _featured = value),
                   title: const Text('Featured on home'),
                 ),
+                SwitchListTile.adaptive(
+                  key: const Key('admin-product-active'),
+                  contentPadding: EdgeInsets.zero,
+                  value: _active,
+                  onChanged: (value) => setState(() => _active = value),
+                  title: const Text('Visible in customer catalogue'),
+                  subtitle: Text(
+                    _active
+                        ? 'Customers can find and buy this product.'
+                        : 'Archived products remain available to staff only.',
+                  ),
+                ),
               ],
             ),
           ),
@@ -2827,25 +4119,36 @@ class _ProductEditorDialogState extends State<_ProductEditorDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        FilledButton(onPressed: _save, child: const Text('Save product')),
+        FilledButton(
+          key: const Key('admin-save-product'),
+          onPressed: _save,
+          child: const Text('Save product'),
+        ),
       ],
     );
   }
 }
 
 class _ProductEditorResult {
-  const _ProductEditorResult({required this.product, this.image});
+  const _ProductEditorResult({
+    required this.product,
+    this.image,
+    this.removeImage = false,
+  });
 
   final Product product;
   final ProductImageUpload? image;
+  final bool removeImage;
 }
 
-class _DeliveryPricingResult {
-  const _DeliveryPricingResult({
+class _OrderPricingResult {
+  const _OrderPricingResult({
+    required this.minimumOrderPaise,
     required this.deliveryChargePaise,
     required this.freeDeliveryThresholdPaise,
   });
 
+  final int minimumOrderPaise;
   final int deliveryChargePaise;
   final int freeDeliveryThresholdPaise;
 }

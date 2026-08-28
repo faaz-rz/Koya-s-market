@@ -23,6 +23,7 @@ class Product {
     this.discountPricePaise,
     this.imageUrl,
     this.featured = false,
+    this.active = true,
   });
 
   final String id;
@@ -46,9 +47,10 @@ class Product {
   final Uint8List? imageBytes;
   final String? imageUrl;
   final bool featured;
+  final bool active;
 
   int get effectivePricePaise => discountPricePaise ?? pricePaise;
-  bool get isAvailable => stockQuantity > 0;
+  bool get isAvailable => active && stockQuantity > 0;
   int get discountPercent => discountPricePaise == null
       ? 0
       : ((pricePaise - discountPricePaise!) * 100 / pricePaise).round();
@@ -74,7 +76,9 @@ class Product {
     Uint8List? imageBytes,
     String? imageUrl,
     bool? featured,
+    bool? active,
     bool clearDiscount = false,
+    bool clearImage = false,
   }) {
     return Product(
       id: id,
@@ -94,12 +98,15 @@ class Product {
       printName: printName ?? this.printName,
       itemCode: itemCode ?? this.itemCode,
       barcode: barcode ?? this.barcode,
-      imageAttribution: imageAttribution ?? this.imageAttribution,
-      imageAsset: imageAsset ?? this.imageAsset,
-      imagePath: imagePath ?? this.imagePath,
-      imageBytes: imageBytes ?? this.imageBytes,
-      imageUrl: imageUrl ?? this.imageUrl,
+      imageAttribution: clearImage
+          ? ''
+          : imageAttribution ?? this.imageAttribution,
+      imageAsset: clearImage ? '' : imageAsset ?? this.imageAsset,
+      imagePath: clearImage ? '' : imagePath ?? this.imagePath,
+      imageBytes: clearImage ? null : imageBytes ?? this.imageBytes,
+      imageUrl: clearImage ? null : imageUrl ?? this.imageUrl,
       featured: featured ?? this.featured,
+      active: active ?? this.active,
     );
   }
 }

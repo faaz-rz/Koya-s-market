@@ -1,34 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/cart/widgets/active_cart_ribbon.dart';
 import '../../features/store/widgets/store_realtime_sync.dart';
 
 class CustomerShell extends StatelessWidget {
-  const CustomerShell({required this.location, required this.child, super.key});
+  const CustomerShell({required this.navigationShell, super.key});
 
-  final String location;
-  final Widget child;
-
-  int get _selectedIndex {
-    if (location.startsWith('/categories') ||
-        location.startsWith('/products')) {
-      return 1;
-    }
-    if (location.startsWith('/orders')) return 2;
-    if (location.startsWith('/profile')) return 3;
-    return 0;
-  }
+  final StatefulNavigationShell navigationShell;
 
   @override
   Widget build(BuildContext context) {
     void navigate(int index) {
-      final destination = switch (index) {
-        0 => '/home',
-        1 => '/categories',
-        2 => '/orders',
-        _ => '/profile',
-      };
-      context.go(destination);
+      navigationShell.goBranch(
+        index,
+        initialLocation: index == navigationShell.currentIndex,
+      );
     }
 
     return StoreRealtimeSync(
@@ -43,7 +30,7 @@ class CustomerShell extends StatelessWidget {
                         child: NavigationRail(
                           extended: constraints.maxWidth >= 1120,
                           minExtendedWidth: 224,
-                          selectedIndex: _selectedIndex,
+                          selectedIndex: navigationShell.currentIndex,
                           onDestinationSelected: navigate,
                           labelType: constraints.maxWidth >= 1120
                               ? NavigationRailLabelType.none
@@ -77,35 +64,52 @@ class CustomerShell extends StatelessWidget {
                         ),
                       ),
                       const VerticalDivider(width: 1),
-                      Expanded(child: child),
+                      Expanded(
+                        child: Column(
+                          children: [
+                            Expanded(child: navigationShell),
+                            const ActiveCartRibbon(),
+                          ],
+                        ),
+                      ),
                     ],
                   )
-                : child,
+                : navigationShell,
             bottomNavigationBar: desktop
                 ? null
-                : NavigationBar(
-                    selectedIndex: _selectedIndex,
-                    onDestinationSelected: navigate,
-                    destinations: const [
-                      NavigationDestination(
-                        icon: Icon(Icons.home_outlined),
-                        selectedIcon: Icon(Icons.home_rounded),
-                        label: 'Home',
-                      ),
-                      NavigationDestination(
-                        icon: Icon(Icons.grid_view_outlined),
-                        selectedIcon: Icon(Icons.grid_view_rounded),
-                        label: 'Categories',
-                      ),
-                      NavigationDestination(
-                        icon: Icon(Icons.receipt_long_outlined),
-                        selectedIcon: Icon(Icons.receipt_long_rounded),
-                        label: 'Orders',
-                      ),
-                      NavigationDestination(
-                        icon: Icon(Icons.person_outline_rounded),
-                        selectedIcon: Icon(Icons.person_rounded),
-                        label: 'Profile',
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const ActiveCartRibbon(respectBottomSafeArea: false),
+                      NavigationBar(
+                        selectedIndex: navigationShell.currentIndex,
+                        onDestinationSelected: navigate,
+                        destinations: const [
+                          NavigationDestination(
+                            key: Key('customer-tab-home'),
+                            icon: Icon(Icons.home_outlined),
+                            selectedIcon: Icon(Icons.home_rounded),
+                            label: 'Home',
+                          ),
+                          NavigationDestination(
+                            key: Key('customer-tab-categories'),
+                            icon: Icon(Icons.grid_view_outlined),
+                            selectedIcon: Icon(Icons.grid_view_rounded),
+                            label: 'Categories',
+                          ),
+                          NavigationDestination(
+                            key: Key('customer-tab-orders'),
+                            icon: Icon(Icons.receipt_long_outlined),
+                            selectedIcon: Icon(Icons.receipt_long_rounded),
+                            label: 'Orders',
+                          ),
+                          NavigationDestination(
+                            key: Key('customer-tab-profile'),
+                            icon: Icon(Icons.person_outline_rounded),
+                            selectedIcon: Icon(Icons.person_rounded),
+                            label: 'Profile',
+                          ),
+                        ],
                       ),
                     ],
                   ),

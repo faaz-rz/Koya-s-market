@@ -39,8 +39,33 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/dashboard',
-        builder: (context, state) =>
-            const AdminSessionGuard(child: AdminDashboardScreen()),
+        builder: (context, state) => const AdminSessionGuard(
+          child: AdminDashboardScreen(section: AdminSection.overview),
+        ),
+      ),
+      GoRoute(
+        path: '/analytics',
+        builder: (context, state) => const AdminSessionGuard(
+          child: AdminDashboardScreen(section: AdminSection.analytics),
+        ),
+      ),
+      GoRoute(
+        path: '/pricing',
+        builder: (context, state) => const AdminSessionGuard(
+          child: AdminDashboardScreen(section: AdminSection.pricing),
+        ),
+      ),
+      GoRoute(
+        path: '/orders',
+        builder: (context, state) => const AdminSessionGuard(
+          child: AdminDashboardScreen(section: AdminSection.orders),
+        ),
+      ),
+      GoRoute(
+        path: '/inventory',
+        builder: (context, state) => const AdminSessionGuard(
+          child: AdminDashboardScreen(section: AdminSection.inventory),
+        ),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

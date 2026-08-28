@@ -81,7 +81,7 @@ class FulfilmentScreen extends ConsumerWidget {
                         SizedBox(width: AppSpacing.md),
                         Expanded(
                           child: Text(
-                            'Koya Stores\nRoad No. 12, Banjara Hills, Hyderabad',
+                            'Koya Stores\n9-1, 43/5, Prashanth Nagar, Langar Houz,\nHyderabad, Telangana 500008, India',
                           ),
                         ),
                       ],

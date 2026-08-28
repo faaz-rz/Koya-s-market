@@ -17,6 +17,22 @@ class CategoryTile extends StatelessWidget {
   final VoidCallback onTap;
   final bool compact;
 
+  static String imageAssetFor(String key) => switch (key) {
+    'staples' => 'assets/category_images/grocery-staples.png',
+    'breakfast' => 'assets/category_images/breakfast-ready-to-cook.png',
+    'snacks' => 'assets/category_images/snacks-sweets.png',
+    'beverages' => 'assets/category_images/beverages.png',
+    'dairy' => 'assets/category_images/dairy-frozen.png',
+    'fresh' => 'assets/category_images/fresh-produce.png',
+    'personal' => 'assets/category_images/personal-care.png',
+    'baby' => 'assets/category_images/baby-care.png',
+    'household' => 'assets/category_images/home-care.png',
+    'health' => 'assets/category_images/health-wellness.png',
+    'pooja' => 'assets/category_images/pooja-festive.png',
+    'general' => 'assets/category_images/household-general.png',
+    _ => '',
+  };
+
   static IconData iconFor(String key) => switch (key) {
     'fresh' => Icons.eco_rounded,
     'dairy' => Icons.egg_alt_rounded,
@@ -60,16 +76,24 @@ class CategoryTile extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: compact ? 54 : 68,
-              height: compact ? 54 : 68,
+              width: double.infinity,
+              height: compact ? 72 : 92,
               decoration: BoxDecoration(
                 color: colorFor(category.visualKey),
-                shape: BoxShape.circle,
+                borderRadius: BorderRadius.circular(AppRadii.lg),
               ),
-              child: Icon(
-                iconFor(category.visualKey),
-                color: AppColors.ink,
-                size: compact ? 28 : 34,
+              child: Padding(
+                padding: EdgeInsets.all(compact ? 2 : 4),
+                child: Image.asset(
+                  imageAssetFor(category.visualKey),
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
+                  errorBuilder: (_, _, _) => Icon(
+                    iconFor(category.visualKey),
+                    color: AppColors.ink,
+                    size: compact ? 30 : 38,
+                  ),
+                ),
               ),
             ),
             SizedBox(height: compact ? AppSpacing.sm : AppSpacing.md),

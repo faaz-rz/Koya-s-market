@@ -103,11 +103,12 @@ void main() {
     await tester.tap(find.byKey(Key('product-size-${oneKg.id}')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('detail-add-to-cart')));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     final cart = container.read(storeProvider).cartQuantities;
     expect(cart[oneKg.id], 1);
     expect(cart[fiveKg.id], isNull);
+    expect(find.byKey(const ValueKey('active-cart-ribbon')), findsOneWidget);
   });
 
   testWidgets('product card opens pack options and adds the exact size', (

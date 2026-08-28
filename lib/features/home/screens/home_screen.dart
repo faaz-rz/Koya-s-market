@@ -6,22 +6,33 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_shadows.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/app_breakpoints.dart';
+import '../../../core/utils/product_grid_layout.dart';
 import '../../../core/widgets/koyas_logo.dart';
 import '../../products/product_variants.dart';
 import '../../products/widgets/category_tile.dart';
 import '../../products/widgets/product_card.dart';
 import '../../store/providers/store_provider.dart';
 
+final _homeFeaturedProvider = Provider<List<ProductFamily>>((ref) {
+  final products = ref.watch(storeProvider.select((store) => store.products));
+  return ProductVariants.collapse(
+    visibleProducts: products.where((product) => product.featured),
+    catalogue: products,
+  );
+});
+
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final store = ref.watch(storeProvider);
-    final featured = ProductVariants.collapse(
-      visibleProducts: store.products.where((item) => item.featured),
-      catalogue: store.products,
+    final cartCount = ref.watch(
+      storeProvider.select((store) => store.cartCount),
     );
+    final categories = ref.watch(
+      storeProvider.select((store) => store.categories),
+    );
+    final featured = ref.watch(_homeFeaturedProvider);
     return SafeArea(
       child: Align(
         alignment: Alignment.topCenter,
@@ -40,10 +51,10 @@ class HomeScreen extends ConsumerWidget {
                 ),
                 sliver: SliverList.list(
                   children: [
-                    _HomeHeader(cartCount: store.cartCount),
+                    _HomeHeader(cartCount: cartCount),
                     const SizedBox(height: AppSpacing.xxl),
                     Text(
-                      'Fresh groceries,\nwithout the rush.',
+                      'Your neighbourhood supermarket,\nnow at your fingertips.',
                       style: Theme.of(context).textTheme.displayLarge,
                     ),
                     const SizedBox(height: AppSpacing.md),
@@ -75,11 +86,11 @@ class HomeScreen extends ConsumerWidget {
                       height: 142,
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
-                        itemCount: store.categories.length,
+                        itemCount: categories.length,
                         separatorBuilder: (_, _) =>
                             const SizedBox(width: AppSpacing.md),
                         itemBuilder: (context, index) {
-                          final category = store.categories[index];
+                          final category = categories[index];
                           return SizedBox(
                             width: 128,
                             child: CategoryTile(
@@ -99,20 +110,19 @@ class HomeScreen extends ConsumerWidget {
                       onTap: () => context.push('/products'),
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: featured.length,
-                      gridDelegate:
-                          const SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 230,
-                            mainAxisExtent: 380,
-                            mainAxisSpacing: AppSpacing.md,
-                            crossAxisSpacing: AppSpacing.md,
-                          ),
-                      itemBuilder: (_, index) => ProductCard(
-                        product: featured[index].representative,
-                        family: featured[index],
+                    LayoutBuilder(
+                      builder: (context, constraints) => GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: featured.length,
+                        gridDelegate: ProductGridLayout.delegate(
+                          context,
+                          constraints.maxWidth,
+                        ),
+                        itemBuilder: (_, index) => ProductCard(
+                          product: featured[index].representative,
+                          family: featured[index],
+                        ),
                       ),
                     ),
                   ],

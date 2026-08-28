@@ -1,3 +1,4 @@
+import java.util.Base64
 import java.util.Properties
 
 plugins {
@@ -28,26 +29,55 @@ val hasReleaseSigning = listOf(
     releaseKeyPassword,
 ).all { !it.isNullOrBlank() }
 
+val flutterDartDefines = ((project.findProperty("dart-defines") as String?) ?: "")
+    .split(',')
+    .filter { it.isNotBlank() }
+    .mapNotNull { encoded ->
+        runCatching {
+            String(Base64.getDecoder().decode(encoded), Charsets.UTF_8)
+        }.getOrNull()
+    }
+    .mapNotNull { define ->
+        val separator = define.indexOf('=')
+        if (separator <= 0) null else define.substring(0, separator) to define.substring(separator + 1)
+    }
+    .toMap()
+
+val isReleaseBuildRequested = gradle.startParameter.taskNames.any {
+    it.contains("release", ignoreCase = true)
+}
+
+if (isReleaseBuildRequested) {
+    if (!hasReleaseSigning) {
+        throw GradleException(
+            "Release signing is required. Configure ignored key.properties or all KOYAS_ANDROID_* variables.",
+        )
+    }
+    val supabaseUrl = flutterDartDefines["SUPABASE_URL"] ?: ""
+    val supabaseAnonKey = flutterDartDefines["SUPABASE_ANON_KEY"] ?: ""
+    if (!supabaseUrl.startsWith("https://") || supabaseAnonKey.isBlank()) {
+        throw GradleException(
+            "Release backend configuration is required. Pass HTTPS SUPABASE_URL and SUPABASE_ANON_KEY with --dart-define.",
+        )
+    }
+}
+
 android {
     namespace = "com.koyas.koyas_supermarket"
     compileSdk = flutter.compileSdkVersion
-    // Firebase, Razorpay, and the current Android plugins require NDK 27.
-    ndkVersion = "27.0.12077973"
+    // Use the highest NDK requested by the native Flutter plugins.
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-    }
-
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     defaultConfig {
         applicationId = "com.koyas.koyas_supermarket"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 23
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -68,12 +98,14 @@ android {
         release {
             // Never ship a release artifact signed with Flutter's shared debug key.
             // Configure signing through ignored key.properties or KOYAS_ANDROID_* env vars.
-            signingConfig = if (hasReleaseSigning) {
-                signingConfigs.getByName("release")
-            } else {
-                null
-            }
+            signingConfig = signingConfigs.findByName("release")
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
 }
 

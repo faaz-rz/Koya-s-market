@@ -29,7 +29,7 @@ class StoreState {
     required this.pickupSlots,
     required this.deliverySlots,
     required this.serviceablePincodes,
-    this.minimumOrderPaise = 19900,
+    this.minimumOrderPaise = 0,
     this.baseDeliveryChargePaise = 4900,
     this.freeDeliveryThresholdPaise = 79900,
     this.pickupEnabled = true,
@@ -510,7 +510,16 @@ class StoreController extends Notifier<StoreState> {
           : PaymentStatus.pending,
       status: OrderStatus.placed,
       deliveryInstructions: state.deliveryInstructions,
+      customerName: state.profile?.name ?? '',
+      customerPhone: state.profile?.phone ?? '',
+      deliveryRecipientName: state.fulfilmentType == FulfilmentType.delivery
+          ? address?.recipientName ?? ''
+          : '',
+      deliveryRecipientPhone: state.fulfilmentType == FulfilmentType.delivery
+          ? address?.phone ?? ''
+          : '',
       createdAt: timestamp,
+      paidAt: state.paymentMethod == PaymentMethod.online ? timestamp : null,
     );
 
     final purchased = {...state.cartQuantities};
@@ -543,21 +552,8 @@ class StoreController extends Notifier<StoreState> {
         'Orders cannot be cancelled after preparation begins.',
       );
     }
-    final restoredProducts = state.products
-        .map((product) {
-          var restored = 0;
-          for (final item in order.items) {
-            if (item.productId == product.id) restored += item.quantity;
-          }
-          return restored == 0
-              ? product
-              : product.copyWith(
-                  stockQuantity: product.stockQuantity + restored,
-                );
-        })
-        .toList(growable: false);
     state = state.copyWith(
-      products: restoredProducts,
+      products: _productsWithRestoredStock(order),
       orders: state.orders
           .map(
             (item) => item.id == orderId
@@ -567,6 +563,19 @@ class StoreController extends Notifier<StoreState> {
           .toList(growable: false),
     );
   }
+
+  List<Product> _productsWithRestoredStock(CustomerOrder order) => state
+      .products
+      .map((product) {
+        var restored = 0;
+        for (final item in order.items) {
+          if (item.productId == product.id) restored += item.quantity;
+        }
+        return restored == 0
+            ? product
+            : product.copyWith(stockQuantity: product.stockQuantity + restored);
+      })
+      .toList(growable: false);
 
   void reorder(String orderId) {
     final order = state.orders.firstWhere((item) => item.id == orderId);
@@ -605,6 +614,74 @@ class StoreController extends Notifier<StoreState> {
     });
   }
 
+  void adminRejectOrder(String orderId) =>
+      _adminCloseOrder(orderId, nextStatus: OrderStatus.rejected);
+
+  void adminCancelOrder(String orderId) =>
+      _adminCloseOrder(orderId, nextStatus: OrderStatus.cancelled);
+
+  void _adminCloseOrder(String orderId, {required OrderStatus nextStatus}) {
+    if (!state.isAdminView) {
+      throw const StoreValidationException('Administrator access required.');
+    }
+    final order = state.orders.firstWhere((item) => item.id == orderId);
+    final valid = switch (nextStatus) {
+      OrderStatus.rejected => order.status == OrderStatus.placed,
+      OrderStatus.cancelled => order.status == OrderStatus.confirmed,
+      _ => false,
+    };
+    if (!valid) {
+      throw const StoreValidationException(
+        'This order can no longer be closed from its current status.',
+      );
+    }
+    state = state.copyWith(
+      products: _productsWithRestoredStock(order),
+      orders: state.orders
+          .map(
+            (item) =>
+                item.id == orderId ? item.copyWith(status: nextStatus) : item,
+          )
+          .toList(growable: false),
+    );
+  }
+
+  void adminMarkOrderPaid(String orderId) {
+    if (!state.isAdminView) {
+      throw const StoreValidationException('Administrator access required.');
+    }
+    final order = state.orders.firstWhere((item) => item.id == orderId);
+    final supportedMethod = {
+      PaymentMethod.cashOnDelivery,
+      PaymentMethod.payAtStore,
+    }.contains(order.paymentMethod);
+    final collectionStage = switch (order.paymentMethod) {
+      PaymentMethod.payAtStore => {
+        OrderStatus.readyForPickup,
+        OrderStatus.collected,
+      }.contains(order.status),
+      PaymentMethod.cashOnDelivery => {
+        OrderStatus.outForDelivery,
+        OrderStatus.delivered,
+      }.contains(order.status),
+      PaymentMethod.online => false,
+    };
+    if (!supportedMethod ||
+        order.paymentStatus != PaymentStatus.pending ||
+        !collectionStage) {
+      throw const StoreValidationException(
+        'Payment cannot be recorded at this order stage.',
+      );
+    }
+    _updateOrder(
+      orderId,
+      (item) => item.copyWith(
+        paymentStatus: PaymentStatus.paid,
+        paidAt: DateTime.now(),
+      ),
+    );
+  }
+
   void adminSaveProduct(Product product) {
     if (!state.isAdminView) {
       throw const StoreValidationException('Administrator access required.');
@@ -618,7 +695,8 @@ class StoreController extends Notifier<StoreState> {
     state = state.copyWith(products: products);
   }
 
-  void adminUpdateDeliveryPricing({
+  void adminUpdateOrderPricing({
+    required int minimumOrderPaise,
     required int deliveryChargePaise,
     required int freeDeliveryThresholdPaise,
   }) {
@@ -630,6 +708,11 @@ class StoreController extends Notifier<StoreState> {
         'Delivery charge must be between ₹0 and ₹10,000.',
       );
     }
+    if (minimumOrderPaise < 0 || minimumOrderPaise > 100000000) {
+      throw const StoreValidationException(
+        'Minimum order is outside the allowed range.',
+      );
+    }
     if (freeDeliveryThresholdPaise < 0 ||
         freeDeliveryThresholdPaise > 100000000) {
       throw const StoreValidationException(
@@ -637,6 +720,7 @@ class StoreController extends Notifier<StoreState> {
       );
     }
     state = state.copyWith(
+      minimumOrderPaise: minimumOrderPaise,
       baseDeliveryChargePaise: deliveryChargePaise,
       freeDeliveryThresholdPaise: freeDeliveryThresholdPaise,
     );
@@ -682,6 +766,48 @@ class StoreController extends Notifier<StoreState> {
     final deliverySubtotal = subtotal(deliveryItems);
     return [
       CustomerOrder(
+        id: 'KOY34621',
+        items: [snapshot(2)],
+        fulfilmentType: FulfilmentType.delivery,
+        fulfilmentDate: now,
+        slotLabel: '6:00 PM – 9:00 PM',
+        addressText: '18, Masab Tank Road, Hyderabad – 500028',
+        subtotalPaise: deliveryItems.first.totalPaise,
+        deliveryChargePaise: 4900,
+        discountPaise: 0,
+        totalPaise: deliveryItems.first.totalPaise + 4900,
+        paymentMethod: PaymentMethod.cashOnDelivery,
+        paymentStatus: PaymentStatus.pending,
+        status: OrderStatus.placed,
+        deliveryInstructions: 'Call on arrival; use the side gate.',
+        customerName: 'Ayesha Rahman',
+        customerPhone: '+91 98490 11223',
+        deliveryRecipientName: 'Ayesha Rahman',
+        deliveryRecipientPhone: '+91 98490 11223',
+        createdAt: now.subtract(const Duration(minutes: 25)),
+      ),
+      CustomerOrder(
+        id: 'KOY34620',
+        items: [snapshot(3)],
+        fulfilmentType: FulfilmentType.delivery,
+        fulfilmentDate: now,
+        slotLabel: '6:00 PM – 9:00 PM',
+        addressText: '7, Banjara Hills Road 12, Hyderabad – 500034',
+        subtotalPaise: deliveryItems.last.totalPaise,
+        deliveryChargePaise: 4900,
+        discountPaise: 0,
+        totalPaise: deliveryItems.last.totalPaise + 4900,
+        paymentMethod: PaymentMethod.cashOnDelivery,
+        paymentStatus: PaymentStatus.pending,
+        status: OrderStatus.confirmed,
+        deliveryInstructions: 'Ring the bell once; leave with the guard.',
+        customerName: 'Imran Khan',
+        customerPhone: '+91 97000 44556',
+        deliveryRecipientName: 'Nazia Khan',
+        deliveryRecipientPhone: '+91 97000 77889',
+        createdAt: now.subtract(const Duration(minutes: 45)),
+      ),
+      CustomerOrder(
         id: 'KOY34619',
         items: pickupItems,
         fulfilmentType: FulfilmentType.pickup,
@@ -694,6 +820,8 @@ class StoreController extends Notifier<StoreState> {
         paymentMethod: PaymentMethod.payAtStore,
         paymentStatus: PaymentStatus.pending,
         status: OrderStatus.readyForPickup,
+        customerName: 'Ezlin',
+        customerPhone: '+91 98765 43210',
         createdAt: now.subtract(const Duration(hours: 2)),
       ),
       CustomerOrder(
@@ -710,7 +838,12 @@ class StoreController extends Notifier<StoreState> {
         paymentMethod: PaymentMethod.online,
         paymentStatus: PaymentStatus.paid,
         status: OrderStatus.delivered,
+        customerName: 'Ezlin',
+        customerPhone: '+91 98765 43210',
+        deliveryRecipientName: 'Ezlin',
+        deliveryRecipientPhone: '+91 98765 43210',
         createdAt: now.subtract(const Duration(days: 9)),
+        paidAt: now.subtract(const Duration(days: 9)),
       ),
     ];
   }

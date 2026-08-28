@@ -2,8 +2,16 @@ import '../../checkout/models/checkout_models.dart';
 import 'generated_product_catalog.dart';
 
 abstract final class DemoStoreData {
+  static const minimumDemoStockQuantity = 25;
+
   static const categories = GeneratedProductCatalog.categories;
-  static const products = GeneratedProductCatalog.products;
+  static final products = GeneratedProductCatalog.products
+      .map(
+        (product) => product.stockQuantity < minimumDemoStockQuantity
+            ? product.copyWith(stockQuantity: minimumDemoStockQuantity)
+            : product,
+      )
+      .toList(growable: false);
 
   static const addresses = [
     CustomerAddress(

@@ -78,7 +78,7 @@ create table public.store_settings (
   store_address text not null,
   contact_phone text not null,
   opening_hours text not null,
-  minimum_order_paise integer not null default 19900 check (minimum_order_paise >= 0),
+  minimum_order_paise integer not null default 0 check (minimum_order_paise >= 0),
   delivery_charge_paise integer not null default 4900 check (delivery_charge_paise >= 0),
   free_delivery_threshold_paise integer not null default 79900 check (free_delivery_threshold_paise >= 0),
   cash_on_delivery_enabled boolean not null default true,
@@ -89,7 +89,9 @@ create table public.store_settings (
 insert into public.store_settings (
   store_address, contact_phone, opening_hours
 ) values (
-  'Road No. 12, Banjara Hills, Hyderabad', '+91 40 4000 2020', '8:00 AM – 9:00 PM'
+  '9-1, 43/5, Prashanth Nagar, Langar Houz, Hyderabad, Telangana 500008, India',
+  '+91 95029 26383',
+  '8:00 AM – 9:00 PM'
 ) on conflict (id) do nothing;
 
 create table public.serviceable_pincodes (

@@ -27,13 +27,20 @@ Deno.serve(async (request) => {
 
     const { data: order, error: orderError } = await adminClient
       .from("orders")
-      .select("id,user_id,total_paise,payment_method,payment_status,order_number")
+      .select("id,user_id,total_paise,payment_method,payment_status,order_status,order_number,payment_expires_at")
       .eq("id", internalOrderId)
       .eq("user_id", userData.user.id)
       .single();
     if (orderError || !order) return json({ error: "Order not found" }, 404);
     if (order.payment_method !== "online") return json({ error: "Order is not online-payment eligible" }, 409);
+    if (order.order_status !== "placed") return json({ error: "Order can no longer be paid" }, 409);
     if (order.payment_status === "paid") return json({ error: "Order is already paid" }, 409);
+    if (!["pending", "failed"].includes(order.payment_status)) {
+      return json({ error: "Order can no longer be paid" }, 409);
+    }
+    if (!order.payment_expires_at || Date.parse(order.payment_expires_at) <= Date.now()) {
+      return json({ error: "Payment window expired" }, 409);
+    }
 
     const { data: existing } = await adminClient
       .from("payment_events")

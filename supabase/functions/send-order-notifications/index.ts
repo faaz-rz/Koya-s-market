@@ -58,7 +58,25 @@ Deno.serve(async (request) => {
             }),
           },
         );
-        successful = successful && response.ok;
+        if (!response.ok) {
+          let responseBody: {
+            error?: { details?: Array<{ errorCode?: string }> };
+          } = {};
+          try {
+            responseBody = await response.json();
+          } catch (_) {
+            // A non-JSON provider error remains retryable.
+          }
+          const unregistered = responseBody.error?.details?.some(
+            (detail) => detail.errorCode === "UNREGISTERED",
+          ) ?? false;
+          if (unregistered) {
+            // Do not retry or retain a token that FCM has permanently revoked.
+            await client.from("device_tokens").delete().eq("token", device.token);
+          } else {
+            successful = false;
+          }
+        }
       }
       await client.from("notification_queue").update({
         processed_at: successful ? new Date().toISOString() : null,

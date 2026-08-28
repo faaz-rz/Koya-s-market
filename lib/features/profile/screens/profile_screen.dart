@@ -366,7 +366,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         onTap: () => ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text(
-                              'Call Koya Stores at +91 40 4000 2020.',
+                              'Call Koya Stores at +91 95029 26383.',
                             ),
                           ),
                         ),

@@ -30,6 +30,10 @@ class QuantityStepper extends StatelessWidget {
           IconButton(
             tooltip: 'Decrease quantity',
             visualDensity: compact ? VisualDensity.compact : null,
+            constraints: compact
+                ? const BoxConstraints.tightFor(width: 32, height: 40)
+                : null,
+            padding: compact ? EdgeInsets.zero : null,
             onPressed: onDecrement,
             icon: const Icon(Icons.remove_rounded, size: 18),
           ),
@@ -37,6 +41,10 @@ class QuantityStepper extends StatelessWidget {
           IconButton(
             tooltip: 'Increase quantity',
             visualDensity: compact ? VisualDensity.compact : null,
+            constraints: compact
+                ? const BoxConstraints.tightFor(width: 32, height: 40)
+                : null,
+            padding: compact ? EdgeInsets.zero : null,
             onPressed: onIncrement,
             icon: const Icon(Icons.add_rounded, size: 18),
           ),

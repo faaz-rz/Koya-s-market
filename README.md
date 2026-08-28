@@ -16,7 +16,8 @@ Customer screens:
 - Splash and email OTP login
 - Home, promotional banner, categories, search, offers, and product listing
 - Product detail with availability and stock-safe quantity controls
-- Cart with list price, product savings, minimum order, and totals
+- Cart with list price, product savings, admin-controlled minimum order, and
+  totals; the default is no minimum
 - Pickup or home-delivery selection
 - Pickup goes directly to payment, followed by a ready-for-pickup notification
 - Delivery address add/edit/delete/default, PIN serviceability, instructions,
@@ -32,6 +33,8 @@ Staff dashboard:
 
 - Separate responsive website with staff-only email OTP, mandatory TOTP
   authenticator MFA, and admin-only routing
+- Responsive navigation with separate Overview, Analytics, Pricing, Orders,
+  and Inventory pages instead of one long dashboard
 - Today, active, pickup, completed, daily-paid, monthly-paid, low-stock, and
   out-of-stock metrics
 - Complete store order queue, filters, manual refresh, and a direct
@@ -40,6 +43,8 @@ Staff dashboard:
   each pack size remains a separate SKU so its stock can be counted accurately
 - Manual stock controls for setting the complete physical count or applying an
   atomic `+1`/`-1` correction, with all/in-stock/low-stock/out-of-stock filters
+- Order-pricing controls for enabling, changing, or removing the minimum order,
+  delivery fee, and free-delivery threshold
 - Inventory add/edit controls for price, offer price, unit, category, featured
   products, and JPEG/PNG/WebP product-picture upload or replacement
 - Live Supabase product and order updates across open staff and customer screens
@@ -53,9 +58,13 @@ Production backend:
 - Supabase email OTP, session restoration, catalog/address/order hydration
 - Row Level Security for all customer and admin data
 - Idempotent `place_order` RPC that locks stock and recalculates every price
+- Per-customer active/hourly order limits, bounded cart/input payloads, and a
+  20-minute stock reservation for unfinished online payments
 - Separate payment and order statuses
 - Razorpay order creation, signature verification, and signed webhook handling
 - FCM device-token registration, notification queue, and HTTP v1 dispatcher
+- Keychain/Keystore-backed customer sessions, session-expiry data clearing,
+  RPC-only device-token ownership, and automatic stale-token removal
 - Product-image bucket limited to JPEG/PNG/WebP and 5 MB
 - Audited, server-validated product and stock changes; administrator-owned
   image paths; automatic product availability synchronization; and validated
@@ -66,8 +75,14 @@ Production backend:
 
 Debug builds run immediately in a deterministic local demo mode when no
 external configuration is supplied. Demo mode does not charge money or call
-external services. Release admin builds fail closed when Supabase configuration
-is missing.
+external services. Customer releases refuse to build without production
+signing and Supabase configuration; iOS and web releases show no demo data if
+configuration is missing. Release admin builds also fail closed unless a
+client-evaluation build explicitly opts into the separate admin preview.
+
+For a temporary client-evaluation build only, admin demo access can be enabled
+explicitly with `--dart-define=ENABLE_ADMIN_DEMO=true`. Never use that flag for
+the production admin deployment.
 
 ## Run locally
 
@@ -145,6 +160,10 @@ Never put the Supabase service-role key or Razorpay secrets in the website.
    subscribe at least to `payment.captured` and `payment.failed`.
 7. Trigger `send-order-notifications` from a protected scheduler or database
    webhook whenever `notification_queue` receives a row.
+8. Enable Supabase Cron and run `select
+   public.expire_abandoned_online_orders(100);` every minute. This releases
+   stock from online orders whose 20-minute payment window has elapsed. The
+   function is service-role-only and is already safe for concurrent workers.
 
 For production Auth, configure a trusted custom SMTP provider, review Supabase
 email OTP rate limits, keep the staff allowlist in `public.admins` small, and
@@ -158,6 +177,11 @@ flutter run \
   --dart-define=SUPABASE_URL=https://YOUR_PROJECT.supabase.co \
   --dart-define=SUPABASE_ANON_KEY=YOUR_PUBLISHABLE_KEY
 ```
+
+The customer app only loads production product images from the controlled
+`product-images` bucket. Import or upload catalogue images there before launch;
+third-party catalogue URLs are intentionally ignored to avoid leaking customer
+network metadata.
 
 ## Product master catalogue
 
@@ -239,6 +263,10 @@ failure webhook cannot downgrade an already captured payment.
 
 ## Release preparation
 
+Android builds target SDK 36 and support Android 7.0 (API 24) and newer. The
+release toolchain uses Java 17, NDK 28.2, and Flutter's supported AGP 8
+compatibility path while native plugins complete their AGP 9 migrations.
+
 Android release builds never fall back to the Flutter debug key. Signing can be
 provided with an ignored `android/key.properties` file (start from
 `android/key.properties.example`) or the `KOYAS_ANDROID_KEYSTORE_PATH`,
@@ -247,6 +275,16 @@ provided with an ignored `android/key.properties` file (start from
 certificate is in `android/koyas-upload-certificate.pem`; keep the corresponding
 private keystore and password backed up securely before the first Play Console
 upload because future updates must use the same upload identity.
+
+Build and verify the signed bundle only after supplying the public Supabase
+values:
+
+```sh
+flutter build appbundle --release \
+  --dart-define=SUPABASE_URL=https://YOUR_PROJECT.supabase.co \
+  --dart-define=SUPABASE_ANON_KEY=YOUR_PUBLISHABLE_KEY
+tool/verify_android_release.sh build/app/outputs/bundle/release/app-release.aab
+```
 
 Keep the private upload key outside the repository and store its passwords in a
 developer-machine secret manager. Never document machine-specific credential
@@ -271,10 +309,12 @@ dart format --output=none --set-exit-if-changed lib test
 flutter analyze
 flutter test
 flutter build web --release -t lib/admin_main.dart
-flutter build appbundle --release
-flutter build apk --release
 flutter build ios --release
 ```
+
+Android release commands are shown in **Release preparation** because both
+production signing credentials and the two Supabase `--dart-define` values are
+mandatory. CI also verifies that an unconfigured Android release is rejected.
 
 Primary implementation entry points:
 
@@ -288,4 +328,6 @@ Primary implementation entry points:
   privilege admin writes, MFA-aware product saving, and product-image ownership
 - `supabase/migrations/202608230002_notification_claims.sql` — atomic worker
   claims that prevent concurrent duplicate notification dispatch
+- `supabase/migrations/202608270002_customer_security_hardening.sql` — customer
+  rate limits, payment expiry, bounded inputs, and device-token RPCs
 - `supabase/functions/` — Razorpay and FCM server functions

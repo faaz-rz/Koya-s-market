@@ -80,6 +80,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
       return;
     }
+    if (!AppEnvironment.allowCustomerDemo) {
+      setState(
+        () => _authMessage =
+            'This build is missing its secure service configuration.',
+      );
+      return;
+    }
     ref.read(storeProvider.notifier).loginDemo(email: _emailController.text);
     context.go('/home');
   }
@@ -177,7 +184,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       onPressed: _continue,
                     ),
                     const SizedBox(height: AppSpacing.xxl),
-                    if (!AppEnvironment.hasSupabaseConfig)
+                    if (AppEnvironment.allowCustomerDemo)
                       Container(
                         padding: const EdgeInsets.all(AppSpacing.lg),
                         decoration: BoxDecoration(

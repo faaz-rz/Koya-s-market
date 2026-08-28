@@ -13,13 +13,22 @@ abstract final class AppEnvironment {
     'ADMIN_IDLE_TIMEOUT_MINUTES',
     defaultValue: 15,
   );
+  static const enableAdminDemo = bool.fromEnvironment('ENABLE_ADMIN_DEMO');
 
   static bool get hasSupabaseConfig =>
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
 
-  /// Demo access is deliberately unavailable in release builds so a missing
-  /// production configuration can never expose a fake staff dashboard.
-  static bool get allowAdminDemo => !kReleaseMode && !hasSupabaseConfig;
+  /// Sample customer data is a development convenience only. Unlike the
+  /// separately opt-in admin preview, it can never be enabled in a release.
+  static bool get allowCustomerDemo => !kReleaseMode && !hasSupabaseConfig;
+
+  static bool get hasProductionCustomerConfig =>
+      hasSupabaseConfig && supabaseUrl.startsWith('https://');
+
+  /// Release builds stay locked unless a client-evaluation build explicitly
+  /// opts into sample data. Production deployments must never set this flag.
+  static bool get allowAdminDemo =>
+      !hasSupabaseConfig && (!kReleaseMode || enableAdminDemo);
 
   static Duration get adminIdleTimeout =>
       Duration(minutes: adminIdleTimeoutMinutes.clamp(5, 60));

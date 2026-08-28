@@ -53,6 +53,11 @@ class CustomerOrder {
     this.reference,
     this.addressText,
     this.deliveryInstructions = '',
+    this.customerName = '',
+    this.customerPhone = '',
+    this.deliveryRecipientName = '',
+    this.deliveryRecipientPhone = '',
+    this.paidAt,
   });
 
   final String id;
@@ -69,12 +74,21 @@ class CustomerOrder {
   final PaymentStatus paymentStatus;
   final OrderStatus status;
   final String deliveryInstructions;
+  final String customerName;
+  final String customerPhone;
+  final String deliveryRecipientName;
+  final String deliveryRecipientPhone;
   final DateTime createdAt;
+  final DateTime? paidAt;
   final String? reference;
 
   String get displayReference => reference ?? id;
 
-  CustomerOrder copyWith({OrderStatus? status, PaymentStatus? paymentStatus}) {
+  CustomerOrder copyWith({
+    OrderStatus? status,
+    PaymentStatus? paymentStatus,
+    DateTime? paidAt,
+  }) {
     return CustomerOrder(
       id: id,
       items: items,
@@ -90,7 +104,12 @@ class CustomerOrder {
       paymentStatus: paymentStatus ?? this.paymentStatus,
       status: status ?? this.status,
       deliveryInstructions: deliveryInstructions,
+      customerName: customerName,
+      customerPhone: customerPhone,
+      deliveryRecipientName: deliveryRecipientName,
+      deliveryRecipientPhone: deliveryRecipientPhone,
       createdAt: createdAt,
+      paidAt: paidAt ?? this.paidAt,
       reference: reference,
     );
   }
