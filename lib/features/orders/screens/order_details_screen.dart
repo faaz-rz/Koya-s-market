@@ -270,14 +270,39 @@ class _OrderDetails extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: AppSpacing.md),
-                  Expanded(child: Text('${item.name} × ${item.quantity}')),
-                  Text(formatPrice(item.totalPaise)),
+                  Expanded(
+                    child: Text(
+                      '${item.name} × ${item.quantity}${item.isFreeOfferItem ? ' · FREE' : ''}',
+                    ),
+                  ),
+                  Text(
+                    item.isFreeOfferItem
+                        ? 'Free'
+                        : formatPrice(item.totalPaise),
+                  ),
                 ],
               ),
             ),
           ),
           const Divider(),
           const SizedBox(height: AppSpacing.md),
+          if (order.offerCode != null) ...[
+            Row(
+              children: [
+                Expanded(child: Text('Offer ${order.offerCode}')),
+                Text(
+                  order.offerDiscountPaise == 0
+                      ? 'Free gift'
+                      : '−${formatPrice(order.offerDiscountPaise)}',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.success,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
           Row(
             children: [
               Text('Total', style: Theme.of(context).textTheme.titleMedium),

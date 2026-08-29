@@ -10,6 +10,7 @@ import '../../../core/utils/price_format.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/koyas_button.dart';
 import '../../../core/widgets/koyas_surface.dart';
+import '../../offers/widgets/offer_redemption_panel.dart';
 import '../../store/providers/store_provider.dart';
 import '../../store/data/supabase_store_repository.dart';
 import '../data/payment_repository.dart';
@@ -343,6 +344,21 @@ class _CheckoutSummary extends ConsumerWidget {
               value: '−${formatPrice(store.savingsPaise)}',
             ),
           ],
+          if (store.offerDiscountPaise > 0) ...[
+            const SizedBox(height: AppSpacing.sm),
+            _PriceLine(
+              label: 'Offer ${store.appliedOffer?.code ?? ''}',
+              value: '−${formatPrice(store.offerDiscountPaise)}',
+            ),
+          ],
+          if (store.freeOfferProduct != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            _PriceLine(
+              label:
+                  '${store.appliedOffer!.freeQuantity} × ${store.freeOfferProduct!.name}',
+              value: 'Free',
+            ),
+          ],
           const SizedBox(height: AppSpacing.sm),
           _PriceLine(
             label: 'Delivery',
@@ -359,6 +375,8 @@ class _CheckoutSummary extends ConsumerWidget {
             value: formatPrice(store.totalPaise),
             strong: true,
           ),
+          const SizedBox(height: AppSpacing.lg),
+          const OfferRedemptionPanel(),
         ],
       ),
     );

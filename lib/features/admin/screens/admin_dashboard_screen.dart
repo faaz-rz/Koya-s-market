@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -16,6 +15,7 @@ import '../../../core/widgets/koyas_logo.dart';
 import '../../../core/widgets/koyas_surface.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../checkout/models/checkout_models.dart';
+import '../../offers/models/store_offer.dart';
 import '../analytics/admin_sales_analytics.dart';
 import '../../orders/models/order.dart';
 import '../../orders/widgets/order_status_ui.dart';
@@ -23,6 +23,7 @@ import '../../products/models/category.dart';
 import '../../products/models/product.dart';
 import '../../products/models/product_image_upload.dart';
 import '../../products/product_search.dart';
+import '../../products/services/product_image_picker.dart';
 import '../../products/widgets/product_visual.dart';
 import '../../store/data/supabase_store_repository.dart';
 import '../../store/providers/store_provider.dart';
@@ -433,6 +434,7 @@ class _DashboardContent extends ConsumerWidget {
       ),
       AdminSection.pricing => _PricingSection(
         store: store,
+        cartOffers: store.offers,
         activeOffers: store.products
             .where(
               (product) => product.active && product.discountPricePaise != null,
@@ -442,6 +444,8 @@ class _DashboardContent extends ConsumerWidget {
         onAddOffer: () => _addOffer(context, ref),
         onManageOffer: () => _manageOffer(context, ref),
         onEditOffer: (product) => _editOffer(context, ref, product),
+        onAddCartOffer: () => _editCartOffer(context, ref),
+        onEditCartOffer: (offer) => _editCartOffer(context, ref, offer: offer),
       ),
       AdminSection.orders => _OrdersSection(
         visibleOrders: visibleOrders,
@@ -773,6 +777,49 @@ class _DashboardContent extends ConsumerWidget {
     }
   }
 
+  Future<void> _editCartOffer(
+    BuildContext context,
+    WidgetRef ref, {
+    StoreOffer? offer,
+  }) async {
+    final saved = await showDialog<StoreOffer>(
+      context: context,
+      builder: (context) => _CartOfferEditorDialog(
+        offer: offer,
+        products: store.products.where((product) => product.active).toList(),
+      ),
+    );
+    if (saved == null) return;
+    try {
+      if (AppEnvironment.hasSupabaseConfig) {
+        final repository = SupabaseStoreRepository();
+        await repository.saveOffer(saved);
+        final bundle = await repository.loadStore();
+        ref.read(storeProvider.notifier).hydrateRemoteBundle(bundle);
+      } else {
+        ref.read(storeProvider.notifier).adminSaveOffer(saved);
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Cart offer could not be saved.')),
+        );
+      }
+      return;
+    }
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            saved.active
+                ? 'Offer ${saved.code} is active.'
+                : 'Offer ${saved.code} is disabled.',
+          ),
+        ),
+      );
+    }
+  }
+
   Future<void> _updateStock(
     BuildContext context,
     WidgetRef ref,
@@ -1069,19 +1116,25 @@ class _OverviewSection extends StatelessWidget {
 class _PricingSection extends StatelessWidget {
   const _PricingSection({
     required this.store,
+    required this.cartOffers,
     required this.activeOffers,
     required this.onEditPricing,
     required this.onAddOffer,
     required this.onManageOffer,
     required this.onEditOffer,
+    required this.onAddCartOffer,
+    required this.onEditCartOffer,
   });
 
   final StoreState store;
+  final List<StoreOffer> cartOffers;
   final List<Product> activeOffers;
   final VoidCallback onEditPricing;
   final VoidCallback onAddOffer;
   final VoidCallback onManageOffer;
   final ValueChanged<Product> onEditOffer;
+  final VoidCallback onAddCartOffer;
+  final ValueChanged<StoreOffer> onEditCartOffer;
 
   @override
   Widget build(BuildContext context) {
@@ -1095,21 +1148,33 @@ class _PricingSection extends StatelessWidget {
           onManage: onManageOffer,
           onEdit: onEditOffer,
         );
-        if (constraints.maxWidth < 760) {
-          return Column(
-            children: [
-              pricing,
-              const SizedBox(height: AppSpacing.md),
-              offers,
-            ],
-          );
-        }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        final top = constraints.maxWidth < 760
+            ? Column(
+                children: [
+                  pricing,
+                  const SizedBox(height: AppSpacing.md),
+                  offers,
+                ],
+              )
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: pricing),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(child: offers),
+                ],
+              );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(child: pricing),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(child: offers),
+            top,
+            const SizedBox(height: AppSpacing.md),
+            _CartOfferManagementCard(
+              offers: cartOffers,
+              products: store.products,
+              onAdd: onAddCartOffer,
+              onEdit: onEditCartOffer,
+            ),
           ],
         );
       },
@@ -2564,11 +2629,15 @@ class _AdminOrderDetailsDialog extends StatelessWidget {
                               children: [
                                 Expanded(
                                   child: Text(
-                                    '${item.quantity} × ${item.name} · ${item.unit}',
+                                    '${item.quantity} × ${item.name} · ${item.unit}${item.isFreeOfferItem ? ' · FREE' : ''}',
                                   ),
                                 ),
                                 const SizedBox(width: AppSpacing.md),
-                                Text(formatPrice(item.totalPaise)),
+                                Text(
+                                  item.isFreeOfferItem
+                                      ? 'Free'
+                                      : formatPrice(item.totalPaise),
+                                ),
                               ],
                             ),
                           ),
@@ -2581,6 +2650,11 @@ class _AdminOrderDetailsDialog extends StatelessWidget {
                           label: 'Delivery',
                           amountPaise: order.deliveryChargePaise,
                         ),
+                        if (order.offerCode != null)
+                          _AdminOrderAmountRow(
+                            label: 'Offer ${order.offerCode}',
+                            amountPaise: -order.offerDiscountPaise,
+                          ),
                         _AdminOrderAmountRow(
                           label: 'Total',
                           amountPaise: order.totalPaise,
@@ -3201,6 +3275,116 @@ class _OfferManagementCard extends StatelessWidget {
   }
 }
 
+class _CartOfferManagementCard extends StatelessWidget {
+  const _CartOfferManagementCard({
+    required this.offers,
+    required this.products,
+    required this.onAdd,
+    required this.onEdit,
+  });
+
+  final List<StoreOffer> offers;
+  final List<Product> products;
+  final VoidCallback onAdd;
+  final ValueChanged<StoreOffer> onEdit;
+
+  Product? _product(String? id) {
+    if (id == null) return null;
+    for (final product in products) {
+      if (product.id == id) return product;
+    }
+    return null;
+  }
+
+  String _benefit(StoreOffer offer) {
+    final parts = <String>[];
+    if (offer.discountType == OfferDiscountType.flat) {
+      parts.add('${formatPrice(offer.discountValue)} off');
+    } else if (offer.discountType == OfferDiscountType.percentage) {
+      parts.add('${offer.discountValue}% off');
+    }
+    final freeProduct = _product(offer.freeProductId);
+    if (freeProduct != null) {
+      parts.add('${offer.freeQuantity} × ${freeProduct.name} free');
+    }
+    return parts.join(' · ');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final activeCount = offers.where((offer) => offer.active).length;
+    return KoyasSurface(
+      key: const Key('admin-cart-offers'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.redeem_outlined),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  'Minimum-buy & free-product offers',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              Chip(label: Text('$activeCount active')),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Control customer codes, minimum basket values, discounts, free products, schedules, and usage limits.',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppColors.inkSecondary),
+          ),
+          if (offers.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.md),
+            for (final offer in offers)
+              ListTile(
+                key: Key('admin-cart-offer-${offer.id}'),
+                contentPadding: EdgeInsets.zero,
+                leading: CircleAvatar(
+                  backgroundColor: offer.active
+                      ? AppColors.successSoft
+                      : AppColors.surfaceMuted,
+                  child: Icon(
+                    offer.hasFreeProduct
+                        ? Icons.card_giftcard_rounded
+                        : Icons.percent_rounded,
+                    color: offer.active
+                        ? AppColors.success
+                        : AppColors.inkTertiary,
+                  ),
+                ),
+                title: Text('${offer.code} · ${offer.title}'),
+                subtitle: Text(
+                  '${_benefit(offer)}\nMinimum ${formatPrice(offer.minimumSubtotalPaise)} · ${offer.active ? 'Active' : 'Disabled'}',
+                ),
+                isThreeLine: true,
+                trailing: TextButton(
+                  key: Key('admin-edit-cart-offer-${offer.id}'),
+                  onPressed: () => onEdit(offer),
+                  child: const Text('Edit'),
+                ),
+              ),
+          ] else ...[
+            const SizedBox(height: AppSpacing.md),
+            const Text('No cart offers have been created yet.'),
+          ],
+          const SizedBox(height: AppSpacing.md),
+          FilledButton.tonalIcon(
+            key: const Key('admin-add-cart-offer'),
+            onPressed: onAdd,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Create cart offer'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _OrderPricingDialog extends StatefulWidget {
   const _OrderPricingDialog({required this.store});
 
@@ -3570,6 +3754,551 @@ class _OfferEditorDialogState extends State<_OfferEditorDialog> {
   }
 }
 
+enum _CartOfferDiscountChoice { none, flat, percentage }
+
+enum _CartOfferFulfilmentChoice { all, pickup, delivery }
+
+class _CartOfferEditorDialog extends StatefulWidget {
+  const _CartOfferEditorDialog({required this.offer, required this.products});
+
+  final StoreOffer? offer;
+  final List<Product> products;
+
+  @override
+  State<_CartOfferEditorDialog> createState() => _CartOfferEditorDialogState();
+}
+
+class _CartOfferEditorDialogState extends State<_CartOfferEditorDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _code;
+  late final TextEditingController _title;
+  late final TextEditingController _description;
+  late final TextEditingController _minimum;
+  late final TextEditingController _discountValue;
+  late final TextEditingController _maximumDiscount;
+  late final TextEditingController _freeQuantity;
+  late final TextEditingController _totalLimit;
+  late final TextEditingController _customerLimit;
+  late _CartOfferDiscountChoice _discountChoice;
+  late _CartOfferFulfilmentChoice _fulfilmentChoice;
+  String? _freeProductId;
+  DateTime? _startsAt;
+  DateTime? _endsAt;
+  late bool _active;
+  String? _benefitError;
+
+  @override
+  void initState() {
+    super.initState();
+    final offer = widget.offer;
+    _code = TextEditingController(text: offer?.code ?? '');
+    _title = TextEditingController(text: offer?.title ?? '');
+    _description = TextEditingController(text: offer?.description ?? '');
+    _minimum = TextEditingController(
+      text: offer == null
+          ? '0.00'
+          : (offer.minimumSubtotalPaise / 100).toStringAsFixed(2),
+    );
+    _discountChoice = switch (offer?.discountType) {
+      OfferDiscountType.flat => _CartOfferDiscountChoice.flat,
+      OfferDiscountType.percentage => _CartOfferDiscountChoice.percentage,
+      null => _CartOfferDiscountChoice.none,
+    };
+    _discountValue = TextEditingController(
+      text: offer == null || !offer.hasDiscount
+          ? ''
+          : offer.discountType == OfferDiscountType.flat
+          ? (offer.discountValue / 100).toStringAsFixed(2)
+          : '${offer.discountValue}',
+    );
+    _maximumDiscount = TextEditingController(
+      text: offer?.maximumDiscountPaise == null
+          ? ''
+          : (offer!.maximumDiscountPaise! / 100).toStringAsFixed(2),
+    );
+    _freeProductId = offer?.freeProductId;
+    _freeQuantity = TextEditingController(text: '${offer?.freeQuantity ?? 1}');
+    _totalLimit = TextEditingController(
+      text: offer?.totalRedemptionLimit?.toString() ?? '',
+    );
+    _customerLimit = TextEditingController(
+      text: '${offer?.perCustomerLimit ?? 1}',
+    );
+    _fulfilmentChoice = switch (offer?.requiredFulfilment) {
+      FulfilmentType.pickup => _CartOfferFulfilmentChoice.pickup,
+      FulfilmentType.delivery => _CartOfferFulfilmentChoice.delivery,
+      null => _CartOfferFulfilmentChoice.all,
+    };
+    _startsAt = offer?.startsAt;
+    _endsAt = offer?.endsAt;
+    _active = offer?.active ?? true;
+  }
+
+  @override
+  void dispose() {
+    _code.dispose();
+    _title.dispose();
+    _description.dispose();
+    _minimum.dispose();
+    _discountValue.dispose();
+    _maximumDiscount.dispose();
+    _freeQuantity.dispose();
+    _totalLimit.dispose();
+    _customerLimit.dispose();
+    super.dispose();
+  }
+
+  int? _paise(String value) {
+    final amount = double.tryParse(value.trim());
+    return amount == null || !amount.isFinite ? null : (amount * 100).round();
+  }
+
+  int? _optionalPositiveInteger(String value) {
+    if (value.trim().isEmpty) return null;
+    final parsed = int.tryParse(value.trim());
+    return parsed != null && parsed > 0 ? parsed : -1;
+  }
+
+  Product? get _freeProduct {
+    for (final product in widget.products) {
+      if (product.id == _freeProductId) return product;
+    }
+    return null;
+  }
+
+  Future<void> _chooseFreeProduct() async {
+    final product = await showDialog<Product>(
+      context: context,
+      builder: (context) =>
+          _OfferProductPickerDialog(products: widget.products),
+    );
+    if (product != null && mounted) {
+      setState(() {
+        _freeProductId = product.id;
+        _benefitError = null;
+      });
+    }
+  }
+
+  Future<void> _pickDate({required bool start}) async {
+    final initial = start
+        ? _startsAt ?? DateTime.now()
+        : _endsAt ?? _startsAt ?? DateTime.now().add(const Duration(days: 7));
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      lastDate: DateTime.now().add(const Duration(days: 3650)),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      if (start) {
+        _startsAt = DateTime(picked.year, picked.month, picked.day);
+      } else {
+        _endsAt = DateTime(picked.year, picked.month, picked.day, 23, 59, 59);
+      }
+    });
+  }
+
+  void _save() {
+    setState(() => _benefitError = null);
+    if (!_formKey.currentState!.validate()) return;
+    final hasDiscount = _discountChoice != _CartOfferDiscountChoice.none;
+    if (!hasDiscount && _freeProductId == null) {
+      setState(
+        () => _benefitError = 'Choose a discount, a free product, or both.',
+      );
+      return;
+    }
+    if (_startsAt != null && _endsAt != null && !_endsAt!.isAfter(_startsAt!)) {
+      setState(() => _benefitError = 'End date must be after the start date.');
+      return;
+    }
+
+    final discountType = switch (_discountChoice) {
+      _CartOfferDiscountChoice.none => null,
+      _CartOfferDiscountChoice.flat => OfferDiscountType.flat,
+      _CartOfferDiscountChoice.percentage => OfferDiscountType.percentage,
+    };
+    final discountValue = switch (_discountChoice) {
+      _CartOfferDiscountChoice.none => 0,
+      _CartOfferDiscountChoice.flat => _paise(_discountValue.text)!,
+      _CartOfferDiscountChoice.percentage => int.parse(
+        _discountValue.text.trim(),
+      ),
+    };
+    final requiredFulfilment = switch (_fulfilmentChoice) {
+      _CartOfferFulfilmentChoice.all => null,
+      _CartOfferFulfilmentChoice.pickup => FulfilmentType.pickup,
+      _CartOfferFulfilmentChoice.delivery => FulfilmentType.delivery,
+    };
+
+    Navigator.of(context).pop(
+      StoreOffer(
+        id:
+            widget.offer?.id ??
+            'new-offer-${DateTime.now().microsecondsSinceEpoch}',
+        code: _code.text.trim().toUpperCase(),
+        title: _title.text.trim(),
+        description: _description.text.trim(),
+        minimumSubtotalPaise: _paise(_minimum.text)!,
+        discountType: discountType,
+        discountValue: discountValue,
+        maximumDiscountPaise:
+            _discountChoice == _CartOfferDiscountChoice.percentage &&
+                _maximumDiscount.text.trim().isNotEmpty
+            ? _paise(_maximumDiscount.text)
+            : null,
+        freeProductId: _freeProductId,
+        freeQuantity: int.parse(_freeQuantity.text.trim()),
+        requiredFulfilment: requiredFulfilment,
+        startsAt: _startsAt,
+        endsAt: _endsAt,
+        totalRedemptionLimit: _optionalPositiveInteger(_totalLimit.text),
+        perCustomerLimit: int.parse(_customerLimit.text.trim()),
+        active: _active,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dateFormat = DateFormat('d MMM y');
+    return AlertDialog(
+      title: Text(
+        widget.offer == null ? 'Create cart offer' : 'Edit cart offer',
+      ),
+      content: SizedBox(
+        width: 680,
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        key: const Key('admin-cart-offer-code'),
+                        controller: _code,
+                        textCapitalization: TextCapitalization.characters,
+                        decoration: const InputDecoration(
+                          labelText: 'Customer code',
+                          hintText: 'SAVE10',
+                        ),
+                        validator: (value) =>
+                            RegExp(
+                              r'^[A-Za-z0-9_-]{3,24}$',
+                            ).hasMatch(value?.trim() ?? '')
+                            ? null
+                            : 'Use 3–24 letters, numbers, dashes, or underscores',
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: TextFormField(
+                        key: const Key('admin-cart-offer-title'),
+                        controller: _title,
+                        decoration: const InputDecoration(
+                          labelText: 'Offer title',
+                        ),
+                        validator: (value) {
+                          final length = value?.trim().length ?? 0;
+                          return length < 2 || length > 120
+                              ? 'Enter 2–120 characters'
+                              : null;
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.md),
+                TextFormField(
+                  key: const Key('admin-cart-offer-description'),
+                  controller: _description,
+                  maxLength: 500,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Customer description',
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                TextFormField(
+                  key: const Key('admin-cart-offer-minimum'),
+                  controller: _minimum,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Minimum basket (₹)',
+                    prefixIcon: Icon(Icons.shopping_basket_outlined),
+                  ),
+                  validator: (value) {
+                    final amount = _paise(value ?? '');
+                    return amount == null || amount < 0
+                        ? 'Enter a valid minimum'
+                        : null;
+                  },
+                ),
+                const SizedBox(height: AppSpacing.md),
+                DropdownButtonFormField<_CartOfferDiscountChoice>(
+                  key: const Key('admin-cart-offer-discount-type'),
+                  initialValue: _discountChoice,
+                  decoration: const InputDecoration(
+                    labelText: 'Discount benefit',
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: _CartOfferDiscountChoice.none,
+                      child: Text('No price discount'),
+                    ),
+                    DropdownMenuItem(
+                      value: _CartOfferDiscountChoice.flat,
+                      child: Text('Flat amount off'),
+                    ),
+                    DropdownMenuItem(
+                      value: _CartOfferDiscountChoice.percentage,
+                      child: Text('Percentage off'),
+                    ),
+                  ],
+                  onChanged: (value) => setState(
+                    () => _discountChoice =
+                        value ?? _CartOfferDiscountChoice.none,
+                  ),
+                ),
+                if (_discountChoice != _CartOfferDiscountChoice.none) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  TextFormField(
+                    key: const Key('admin-cart-offer-discount-value'),
+                    controller: _discountValue,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: InputDecoration(
+                      labelText:
+                          _discountChoice == _CartOfferDiscountChoice.flat
+                          ? 'Discount amount (₹)'
+                          : 'Discount percentage',
+                    ),
+                    validator: (value) {
+                      if (_discountChoice == _CartOfferDiscountChoice.flat) {
+                        final amount = _paise(value ?? '');
+                        return amount == null || amount <= 0
+                            ? 'Enter a positive discount'
+                            : null;
+                      }
+                      final percent = int.tryParse(value?.trim() ?? '');
+                      return percent == null || percent < 1 || percent > 100
+                          ? 'Enter a percentage from 1 to 100'
+                          : null;
+                    },
+                  ),
+                ],
+                if (_discountChoice == _CartOfferDiscountChoice.percentage) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  TextFormField(
+                    key: const Key('admin-cart-offer-maximum-discount'),
+                    controller: _maximumDiscount,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Maximum discount (₹, optional)',
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) return null;
+                      final amount = _paise(value);
+                      return amount == null || amount <= 0
+                          ? 'Enter a positive maximum'
+                          : null;
+                    },
+                  ),
+                ],
+                const SizedBox(height: AppSpacing.lg),
+                Text(
+                  'Free product',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                if (_freeProduct == null)
+                  OutlinedButton.icon(
+                    key: const Key('admin-cart-offer-choose-free-product'),
+                    onPressed: _chooseFreeProduct,
+                    icon: const Icon(Icons.card_giftcard_rounded),
+                    label: const Text('Choose a free product'),
+                  )
+                else
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(_freeProduct!.name),
+                    subtitle: Text(_freeProduct!.unit),
+                    trailing: IconButton(
+                      key: const Key('admin-cart-offer-remove-free-product'),
+                      tooltip: 'Remove free product',
+                      onPressed: () => setState(() => _freeProductId = null),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ),
+                if (_freeProduct != null) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  TextFormField(
+                    key: const Key('admin-cart-offer-free-quantity'),
+                    controller: _freeQuantity,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Free quantity',
+                    ),
+                    validator: (value) {
+                      final quantity = int.tryParse(value?.trim() ?? '');
+                      return quantity == null || quantity < 1 || quantity > 20
+                          ? 'Enter a quantity from 1 to 20'
+                          : null;
+                    },
+                  ),
+                ],
+                if (_benefitError != null) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    _benefitError!,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: AppColors.error),
+                  ),
+                ],
+                const SizedBox(height: AppSpacing.lg),
+                DropdownButtonFormField<_CartOfferFulfilmentChoice>(
+                  key: const Key('admin-cart-offer-fulfilment'),
+                  initialValue: _fulfilmentChoice,
+                  decoration: const InputDecoration(
+                    labelText: 'Valid fulfilment',
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: _CartOfferFulfilmentChoice.all,
+                      child: Text('Pickup and delivery'),
+                    ),
+                    DropdownMenuItem(
+                      value: _CartOfferFulfilmentChoice.pickup,
+                      child: Text('Pickup only'),
+                    ),
+                    DropdownMenuItem(
+                      value: _CartOfferFulfilmentChoice.delivery,
+                      child: Text('Delivery only'),
+                    ),
+                  ],
+                  onChanged: (value) => setState(
+                    () => _fulfilmentChoice =
+                        value ?? _CartOfferFulfilmentChoice.all,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: [
+                    OutlinedButton.icon(
+                      key: const Key('admin-cart-offer-start-date'),
+                      onPressed: () => _pickDate(start: true),
+                      icon: const Icon(Icons.event_outlined),
+                      label: Text(
+                        _startsAt == null
+                            ? 'Starts immediately'
+                            : 'Starts ${dateFormat.format(_startsAt!)}',
+                      ),
+                    ),
+                    if (_startsAt != null)
+                      IconButton(
+                        tooltip: 'Clear start date',
+                        onPressed: () => setState(() => _startsAt = null),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    OutlinedButton.icon(
+                      key: const Key('admin-cart-offer-end-date'),
+                      onPressed: () => _pickDate(start: false),
+                      icon: const Icon(Icons.event_busy_outlined),
+                      label: Text(
+                        _endsAt == null
+                            ? 'No end date'
+                            : 'Ends ${dateFormat.format(_endsAt!)}',
+                      ),
+                    ),
+                    if (_endsAt != null)
+                      IconButton(
+                        tooltip: 'Clear end date',
+                        onPressed: () => setState(() => _endsAt = null),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        key: const Key('admin-cart-offer-total-limit'),
+                        controller: _totalLimit,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Total uses (optional)',
+                        ),
+                        validator: (value) =>
+                            _optionalPositiveInteger(value ?? '') == -1
+                            ? 'Enter a positive limit'
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: TextFormField(
+                        key: const Key('admin-cart-offer-customer-limit'),
+                        controller: _customerLimit,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Uses per customer',
+                        ),
+                        validator: (value) {
+                          final limit = int.tryParse(value?.trim() ?? '');
+                          return limit == null || limit < 1 || limit > 10000
+                              ? 'Enter 1–10,000'
+                              : null;
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                SwitchListTile.adaptive(
+                  key: const Key('admin-cart-offer-active'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Offer active'),
+                  subtitle: const Text(
+                    'Disabled offers cannot be applied by customers.',
+                  ),
+                  value: _active,
+                  onChanged: (value) => setState(() => _active = value),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const Key('admin-save-cart-offer'),
+          onPressed: _save,
+          child: const Text('Save offer'),
+        ),
+      ],
+    );
+  }
+}
+
 class _ProductEditorDialog extends StatefulWidget {
   const _ProductEditorDialog({
     required this.product,
@@ -3691,19 +4420,8 @@ class _ProductEditorDialogState extends State<_ProductEditorDialog> {
       _imageError = null;
     });
     try {
-      final result = await FilePicker.pickFiles(
-        dialogTitle: 'Choose a product image',
-        type: FileType.custom,
-        allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp'],
-        withData: true,
-      );
-      if (result == null || result.files.isEmpty) return;
-      final file = result.files.single;
-      final bytes = file.bytes ?? await file.xFile.readAsBytes();
-      final upload = ProductImageUpload.fromBytes(
-        bytes: bytes,
-        fileName: file.name,
-      );
+      final upload = await pickProductImage();
+      if (upload == null) return;
       if (mounted) {
         setState(() {
           _selectedImage = upload;

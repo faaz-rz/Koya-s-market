@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/config/app_environment.dart';
 import '../../cart/models/cart_item.dart';
 import '../../checkout/models/checkout_models.dart';
+import '../../offers/models/store_offer.dart';
 import '../../orders/models/order.dart';
 import '../../products/models/category.dart';
 import '../../products/models/product.dart';
@@ -26,6 +27,7 @@ class StoreState {
     required this.products,
     required this.addresses,
     required this.orders,
+    this.offers = const [],
     required this.pickupSlots,
     required this.deliverySlots,
     required this.serviceablePincodes,
@@ -47,6 +49,7 @@ class StoreState {
     this.selectedAddressId = 'home-1',
     this.paymentMethod = PaymentMethod.payAtStore,
     this.deliveryInstructions = '',
+    this.selectedOfferCode,
     this.lastOrderId,
   });
 
@@ -60,6 +63,7 @@ class StoreState {
   final Set<String> favoriteProductIds;
   final List<CustomerAddress> addresses;
   final List<CustomerOrder> orders;
+  final List<StoreOffer> offers;
   final List<FulfilmentSlot> pickupSlots;
   final List<FulfilmentSlot> deliverySlots;
   final Set<String> serviceablePincodes;
@@ -75,6 +79,7 @@ class StoreState {
   final String selectedAddressId;
   final PaymentMethod paymentMethod;
   final String deliveryInstructions;
+  final String? selectedOfferCode;
   final String? lastOrderId;
 
   Product? productById(String id) {
@@ -115,7 +120,60 @@ class StoreState {
           subtotalPaise < freeDeliveryThresholdPaise
       ? baseDeliveryChargePaise
       : 0;
-  int get totalPaise => subtotalPaise + deliveryChargePaise;
+
+  StoreOffer? offerByCode(String code) {
+    final normalized = code.trim().toUpperCase();
+    for (final offer in offers) {
+      if (offer.code.toUpperCase() == normalized) return offer;
+    }
+    return null;
+  }
+
+  String? offerIneligibilityReason(StoreOffer offer, {DateTime? now}) {
+    final checkTime = now ?? DateTime.now();
+    if (!offer.isLiveAt(checkTime)) return 'This offer is not active.';
+    if (offer.requiredFulfilment != null &&
+        offer.requiredFulfilment != fulfilmentType) {
+      return offer.requiredFulfilment == FulfilmentType.pickup
+          ? 'This offer is available for pickup orders only.'
+          : 'This offer is available for delivery orders only.';
+    }
+    if (subtotalPaise < offer.minimumSubtotalPaise) {
+      final shortfall = offer.minimumSubtotalPaise - subtotalPaise;
+      return 'Add ₹${(shortfall / 100).toStringAsFixed(2)} more to use this offer.';
+    }
+    if (offer.hasFreeProduct) {
+      final product = productById(offer.freeProductId!);
+      if (product == null || !product.isAvailable) {
+        return 'The free product is currently unavailable.';
+      }
+      final alreadyInCart = cartQuantities[product.id] ?? 0;
+      if (product.stockQuantity - alreadyInCart < offer.freeQuantity) {
+        return 'There is not enough stock for the free product.';
+      }
+    }
+    return null;
+  }
+
+  StoreOffer? get selectedOffer =>
+      selectedOfferCode == null ? null : offerByCode(selectedOfferCode!);
+
+  StoreOffer? get appliedOffer {
+    final offer = selectedOffer;
+    return offer != null && offerIneligibilityReason(offer) == null
+        ? offer
+        : null;
+  }
+
+  int get offerDiscountPaise => appliedOffer?.discountFor(subtotalPaise) ?? 0;
+
+  Product? get freeOfferProduct {
+    final productId = appliedOffer?.freeProductId;
+    return productId == null ? null : productById(productId);
+  }
+
+  int get totalPaise =>
+      max(0, subtotalPaise + deliveryChargePaise - offerDiscountPaise);
 
   StoreState copyWith({
     CustomerProfile? profile,
@@ -128,6 +186,7 @@ class StoreState {
     Set<String>? favoriteProductIds,
     List<CustomerAddress>? addresses,
     List<CustomerOrder>? orders,
+    List<StoreOffer>? offers,
     List<FulfilmentSlot>? pickupSlots,
     List<FulfilmentSlot>? deliverySlots,
     Set<String>? serviceablePincodes,
@@ -143,9 +202,11 @@ class StoreState {
     String? selectedAddressId,
     PaymentMethod? paymentMethod,
     String? deliveryInstructions,
+    String? selectedOfferCode,
     String? lastOrderId,
     bool clearProfile = false,
     bool clearLastOrder = false,
+    bool clearSelectedOffer = false,
   }) {
     return StoreState(
       profile: clearProfile ? null : profile ?? this.profile,
@@ -158,6 +219,7 @@ class StoreState {
       favoriteProductIds: favoriteProductIds ?? this.favoriteProductIds,
       addresses: addresses ?? this.addresses,
       orders: orders ?? this.orders,
+      offers: offers ?? this.offers,
       pickupSlots: pickupSlots ?? this.pickupSlots,
       deliverySlots: deliverySlots ?? this.deliverySlots,
       serviceablePincodes: serviceablePincodes ?? this.serviceablePincodes,
@@ -176,6 +238,9 @@ class StoreState {
       selectedAddressId: selectedAddressId ?? this.selectedAddressId,
       paymentMethod: paymentMethod ?? this.paymentMethod,
       deliveryInstructions: deliveryInstructions ?? this.deliveryInstructions,
+      selectedOfferCode: clearSelectedOffer
+          ? null
+          : selectedOfferCode ?? this.selectedOfferCode,
       lastOrderId: clearLastOrder ? null : lastOrderId ?? this.lastOrderId,
     );
   }
@@ -189,6 +254,7 @@ class StoreController extends Notifier<StoreState> {
       products: DemoStoreData.products,
       addresses: DemoStoreData.addresses,
       orders: _seedOrders(),
+      offers: DemoStoreData.offers,
       pickupSlots: DemoStoreData.pickupSlots,
       deliverySlots: DemoStoreData.deliverySlots,
       serviceablePincodes: DemoStoreData.serviceablePincodes,
@@ -240,6 +306,7 @@ class StoreController extends Notifier<StoreState> {
     required List<Product> products,
     required List<CustomerAddress> addresses,
     required List<CustomerOrder> orders,
+    required List<StoreOffer> offers,
     required List<FulfilmentSlot> pickupSlots,
     required List<FulfilmentSlot> deliverySlots,
     required Set<String> serviceablePincodes,
@@ -266,6 +333,7 @@ class StoreController extends Notifier<StoreState> {
       products: products,
       addresses: addresses,
       orders: orders,
+      offers: offers,
       pickupSlots: pickupSlots,
       deliverySlots: deliverySlots,
       serviceablePincodes: serviceablePincodes,
@@ -300,6 +368,7 @@ class StoreController extends Notifier<StoreState> {
       cartQuantities: const {},
       lastOrderId: orderId,
       deliveryInstructions: '',
+      clearSelectedOffer: true,
     );
   }
 
@@ -410,6 +479,18 @@ class StoreController extends Notifier<StoreState> {
     state = state.copyWith(paymentMethod: value);
   }
 
+  void applyOffer(String code) {
+    final offer = state.offerByCode(code);
+    if (offer == null) {
+      throw const StoreValidationException('Offer code was not found.');
+    }
+    final reason = state.offerIneligibilityReason(offer);
+    if (reason != null) throw StoreValidationException(reason);
+    state = state.copyWith(selectedOfferCode: offer.code);
+  }
+
+  void removeOffer() => state = state.copyWith(clearSelectedOffer: true);
+
   void addAddress(CustomerAddress address) {
     state = state.copyWith(
       addresses: [...state.addresses, address],
@@ -463,6 +544,17 @@ class StoreController extends Notifier<StoreState> {
         );
       }
     }
+    final offer = state.selectedOffer;
+    if (state.selectedOfferCode != null && offer == null) {
+      throw const StoreValidationException(
+        'The selected offer is no longer available.',
+      );
+    }
+    if (offer != null) {
+      final reason = state.offerIneligibilityReason(offer);
+      if (reason != null) throw StoreValidationException(reason);
+    }
+    final freeProduct = state.freeOfferProduct;
     final address = state.selectedAddress;
     if (state.fulfilmentType == FulfilmentType.delivery) {
       if (address == null) {
@@ -488,7 +580,20 @@ class StoreController extends Notifier<StoreState> {
             visualKey: item.product.visualKey,
           ),
         )
-        .toList(growable: false);
+        .toList();
+    if (offer != null && freeProduct != null) {
+      orderItems.add(
+        OrderItemSnapshot(
+          productId: freeProduct.id,
+          name: freeProduct.name,
+          unit: freeProduct.unit,
+          unitPricePaise: 0,
+          quantity: offer.freeQuantity,
+          visualKey: freeProduct.visualKey,
+          isFreeOfferItem: true,
+        ),
+      );
+    }
     final order = CustomerOrder(
       id: id,
       items: orderItems,
@@ -502,7 +607,7 @@ class StoreController extends Notifier<StoreState> {
           : null,
       subtotalPaise: state.subtotalPaise,
       deliveryChargePaise: state.deliveryChargePaise,
-      discountPaise: state.savingsPaise,
+      discountPaise: state.savingsPaise + state.offerDiscountPaise,
       totalPaise: state.totalPaise,
       paymentMethod: state.paymentMethod,
       paymentStatus: state.paymentMethod == PaymentMethod.online
@@ -520,9 +625,16 @@ class StoreController extends Notifier<StoreState> {
           : '',
       createdAt: timestamp,
       paidAt: state.paymentMethod == PaymentMethod.online ? timestamp : null,
+      offerCode: offer?.code,
+      offerTitle: offer?.title,
+      offerDiscountPaise: state.offerDiscountPaise,
     );
 
     final purchased = {...state.cartQuantities};
+    if (offer != null && freeProduct != null) {
+      purchased[freeProduct.id] =
+          (purchased[freeProduct.id] ?? 0) + offer.freeQuantity;
+    }
     final updatedProducts = state.products
         .map((product) {
           final quantity = purchased[product.id] ?? 0;
@@ -540,6 +652,7 @@ class StoreController extends Notifier<StoreState> {
       cartQuantities: const {},
       lastOrderId: id,
       deliveryInstructions: '',
+      clearSelectedOffer: true,
     );
     return id;
   }
@@ -581,6 +694,7 @@ class StoreController extends Notifier<StoreState> {
     final order = state.orders.firstWhere((item) => item.id == orderId);
     final quantities = {...state.cartQuantities};
     for (final item in order.items) {
+      if (item.isFreeOfferItem) continue;
       final product = state.productById(item.productId);
       if (product != null && product.isAvailable) {
         quantities[item.productId] = min(item.quantity, product.stockQuantity);
@@ -693,6 +807,36 @@ class StoreController extends Notifier<StoreState> {
               .toList(growable: false)
         : [product, ...state.products];
     state = state.copyWith(products: products);
+  }
+
+  void adminSaveOffer(StoreOffer offer) {
+    if (!state.isAdminView) {
+      throw const StoreValidationException('Administrator access required.');
+    }
+    if (!offer.hasDiscount && !offer.hasFreeProduct) {
+      throw const StoreValidationException(
+        'Choose a discount, a free product, or both.',
+      );
+    }
+    if (offer.minimumSubtotalPaise < 0 || offer.perCustomerLimit < 1) {
+      throw const StoreValidationException('Offer settings are invalid.');
+    }
+    final duplicateCode = state.offers.any(
+      (item) =>
+          item.id != offer.id &&
+          item.code.toUpperCase() == offer.code.toUpperCase(),
+    );
+    if (duplicateCode) {
+      throw const StoreValidationException('That offer code already exists.');
+    }
+    final exists = state.offers.any((item) => item.id == offer.id);
+    state = state.copyWith(
+      offers: exists
+          ? state.offers
+                .map((item) => item.id == offer.id ? offer : item)
+                .toList(growable: false)
+          : [offer, ...state.offers],
+    );
   }
 
   void adminUpdateOrderPricing({

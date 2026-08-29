@@ -31,7 +31,12 @@ class KoyasSurface extends StatelessWidget {
         border: Border.all(color: borderColor),
         boxShadow: elevated ? AppShadows.medium : AppShadows.low,
       ),
-      child: Padding(padding: padding, child: child),
+      child: Material(
+        type: MaterialType.transparency,
+        borderRadius: BorderRadius.circular(radius),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(padding: padding, child: child),
+      ),
     );
   }
 }

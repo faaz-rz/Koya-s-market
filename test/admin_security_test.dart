@@ -120,6 +120,42 @@ void main() {
     expect(repository, contains("row['delivery_recipient_phone_snapshot']"));
   });
 
+  test(
+    'cart offers are server-authoritative, limited, and admin controlled',
+    () {
+      final migration = File(
+        'supabase/migrations/202608280002_offer_engine.sql',
+      ).readAsStringSync();
+      final repository = File(
+        'lib/features/store/data/supabase_store_repository.dart',
+      ).readAsStringSync();
+      final realtime = File(
+        'lib/features/store/widgets/store_realtime_sync.dart',
+      ).readAsStringSync();
+
+      expect(migration, contains('create table public.offers'));
+      expect(migration, contains('create table public.offer_redemptions'));
+      expect(migration, contains('function public.admin_save_offer'));
+      expect(migration, contains('function public.place_order_v2'));
+      expect(migration, contains('for update'));
+      expect(migration, contains('total_redemption_limit'));
+      expect(migration, contains('per_customer_limit'));
+      expect(migration, contains('is_free_offer_item'));
+      expect(
+        migration,
+        contains('stock_quantity - selected_offer.free_quantity'),
+      );
+      expect(migration, contains('if not public.is_admin()'));
+      expect(migration, contains("'create_offer'"));
+      expect(migration, contains("'update_offer'"));
+      expect(migration, contains('revoke all on function public.place_order('));
+      expect(repository, contains("'place_order_v2'"));
+      expect(repository, contains("'admin_save_offer'"));
+      expect(repository, contains("'requested_offer_code'"));
+      expect(realtime, contains("table: 'offers'"));
+    },
+  );
+
   test('production login does not expose demo identity or raw auth errors', () {
     final screen = File(
       'lib/features/auth/screens/login_screen.dart',
@@ -230,7 +266,15 @@ void main() {
     expect(securityHeaders['X-Frame-Options'], 'DENY');
     expect(securityHeaders['X-Content-Type-Options'], 'nosniff');
     expect(securityHeaders['Cross-Origin-Resource-Policy'], 'same-origin');
-    expect(securityHeaders['X-Robots-Tag'], contains('noindex'));
+    final rootHeaders = <String, String>{};
+    final rootGroup = groups.cast<Map<String, dynamic>>().firstWhere(
+      (group) => group['source'] == '/',
+    );
+    for (final header in rootGroup['headers'] as List<dynamic>) {
+      final values = header as Map<String, dynamic>;
+      rootHeaders[values['key'] as String] = values['value'] as String;
+    }
+    expect(rootHeaders['X-Robots-Tag'], contains('noindex'));
     expect(config['rewrites'], isNotEmpty);
 
     final noStoreSources = groups

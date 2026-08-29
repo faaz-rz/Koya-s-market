@@ -1,4 +1,3 @@
-import 'package:firebase_core/firebase_core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/app_environment.dart';
@@ -19,8 +18,5 @@ abstract final class BackendBootstrap {
         detectSessionInUri: persistAuthSession,
       ),
     );
-    if (AppEnvironment.enablePushNotifications) {
-      await Firebase.initializeApp();
-    }
   }
 }

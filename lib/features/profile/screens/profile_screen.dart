@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/config/app_environment.dart';
 import '../../../core/theme/app_colors.dart';
@@ -11,7 +13,6 @@ import '../models/customer_profile.dart';
 import '../../store/data/supabase_store_repository.dart';
 import '../../store/providers/store_provider.dart';
 import '../../auth/data/auth_repository.dart';
-import '../../notifications/services/push_notification_service.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -21,7 +22,7 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
-  bool _notifications = true;
+  bool _deletingAccount = false;
 
   Future<void> _editProfile() async {
     final profile = ref.read(storeProvider).profile;
@@ -141,11 +142,69 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
     if (confirmed == true) {
       if (AppEnvironment.hasSupabaseConfig) {
-        await PushNotificationService.instance.unregister();
         await AuthRepository().signOut();
       }
       ref.read(storeProvider.notifier).logout();
       if (mounted) context.go('/login');
+    }
+  }
+
+  Future<void> _openExternal(String value, String label) async {
+    final uri = Uri.tryParse(value);
+    if (uri == null || !uri.isScheme('https')) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$label is not configured yet.')),
+        );
+      }
+      return;
+    }
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) &&
+        mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$label could not be opened.')));
+    }
+  }
+
+  Future<void> _deleteAccount() async {
+    if (_deletingAccount) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => _DeleteAccountDialog(
+        onOpenRequestPage: () => _openExternal(
+          AppEnvironment.accountDeletionUrl,
+          'Account deletion request page',
+        ),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _deletingAccount = true);
+    try {
+      if (AppEnvironment.hasSupabaseConfig) {
+        await AuthRepository().deleteAccount();
+      }
+      ref.read(storeProvider.notifier).logout();
+      if (mounted) context.go('/login?reason=account-deleted');
+    } on AccountDeletionException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Your account could not be deleted. Please try again.',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _deletingAccount = false);
     }
   }
 
@@ -327,38 +386,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   padding: EdgeInsets.zero,
                   child: Column(
                     children: [
-                      SwitchListTile.adaptive(
-                        value: _notifications,
-                        onChanged: (value) async {
-                          setState(() => _notifications = value);
-                          if (!AppEnvironment.hasSupabaseConfig) return;
-                          try {
-                            if (value) {
-                              await PushNotificationService.instance
-                                  .registerForCurrentUser();
-                            } else {
-                              await PushNotificationService.instance
-                                  .unregister();
-                            }
-                          } catch (_) {
-                            if (!mounted) return;
-                            setState(() => _notifications = !value);
-                            ScaffoldMessenger.of(this.context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Notification preference could not be changed.',
-                                ),
-                              ),
-                            );
-                          }
-                        },
-                        secondary: const Icon(Icons.notifications_outlined),
-                        title: const Text('Order notifications'),
-                        subtitle: const Text(
-                          'Status updates and pickup reminders',
-                        ),
-                      ),
-                      const Divider(height: 1),
                       ListTile(
                         leading: const Icon(Icons.help_outline_rounded),
                         title: const Text('Help and support'),
@@ -375,20 +402,61 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xxl),
+                Text(
+                  'Privacy and account',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                KoyasSurface(
+                  padding: EdgeInsets.zero,
+                  child: Column(
+                    children: [
+                      ListTile(
+                        key: const Key('profile-privacy-policy'),
+                        leading: const Icon(Icons.privacy_tip_outlined),
+                        title: const Text('Privacy policy'),
+                        subtitle: const Text(
+                          'How Koya Stores handles your personal information',
+                        ),
+                        trailing: const Icon(Icons.open_in_new_rounded),
+                        onTap: () => _openExternal(
+                          AppEnvironment.privacyPolicyUrl,
+                          'Privacy policy',
+                        ),
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        key: const Key('profile-delete-account'),
+                        enabled: !_deletingAccount,
+                        leading: const Icon(
+                          Icons.delete_forever_outlined,
+                          color: AppColors.error,
+                        ),
+                        title: const Text('Delete account'),
+                        subtitle: const Text(
+                          'Permanently remove your account and personal data',
+                        ),
+                        trailing: _deletingAccount
+                            ? const SizedBox.square(
+                                dimension: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.chevron_right_rounded),
+                        onTap: _deletingAccount ? null : _deleteAccount,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xxl),
                 OutlinedButton.icon(
                   onPressed: _logout,
                   icon: const Icon(Icons.logout_rounded),
                   label: const Text('Log out'),
                 ),
                 const SizedBox(height: AppSpacing.lg),
-                Center(
-                  child: Text(
-                    'Koya Stores · Version 1.0.0',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.inkTertiary,
-                    ),
-                  ),
-                ),
+                Center(child: const _AppVersionLabel()),
               ],
             ),
           ),
@@ -404,6 +472,103 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       .take(2)
       .map((part) => part[0].toUpperCase())
       .join();
+}
+
+class _DeleteAccountDialog extends StatefulWidget {
+  const _DeleteAccountDialog({required this.onOpenRequestPage});
+
+  final VoidCallback onOpenRequestPage;
+
+  @override
+  State<_DeleteAccountDialog> createState() => _DeleteAccountDialogState();
+}
+
+class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
+  final _confirmation = TextEditingController();
+
+  @override
+  void dispose() {
+    _confirmation.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final confirmed = _confirmation.text.trim().toUpperCase() == 'DELETE';
+    return AlertDialog(
+      title: const Text('Permanently delete account?'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Your sign-in, profile, saved addresses and notification tokens will be removed. Completed transaction records are retained only in anonymized form for accounting and legal obligations.',
+            ),
+            const SizedBox(height: AppSpacing.md),
+            const Text(
+              'Active pickup or delivery orders must be completed or cancelled first. This action cannot be undone.',
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            TextField(
+              key: const Key('delete-account-confirmation'),
+              controller: _confirmation,
+              textCapitalization: TextCapitalization.characters,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                labelText: 'Type DELETE to confirm',
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextButton.icon(
+              key: const Key('delete-account-request-page'),
+              onPressed: widget.onOpenRequestPage,
+              icon: const Icon(Icons.open_in_new_rounded),
+              label: const Text('Use the web deletion request page'),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Keep account'),
+        ),
+        FilledButton(
+          key: const Key('delete-account-final'),
+          onPressed: confirmed ? () => Navigator.of(context).pop(true) : null,
+          style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+          child: const Text('Delete permanently'),
+        ),
+      ],
+    );
+  }
+}
+
+class _AppVersionLabel extends StatefulWidget {
+  const _AppVersionLabel();
+
+  @override
+  State<_AppVersionLabel> createState() => _AppVersionLabelState();
+}
+
+class _AppVersionLabelState extends State<_AppVersionLabel> {
+  late final Future<String> _version = PackageInfo.fromPlatform()
+      .then((info) => info.version)
+      .onError((_, _) => '1.1.5');
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<String>(
+      future: _version,
+      builder: (context, snapshot) => Text(
+        'Koya Stores · Version ${snapshot.data ?? '…'}',
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(color: AppColors.inkTertiary),
+      ),
+    );
+  }
 }
 
 class _SectionTitle extends StatelessWidget {

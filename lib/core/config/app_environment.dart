@@ -3,11 +3,22 @@ import 'package:flutter/foundation.dart';
 abstract final class AppEnvironment {
   static const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
   static const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
-  static const enablePushNotifications = bool.fromEnvironment(
-    'ENABLE_PUSH_NOTIFICATIONS',
+  static const privacyPolicyUrl = String.fromEnvironment('PRIVACY_POLICY_URL');
+  static const accountDeletionUrl = String.fromEnvironment(
+    'ACCOUNT_DELETION_URL',
   );
-  static const enableRazorpayPayments = bool.fromEnvironment(
-    'ENABLE_RAZORPAY_PAYMENTS',
+
+  /// Push notifications are deliberately excluded from the first store
+  /// release. A later release must add audited SDKs, APNs/FCM credentials,
+  /// platform capabilities, privacy declarations and physical-device tests.
+  static const enablePushNotifications = false;
+
+  /// Native online checkout is deliberately excluded from the first store
+  /// release. Reintroducing it requires a separately audited payment SDK,
+  /// privacy declarations, merchant configuration, and end-to-end testing.
+  static const enableRazorpayPayments = false;
+  static const enablePlayReviewLogin = bool.fromEnvironment(
+    'ENABLE_PLAY_REVIEW_LOGIN',
   );
   static const adminIdleTimeoutMinutes = int.fromEnvironment(
     'ADMIN_IDLE_TIMEOUT_MINUTES',
@@ -17,6 +28,10 @@ abstract final class AppEnvironment {
 
   static bool get hasSupabaseConfig =>
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
+
+  static bool get hasLegalUrls =>
+      Uri.tryParse(privacyPolicyUrl)?.isScheme('https') == true &&
+      Uri.tryParse(accountDeletionUrl)?.isScheme('https') == true;
 
   /// Sample customer data is a development convenience only. Unlike the
   /// separately opt-in admin preview, it can never be enabled in a release.

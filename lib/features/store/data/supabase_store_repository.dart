@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../checkout/models/checkout_models.dart';
+import '../../offers/models/store_offer.dart';
 import '../../orders/models/order.dart';
 import '../../products/models/category.dart';
 import '../../products/models/product.dart';
@@ -15,6 +16,7 @@ class RemoteStoreBundle {
     required this.products,
     required this.addresses,
     required this.orders,
+    required this.offers,
     required this.pickupSlots,
     required this.deliverySlots,
     required this.isAdmin,
@@ -32,6 +34,7 @@ class RemoteStoreBundle {
   final List<Product> products;
   final List<CustomerAddress> addresses;
   final List<CustomerOrder> orders;
+  final List<StoreOffer> offers;
   final List<FulfilmentSlot> pickupSlots;
   final List<FulfilmentSlot> deliverySlots;
   final bool isAdmin;
@@ -89,6 +92,10 @@ class SupabaseStoreRepository {
       includeAllCustomers: isAdmin,
       userId: user.id,
     );
+    final offerRows = await _client
+        .from('offers')
+        .select()
+        .order('created_at', ascending: false);
 
     final categories = categoryRows
         .map(
@@ -166,6 +173,40 @@ class SupabaseStoreRepository {
         .map((row) => row['id'] as String)
         .toSet();
     final orders = orderRows.map(_orderFromRow).toList(growable: false);
+    final offers = offerRows
+        .map(
+          (row) => StoreOffer(
+            id: row['id'] as String,
+            code: row['code'] as String,
+            title: row['title'] as String,
+            description: row['description'] as String? ?? '',
+            minimumSubtotalPaise: row['minimum_subtotal_paise'] as int,
+            discountType: switch (row['discount_type'] as String?) {
+              'flat' => OfferDiscountType.flat,
+              'percentage' => OfferDiscountType.percentage,
+              _ => null,
+            },
+            discountValue: row['discount_value'] as int? ?? 0,
+            maximumDiscountPaise: row['maximum_discount_paise'] as int?,
+            freeProductId: row['free_product_id'] as String?,
+            freeQuantity: row['free_quantity'] as int? ?? 1,
+            requiredFulfilment: switch (row['required_fulfilment'] as String?) {
+              'pickup' => FulfilmentType.pickup,
+              'delivery' => FulfilmentType.delivery,
+              _ => null,
+            },
+            startsAt: row['starts_at'] == null
+                ? null
+                : DateTime.parse(row['starts_at'] as String).toLocal(),
+            endsAt: row['ends_at'] == null
+                ? null
+                : DateTime.parse(row['ends_at'] as String).toLocal(),
+            totalRedemptionLimit: row['total_redemption_limit'] as int?,
+            perCustomerLimit: row['per_customer_limit'] as int? ?? 1,
+            active: row['active'] as bool? ?? false,
+          ),
+        )
+        .toList(growable: false);
     final metadataName = user.userMetadata?['full_name'] as String?;
     return RemoteStoreBundle(
       profile: CustomerProfile(
@@ -182,6 +223,7 @@ class SupabaseStoreRepository {
       products: products,
       addresses: addresses,
       orders: orders,
+      offers: offers,
       pickupSlots: slots
           .where((slot) => pickupSlotIds.contains(slot.id))
           .toList(growable: false),
@@ -275,29 +317,63 @@ class SupabaseStoreRepository {
     final requestedDate = store.fulfilmentType == FulfilmentType.pickup
         ? DateTime.now()
         : store.selectedDate;
-    final response = await _client.rpc(
-      'place_order',
-      params: {
-        'requested_items': store.cartItems
-            .map(
-              (item) => {
-                'product_id': item.product.id,
-                'quantity': item.quantity,
-              },
-            )
-            .toList(),
-        'requested_fulfilment': store.fulfilmentType.name,
-        'requested_address_id': store.fulfilmentType == FulfilmentType.delivery
-            ? store.selectedAddressId
-            : null,
-        'requested_date': requestedDate.toIso8601String().split('T').first,
-        'requested_slot_id': selectedSlot.id,
-        'requested_payment': _paymentMethodToDatabase(store.paymentMethod),
-        'requested_instructions': store.deliveryInstructions,
-        'requested_idempotency_key': idempotencyKey,
-      },
-    );
-    return response as String;
+    try {
+      final response = await _client.rpc(
+        'place_order_v2',
+        params: {
+          'requested_items': store.cartItems
+              .map(
+                (item) => {
+                  'product_id': item.product.id,
+                  'quantity': item.quantity,
+                },
+              )
+              .toList(),
+          'requested_fulfilment': store.fulfilmentType.name,
+          'requested_address_id':
+              store.fulfilmentType == FulfilmentType.delivery
+              ? store.selectedAddressId
+              : null,
+          'requested_date': requestedDate.toIso8601String().split('T').first,
+          'requested_slot_id': selectedSlot.id,
+          'requested_payment': _paymentMethodToDatabase(store.paymentMethod),
+          'requested_instructions': store.deliveryInstructions,
+          'requested_idempotency_key': idempotencyKey,
+          'requested_offer_code': store.selectedOfferCode,
+        },
+      );
+      return response as String;
+    } on PostgrestException catch (error) {
+      final message = error.message.toLowerCase();
+      if (message.contains('offer code was not found')) {
+        throw const StoreValidationException('Offer code was not found.');
+      }
+      if (message.contains('offer is not active')) {
+        throw const StoreValidationException('This offer is no longer active.');
+      }
+      if (message.contains('minimum basket')) {
+        throw const StoreValidationException(
+          'Your basket no longer meets this offer’s minimum.',
+        );
+      }
+      if (message.contains('free product')) {
+        throw const StoreValidationException(
+          'The free product is currently unavailable.',
+        );
+      }
+      if (message.contains('already used') ||
+          message.contains('redemption limit')) {
+        throw const StoreValidationException(
+          'This offer has reached its usage limit.',
+        );
+      }
+      if (message.contains('fulfilment method')) {
+        throw const StoreValidationException(
+          'This offer is not valid for the selected fulfilment method.',
+        );
+      }
+      rethrow;
+    }
   }
 
   Future<CustomerAddress> addAddress(CustomerAddress address) async {
@@ -434,6 +510,34 @@ class SupabaseStoreRepository {
         'requested_minimum_order_paise': minimumOrderPaise,
         'requested_delivery_charge_paise': deliveryChargePaise,
         'requested_free_delivery_threshold_paise': freeDeliveryThresholdPaise,
+      },
+    );
+  }
+
+  Future<void> saveOffer(StoreOffer offer) async {
+    await _client.rpc(
+      'admin_save_offer',
+      params: {
+        'target_offer_id': _isUuid(offer.id) ? offer.id : null,
+        'requested_code': offer.code,
+        'requested_title': offer.title,
+        'requested_description': offer.description,
+        'requested_minimum_subtotal_paise': offer.minimumSubtotalPaise,
+        'requested_discount_type': switch (offer.discountType) {
+          OfferDiscountType.flat => 'flat',
+          OfferDiscountType.percentage => 'percentage',
+          null => null,
+        },
+        'requested_discount_value': offer.hasDiscount ? offer.discountValue : 0,
+        'requested_maximum_discount_paise': offer.maximumDiscountPaise,
+        'requested_free_product_id': offer.freeProductId,
+        'requested_free_quantity': offer.freeQuantity,
+        'requested_fulfilment': offer.requiredFulfilment?.name,
+        'requested_starts_at': offer.startsAt?.toUtc().toIso8601String(),
+        'requested_ends_at': offer.endsAt?.toUtc().toIso8601String(),
+        'requested_total_redemption_limit': offer.totalRedemptionLimit,
+        'requested_per_customer_limit': offer.perCustomerLimit,
+        'requested_active': offer.active,
       },
     );
   }
@@ -581,6 +685,7 @@ class SupabaseStoreRepository {
               unitPricePaise: item['unit_price_paise'] as int,
               quantity: item['quantity'] as int,
               visualKey: 'grocery',
+              isFreeOfferItem: item['is_free_offer_item'] as bool? ?? false,
             ),
           )
           .toList(growable: false),
@@ -612,6 +717,9 @@ class SupabaseStoreRepository {
       paidAt: row['paid_at'] == null
           ? null
           : DateTime.parse(row['paid_at'] as String).toLocal(),
+      offerCode: row['applied_offer_code'] as String?,
+      offerTitle: row['applied_offer_title'] as String?,
+      offerDiscountPaise: row['offer_discount_paise'] as int? ?? 0,
     );
   }
 
@@ -701,6 +809,7 @@ extension RemoteStoreHydration on StoreController {
       products: bundle.products,
       addresses: bundle.addresses,
       orders: bundle.orders,
+      offers: bundle.offers,
       pickupSlots: bundle.pickupSlots,
       deliverySlots: bundle.deliverySlots,
       isAdmin: bundle.isAdmin,

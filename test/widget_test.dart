@@ -39,6 +39,40 @@ void main() {
     expect(find.text('Store administration'), findsNothing);
   });
 
+  testWidgets('customer can permanently delete a demo account', (tester) async {
+    tester.view.physicalSize = const Size(540, 960);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const ProviderScope(child: KoyasApp()));
+    await tester.pump(const Duration(milliseconds: 750));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('customer-login')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('customer-tab-profile')));
+    await tester.pumpAndSettle();
+
+    final deleteAccount = find.byKey(const Key('profile-delete-account'));
+    await tester.ensureVisible(deleteAccount);
+    await tester.tap(deleteAccount);
+    await tester.pumpAndSettle();
+
+    final finalDelete = find.byKey(const Key('delete-account-final'));
+    expect(tester.widget<FilledButton>(finalDelete).onPressed, isNull);
+    await tester.enterText(
+      find.byKey(const Key('delete-account-confirmation')),
+      'DELETE',
+    );
+    await tester.pump();
+    expect(tester.widget<FilledButton>(finalDelete).onPressed, isNotNull);
+
+    await tester.tap(finalDelete);
+    await tester.pumpAndSettle();
+    expect(find.text('Groceries made simple.'), findsOneWidget);
+    expect(find.textContaining('Account deleted'), findsOneWidget);
+  });
+
   testWidgets('bottom tabs replace content without overlapping pages', (
     tester,
   ) async {
@@ -500,6 +534,56 @@ void main() {
       find.text('Your neighbourhood supermarket,\nnow at your fingertips.'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('customer applies a minimum-buy offer from the cart', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1000, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const ProviderScope(child: KoyasApp()));
+    await tester.pump(const Duration(milliseconds: 750));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('customer-login')));
+    await tester.pumpAndSettle();
+
+    final context = tester.element(find.byType(Scaffold).first);
+    final container = ProviderScope.containerOf(context);
+    final controller = container.read(storeProvider.notifier);
+    for (final product in container.read(storeProvider).products) {
+      if (product.isAvailable) controller.addToCart(product.id);
+      if (container.read(storeProvider).subtotalPaise >= 50000) break;
+    }
+    expect(
+      container.read(storeProvider).subtotalPaise,
+      greaterThanOrEqualTo(50000),
+    );
+    container.read(appRouterProvider).go('/cart');
+    await tester.pumpAndSettle();
+
+    final chooseOffer = find.byKey(const Key('customer-choose-offer'));
+    await tester.scrollUntilVisible(
+      chooseOffer,
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(chooseOffer);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('customer-offer-code')),
+      'cart10',
+    );
+    await tester.tap(find.byKey(const Key('customer-apply-offer-code')));
+    await tester.pumpAndSettle();
+
+    final store = container.read(storeProvider);
+    expect(store.selectedOfferCode, 'CART10');
+    expect(store.offerDiscountPaise, greaterThan(0));
+    expect(find.textContaining('You save'), findsOneWidget);
+    expect(find.byKey(const Key('customer-remove-offer')), findsOneWidget);
   });
 
   testWidgets('pickup checkout skips date and time selection', (tester) async {

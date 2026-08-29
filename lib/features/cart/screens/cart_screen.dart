@@ -8,6 +8,7 @@ import '../../../core/utils/price_format.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/koyas_button.dart';
 import '../../../core/widgets/koyas_surface.dart';
+import '../../offers/widgets/offer_redemption_panel.dart';
 import '../../products/widgets/product_visual.dart';
 import '../../store/providers/store_provider.dart';
 import '../widgets/quantity_stepper.dart';
@@ -111,60 +112,85 @@ class _CartItems extends ConsumerWidget {
             padding: const EdgeInsets.only(bottom: AppSpacing.md),
             child: KoyasSurface(
               padding: const EdgeInsets.all(AppSpacing.md),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox.square(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final visual = SizedBox.square(
                     dimension: 82,
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(AppRadii.lg),
                       child: ProductVisual(product: item.product, iconSize: 36),
                     ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.product.name,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(
-                          item.product.unit,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: AppColors.inkSecondary),
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        Text(
-                          formatPrice(item.totalPaise),
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(color: AppColors.brand700),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                  );
+                  final details = Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      QuantityStepper(
-                        compact: true,
-                        quantity: item.quantity,
-                        onIncrement: () => onIncrement(item.product.id),
-                        onDecrement: () => ref
-                            .read(storeProvider.notifier)
-                            .decrementCart(item.product.id),
+                      Text(
+                        item.product.name,
+                        style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      TextButton(
-                        onPressed: () => ref
-                            .read(storeProvider.notifier)
-                            .removeFromCart(item.product.id),
-                        child: const Text('Remove'),
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        item.product.unit,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.inkSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        formatPrice(item.totalPaise),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(color: AppColors.brand700),
                       ),
                     ],
-                  ),
-                ],
+                  );
+                  final quantity = QuantityStepper(
+                    compact: true,
+                    quantity: item.quantity,
+                    onIncrement: () => onIncrement(item.product.id),
+                    onDecrement: () => ref
+                        .read(storeProvider.notifier)
+                        .decrementCart(item.product.id),
+                  );
+                  final remove = TextButton(
+                    onPressed: () => ref
+                        .read(storeProvider.notifier)
+                        .removeFromCart(item.product.id),
+                    child: const Text('Remove'),
+                  );
+                  if (constraints.maxWidth < 340) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            visual,
+                            const SizedBox(width: AppSpacing.md),
+                            Expanded(child: details),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Wrap(
+                          alignment: WrapAlignment.end,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [quantity, remove],
+                        ),
+                      ],
+                    );
+                  }
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      visual,
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(child: details),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [quantity, remove],
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -218,8 +244,26 @@ class _OrderSummary extends ConsumerWidget {
           _SummaryRow(
             label: 'Subtotal',
             value: formatPrice(store.subtotalPaise),
+          ),
+          if (store.offerDiscountPaise > 0) ...[
+            const SizedBox(height: AppSpacing.sm),
+            _SummaryRow(
+              label: 'Offer discount',
+              value: '−${formatPrice(store.offerDiscountPaise)}',
+            ),
+          ],
+          const SizedBox(height: AppSpacing.sm),
+          _SummaryRow(
+            label: 'Basket after offer',
+            value: formatPrice(
+              (store.subtotalPaise - store.offerDiscountPaise)
+                  .clamp(0, store.subtotalPaise)
+                  .toInt(),
+            ),
             strong: true,
           ),
+          const SizedBox(height: AppSpacing.lg),
+          const OfferRedemptionPanel(),
           const SizedBox(height: AppSpacing.lg),
           if (shortfall > 0)
             Container(

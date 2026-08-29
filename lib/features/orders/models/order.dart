@@ -23,6 +23,7 @@ class OrderItemSnapshot {
     required this.unitPricePaise,
     required this.quantity,
     required this.visualKey,
+    this.isFreeOfferItem = false,
   });
 
   final String productId;
@@ -31,6 +32,7 @@ class OrderItemSnapshot {
   final int unitPricePaise;
   final int quantity;
   final String visualKey;
+  final bool isFreeOfferItem;
 
   int get totalPaise => unitPricePaise * quantity;
 }
@@ -58,6 +60,9 @@ class CustomerOrder {
     this.deliveryRecipientName = '',
     this.deliveryRecipientPhone = '',
     this.paidAt,
+    this.offerCode,
+    this.offerTitle,
+    this.offerDiscountPaise = 0,
   });
 
   final String id;
@@ -80,6 +85,9 @@ class CustomerOrder {
   final String deliveryRecipientPhone;
   final DateTime createdAt;
   final DateTime? paidAt;
+  final String? offerCode;
+  final String? offerTitle;
+  final int offerDiscountPaise;
   final String? reference;
 
   String get displayReference => reference ?? id;
@@ -110,6 +118,9 @@ class CustomerOrder {
       deliveryRecipientPhone: deliveryRecipientPhone,
       createdAt: createdAt,
       paidAt: paidAt ?? this.paidAt,
+      offerCode: offerCode,
+      offerTitle: offerTitle,
+      offerDiscountPaise: offerDiscountPaise,
       reference: reference,
     );
   }

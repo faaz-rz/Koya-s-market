@@ -1,4 +1,5 @@
 import '../../checkout/models/checkout_models.dart';
+import '../../offers/models/store_offer.dart';
 import 'generated_product_catalog.dart';
 
 abstract final class DemoStoreData {
@@ -12,6 +13,32 @@ abstract final class DemoStoreData {
             : product,
       )
       .toList(growable: false);
+
+  static final offers = [
+    const StoreOffer(
+      id: 'demo-cart-10',
+      code: 'CART10',
+      title: '10% off your basket',
+      description: 'Save 10% on orders of ₹500 or more.',
+      minimumSubtotalPaise: 50000,
+      discountType: OfferDiscountType.percentage,
+      discountValue: 10,
+      maximumDiscountPaise: 15000,
+      perCustomerLimit: 5,
+      active: true,
+    ),
+    StoreOffer(
+      id: 'demo-free-gift',
+      code: 'FREEGIFT',
+      title: 'Free grocery gift',
+      description: 'Get a free product when your basket reaches ₹300.',
+      minimumSubtotalPaise: 30000,
+      freeProductId: products.first.id,
+      freeQuantity: 1,
+      perCustomerLimit: 2,
+      active: true,
+    ),
+  ];
 
   static const addresses = [
     CustomerAddress(

@@ -512,6 +512,97 @@ void main() {
     );
   });
 
+  testWidgets('admin creates and disables a minimum-buy free-product offer', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 2600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const ProviderScope(child: KoyasAdminApp()));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('admin-email')),
+      'staff@koyas.in',
+    );
+    await tester.tap(find.byKey(const Key('admin-login')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('admin-nav-pricing')));
+    await tester.pumpAndSettle();
+
+    final context = tester.element(find.byType(Scaffold).first);
+    final container = ProviderScope.containerOf(context);
+    final freeProduct = container
+        .read(storeProvider)
+        .products
+        .firstWhere((product) => product.isAvailable);
+    final addOffer = find.byKey(const Key('admin-add-cart-offer'));
+    await tester.scrollUntilVisible(
+      addOffer,
+      600,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(addOffer);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('admin-cart-offer-code')),
+      'FREE250',
+    );
+    await tester.enterText(
+      find.byKey(const Key('admin-cart-offer-title')),
+      'Free product on ₹250',
+    );
+    await tester.enterText(
+      find.byKey(const Key('admin-cart-offer-minimum')),
+      '250',
+    );
+    await tester.tap(
+      find.byKey(const Key('admin-cart-offer-choose-free-product')),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('admin-offer-product-search')),
+      freeProduct.name,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(Key('admin-offer-product-${freeProduct.id}')));
+    await tester.pumpAndSettle();
+    final save = find.byKey(const Key('admin-save-cart-offer'));
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+
+    final created = container
+        .read(storeProvider)
+        .offers
+        .firstWhere((offer) => offer.code == 'FREE250');
+    expect(created.minimumSubtotalPaise, 25000);
+    expect(created.freeProductId, freeProduct.id);
+    expect(created.active, isTrue);
+
+    final edit = find.byKey(Key('admin-edit-cart-offer-${created.id}'));
+    await tester.ensureVisible(edit);
+    await tester.tap(edit);
+    await tester.pumpAndSettle();
+    final active = find.byKey(const Key('admin-cart-offer-active'));
+    await tester.ensureVisible(active);
+    await tester.tap(active);
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+
+    expect(
+      container
+          .read(storeProvider)
+          .offers
+          .firstWhere((offer) => offer.id == created.id)
+          .active,
+      isFalse,
+    );
+  });
+
   testWidgets('admin switches daily, monthly, and yearly sales analytics', (
     tester,
   ) async {

@@ -1,0 +1,59 @@
+# Google Play Data Safety worksheet
+
+Use this worksheet for the exact production bundle. Recheck it whenever a data
+flow or third-party SDK changes. Google Play Console remains the source of truth.
+
+## Collection and sharing overview
+
+- Does the app collect or share required user-data types? **Yes — collects.**
+- Is all user data encrypted in transit? **Yes.** Production services and legal
+  URLs must use HTTPS/TLS.
+- Can users request deletion? **Yes.** Use the deployed public URL
+  `https://YOUR_PUBLIC_DOMAIN/delete-account` and the in-app path **Profile →
+  Privacy and account → Delete account**.
+- Is data sold or used for advertising? **No.**
+- Is data shared with third parties? **No**, provided Supabase is used only as
+  a contracted service provider acting on Koya Stores' instructions and none of
+  Google's sharing exceptions cease to apply. Confirm the executed provider
+  agreement before submitting this answer.
+- Has the app completed an eligible independent security review? **No**, unless
+  one is completed before submission.
+
+## Data types to declare
+
+| Play data type | Collected | Required or optional | Purpose | Handling |
+| --- | --- | --- | --- | --- |
+| Personal info → Email address | Yes | Required for account access | App functionality; account management; security/fraud prevention | Stored in Supabase Auth until account deletion |
+| Personal info → User IDs | Yes | Required | App functionality; account management; security/fraud prevention | Internal Supabase user ID |
+| Personal info → Name | Yes | Required for fulfilment once provided | App functionality; account management | Profile and order fulfilment |
+| Personal info → Phone number | Yes | Required for delivery/pickup contact once provided | App functionality; account management | Profile and order fulfilment |
+| Personal info → Address | Yes | Required only when delivery is selected | App functionality; account management | Saved addresses and delivery snapshot |
+| Financial info → Purchase history | Yes | Required when an order is placed | App functionality; fraud prevention/security; legal compliance | Order items, totals, discounts, status and fulfilment history |
+
+Do **not** declare precise or approximate device location merely because a user
+types a postal address; this app does not request Android location permission or
+read device location. Do not declare contacts, photos, audio, files, health,
+messages, browsing history, diagnostics or advertising IDs unless the final
+bundle adds a flow that collects them.
+
+## Retention and deletion answer
+
+Deleting an eligible customer account removes the Auth identity, profile, saved
+addresses, notification tokens, notifications and personal offer-redemption
+records. Active pickup or delivery orders must first be completed or cancelled.
+Completed transaction records may be retained for accounting, fraud prevention
+or legal obligations, but the deletion transaction disconnects them from the
+user and removes customer/recipient names, phone numbers, address text and
+delivery instructions.
+
+The public deletion page must identify Koya Stores, explain the in-app steps,
+list deleted and retained data, and remain reachable without signing in. Those
+requirements are implemented by `web/delete-account.html`.
+
+## Final verification before submitting
+
+1. Confirm the first-release binary contains neither Firebase nor native online
+   payment SDKs.
+2. Test deletion against the production Supabase project and confirm anonymized
+   completed orders remain usable by staff.
+3. Confirm the published privacy policy exactly matches the production flows.

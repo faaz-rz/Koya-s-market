@@ -3,7 +3,6 @@ import java.util.Properties
 
 plugins {
     id("com.android.application")
-    id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
@@ -55,16 +54,32 @@ if (isReleaseBuildRequested) {
     }
     val supabaseUrl = flutterDartDefines["SUPABASE_URL"] ?: ""
     val supabaseAnonKey = flutterDartDefines["SUPABASE_ANON_KEY"] ?: ""
+    val privacyPolicyUrl = flutterDartDefines["PRIVACY_POLICY_URL"] ?: ""
+    val accountDeletionUrl = flutterDartDefines["ACCOUNT_DELETION_URL"] ?: ""
+    val playReviewLoginEnabled =
+        flutterDartDefines["ENABLE_PLAY_REVIEW_LOGIN"]?.equals("true", ignoreCase = true) == true
     if (!supabaseUrl.startsWith("https://") || supabaseAnonKey.isBlank()) {
         throw GradleException(
             "Release backend configuration is required. Pass HTTPS SUPABASE_URL and SUPABASE_ANON_KEY with --dart-define.",
+        )
+    }
+    if (!privacyPolicyUrl.startsWith("https://") || !accountDeletionUrl.startsWith("https://")) {
+        throw GradleException(
+            "Release legal URLs are required. Pass HTTPS PRIVACY_POLICY_URL and ACCOUNT_DELETION_URL with --dart-define.",
+        )
+    }
+    if (!playReviewLoginEnabled) {
+        throw GradleException(
+            "Reusable Google Play review access is required. Pass --dart-define=ENABLE_PLAY_REVIEW_LOGIN=true.",
         )
     }
 }
 
 android {
     namespace = "com.koyas.koyas_supermarket"
-    compileSdk = flutter.compileSdkVersion
+    // Compile with the SDK required by encrypted-storage dependencies while
+    // keeping the Play submission's runtime behavior target fixed at API 36.
+    compileSdk = 37
     // Use the highest NDK requested by the native Flutter plugins.
     ndkVersion = "28.2.13676358"
 
@@ -74,11 +89,13 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.koyas.koyas_supermarket"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        // This application ID is the permanent Google Play identity. Do not
+        // change it after the first Play Console artifact is uploaded.
+        applicationId = "com.koyas.koyas_supermarket"
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

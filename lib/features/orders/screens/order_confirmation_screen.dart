@@ -101,6 +101,13 @@ class OrderConfirmationScreen extends ConsumerWidget {
                           label: 'Amount',
                           value: formatPrice(order.totalPaise),
                         ),
+                        if (order.offerCode != null) ...[
+                          const Divider(height: AppSpacing.xxl),
+                          _ConfirmationRow(
+                            label: 'Offer applied',
+                            value: order.offerCode!,
+                          ),
+                        ],
                         const Divider(height: AppSpacing.xxl),
                         _ConfirmationRow(
                           label: 'Payment',

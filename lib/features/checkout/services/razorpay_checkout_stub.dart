@@ -6,7 +6,7 @@ class RazorpayCheckout {
     required String customerEmail,
     required String customerPhone,
   }) => throw const PaymentException(
-    'Razorpay Checkout is available in the Android and iOS apps.',
+    'Online payment is not included in this release.',
   );
 
   void dispose() {}

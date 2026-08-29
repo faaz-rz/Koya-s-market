@@ -10,7 +10,6 @@ import '../../../core/widgets/koyas_button.dart';
 import '../../../core/widgets/koyas_logo.dart';
 import '../../store/data/supabase_store_repository.dart';
 import '../../store/providers/store_provider.dart';
-import '../../notifications/services/push_notification_service.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -41,11 +40,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         }
         final bundle = await SupabaseStoreRepository().loadStore();
         ref.read(storeProvider.notifier).hydrateRemoteBundle(bundle);
-        try {
-          await PushNotificationService.instance.registerForCurrentUser();
-        } catch (_) {
-          // The storefront remains usable if notification setup fails.
-        }
         if (mounted) context.go('/home');
         return;
       }

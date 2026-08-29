@@ -1,5 +1,15 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+class AccountDeletionException implements Exception {
+  const AccountDeletionException(this.message, {this.hasActiveOrders = false});
+
+  final String message;
+  final bool hasActiveOrders;
+
+  @override
+  String toString() => message;
+}
+
 class AdminMfaChallenge {
   const AdminMfaChallenge({required this.factorId, this.enrollmentSecret});
 
@@ -38,6 +48,19 @@ class AuthRepository {
     );
     final user = response.user;
     if (user == null) throw const AuthException('Unable to verify this code.');
+    return user;
+  }
+
+  Future<User> signInWithPassword({
+    required String email,
+    required String password,
+  }) async {
+    final response = await _client.auth.signInWithPassword(
+      email: email.trim(),
+      password: password,
+    );
+    final user = response.user;
+    if (user == null) throw const AuthException('Unable to sign in.');
     return user;
   }
 
@@ -99,4 +122,43 @@ class AuthRepository {
   }
 
   Future<void> signOut() => _client.auth.signOut();
+
+  Future<void> deleteAccount() async {
+    if (_client.auth.currentUser == null) {
+      throw const AccountDeletionException(
+        'Sign in again to delete your account.',
+      );
+    }
+    try {
+      final response = await _client.functions.invoke(
+        'delete-account',
+        body: const {'confirmation': 'DELETE'},
+      );
+      if (response.status != 200 ||
+          response.data is! Map ||
+          response.data['deleted'] != true) {
+        throw const AccountDeletionException(
+          'Your account could not be deleted. Please try again.',
+        );
+      }
+      await _client.auth.signOut(scope: SignOutScope.local);
+    } on FunctionException catch (error) {
+      final details = error.details;
+      final code = details is Map ? details['code'] as String? : null;
+      if (code == 'active_orders' || error.status == 409) {
+        throw const AccountDeletionException(
+          'Complete or cancel your active orders before deleting your account.',
+          hasActiveOrders: true,
+        );
+      }
+      if (error.status == 401) {
+        throw const AccountDeletionException(
+          'Your session expired. Sign in again before deleting your account.',
+        );
+      }
+      throw const AccountDeletionException(
+        'Your account could not be deleted. Please try again or use the deletion request page.',
+      );
+    }
+  }
 }

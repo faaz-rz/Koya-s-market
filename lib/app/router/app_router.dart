@@ -35,7 +35,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/splash',
         builder: (context, state) => const SplashScreen(),
       ),
-      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: '/login',
+        builder: (context, state) => LoginScreen(
+          initialMessage:
+              state.uri.queryParameters['reason'] == 'account-deleted'
+              ? 'Account deleted. Your personal data has been removed.'
+              : null,
+        ),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             CustomerShell(navigationShell: navigationShell),

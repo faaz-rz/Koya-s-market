@@ -1,0 +1,1 @@
+grocery,supermarket,delivery,pickup,shopping,household,food,Hyderabad,local,offers
