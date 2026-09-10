@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../models/product.dart';
+import 'category_tile.dart';
 
 class ProductVisual extends StatelessWidget {
   const ProductVisual({
@@ -40,7 +41,7 @@ class ProductVisual extends StatelessWidget {
     'health' => Icons.health_and_safety_rounded,
     'pooja' => Icons.local_florist_rounded,
     'general' => Icons.home_repair_service_rounded,
-    _ => Icons.shopping_basket_rounded,
+    _ => CategoryTile.iconFor(visualKey),
   };
 
   static Color colorFor(String visualKey) => switch (visualKey) {
@@ -66,7 +67,7 @@ class ProductVisual extends StatelessWidget {
     'health' => const Color(0xFFDDF0E6),
     'pooja' => const Color(0xFFFFE7C2),
     'general' => const Color(0xFFE8E8E8),
-    _ => AppColors.brandSoft,
+    _ => CategoryTile.colorFor(visualKey),
   };
 
   @override

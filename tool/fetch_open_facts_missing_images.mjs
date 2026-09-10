@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { enforceImageReview, loadImageReview } from './product_image_review.mjs';
 
 const workspace = path.resolve(import.meta.dirname, '..');
 const classifiedPath = path.join(
@@ -385,6 +386,7 @@ for (const group of missingByBarcode.values()) {
 }
 
 if (applyChanges) {
+  enforceImageReview(manifest, await loadImageReview());
   await fs.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 }
 const report = {

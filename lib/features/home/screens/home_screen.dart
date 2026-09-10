@@ -83,7 +83,12 @@ class HomeScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: AppSpacing.md),
                     SizedBox(
-                      height: 142,
+                      height: CategoryTile.extentFor(
+                        context,
+                        width: 128,
+                        categories: categories,
+                        compact: true,
+                      ),
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         itemCount: categories.length,

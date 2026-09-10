@@ -1,0 +1,1954 @@
+{
+  "reviewedAt": "2026-09-06",
+  "scope": "All 1391 unique locally mapped photographs inspected on labelled contact sheets. Findings are review candidates, not automatic decisions. SKU sizes and variants remain unverified unless explicitly approved.",
+  "findings": [
+    {
+      "index": 1,
+      "reason": "marketing graphic, not pack front"
+    },
+    {
+      "index": 8,
+      "reason": "10 kg multigrain shown for 5 kg atta; verify billing variety"
+    },
+    {
+      "index": 9,
+      "reason": "2 kg source for 1 kg multigrain atta"
+    },
+    {
+      "index": 13,
+      "reason": "back of pack only"
+    },
+    {
+      "index": 16,
+      "reason": "large jar for Rs10 cow-ghee sachet"
+    },
+    {
+      "index": 17,
+      "reason": "Kabuli chana shown for DP/dal product; inspect billing"
+    },
+    {
+      "index": 18,
+      "reason": "buy one get one salt combo shown for single salt"
+    },
+    {
+      "index": 20,
+      "reason": "back of pack only"
+    },
+    {
+      "index": 21,
+      "reason": "back of pack only"
+    },
+    {
+      "index": 23,
+      "reason": "3 microwave popcorn boxes shown for Rs12 popcorn"
+    },
+    {
+      "index": 29,
+      "reason": "branded 1kg walnut jar shared across loose 100g/250g"
+    },
+    {
+      "index": 31,
+      "reason": "retail walnut pouch shown for loose walnuts"
+    },
+    {
+      "index": 35,
+      "reason": "unrelated pest-control business logo"
+    },
+    {
+      "index": 37,
+      "reason": "Swad 100g pack shared across loose 50g/100g"
+    },
+    {
+      "index": 48,
+      "reason": "butter toast biscuits shown for Amul buttermilk"
+    },
+    {
+      "index": 50,
+      "reason": "ice cream tub shown for Amul cream"
+    },
+    {
+      "index": 54,
+      "reason": "Amulspray infant milk food shown for Amul milk"
+    },
+    {
+      "index": 57,
+      "reason": "Milky Mist paneer shown for Amul/Jersey ambiguous source"
+    },
+    {
+      "index": 59,
+      "reason": "200g milk powder pack for 500g"
+    },
+    {
+      "index": 62,
+      "reason": "combo with munakka instead of single anjeer"
+    },
+    {
+      "index": 68,
+      "reason": "small bottle for 5L pooja oil"
+    },
+    {
+      "index": 71,
+      "reason": "2kg instead of 2+1kg detergent"
+    },
+    {
+      "index": 75,
+      "reason": "6L front-load image for generic liquid detergent"
+    },
+    {
+      "index": 79,
+      "reason": "photo of shop staff instead of cooking oil"
+    },
+    {
+      "index": 82,
+      "reason": "saffron advertisement, no product pack"
+    },
+    {
+      "index": 85,
+      "reason": "200g reused for 500g"
+    },
+    {
+      "index": 87,
+      "reason": "gift combo for aftershave"
+    },
+    {
+      "index": 88,
+      "reason": "mixed deodorant assortment"
+    },
+    {
+      "index": 89,
+      "reason": "two-pack deodorant for single"
+    },
+    {
+      "index": 90,
+      "reason": "aftershave ad for shaving cream"
+    },
+    {
+      "index": 91,
+      "reason": "grooming gift set for lotion"
+    },
+    {
+      "index": 95,
+      "reason": "unrelated pink glow soap for Ayush soap"
+    },
+    {
+      "index": 97,
+      "reason": "packaged branded almond 100g used for loose almonds"
+    },
+    {
+      "index": 103,
+      "reason": "back label instead of front"
+    },
+    {
+      "index": 104,
+      "reason": "back label instead of front"
+    },
+    {
+      "index": 108,
+      "reason": "side label instead of front"
+    },
+    {
+      "index": 109,
+      "reason": "back label instead of front"
+    },
+    {
+      "index": 113,
+      "reason": "back of packet only"
+    },
+    {
+      "index": 115,
+      "reason": "baby bib instead of Bambino vermicelli"
+    },
+    {
+      "index": 116,
+      "reason": "baby bib instead of Bambino 500g"
+    },
+    {
+      "index": 119,
+      "reason": "black henna instead of aloe vera"
+    },
+    {
+      "index": 134,
+      "reason": "500g pouch for 15-pack drink sachets"
+    },
+    {
+      "index": 138,
+      "reason": "antiseptic cream instead of aloe vera variant; verify"
+    },
+    {
+      "index": 144,
+      "reason": "electric brush for manual bottle brush ambiguous"
+    },
+    {
+      "index": 150,
+      "reason": "marketing graphic instead of pack front"
+    },
+    {
+      "index": 153,
+      "reason": "single packet for multipack"
+    },
+    {
+      "index": 154,
+      "reason": "mixed milk bikis and jimjam combo"
+    },
+    {
+      "index": 157,
+      "reason": "single packet for multipack"
+    },
+    {
+      "index": 160,
+      "reason": "1kg digestive photo for Rs20 small pack"
+    },
+    {
+      "index": 162,
+      "reason": "multipack toast biscuits"
+    },
+    {
+      "index": 179,
+      "reason": "two pack coffee for single"
+    },
+    {
+      "index": 181,
+      "reason": "Amul butter pack back for butter cookies"
+    },
+    {
+      "index": 187,
+      "reason": "back label only"
+    },
+    {
+      "index": 196,
+      "reason": "soap ad instead of front pack"
+    },
+    {
+      "index": 197,
+      "reason": "single for multipack"
+    },
+    {
+      "index": 201,
+      "reason": "seed advert no pack"
+    },
+    {
+      "index": 202,
+      "reason": "pump bottle instead of 25pcs shampoo sachets"
+    },
+    {
+      "index": 208,
+      "reason": "chikki assortment instead of sesame chikki"
+    },
+    {
+      "index": 216,
+      "reason": "mixed sauce and chutney combo"
+    },
+    {
+      "index": 217,
+      "reason": "Schezwan masala packet instead of sauce"
+    },
+    {
+      "index": 219,
+      "reason": "mixed sauces instead of vinegar"
+    },
+    {
+      "index": 220,
+      "reason": "back of soap pack"
+    },
+    {
+      "index": 227,
+      "reason": "1200ml x2 imported Clear shampoo assorted for generic small pack"
+    },
+    {
+      "index": 228,
+      "reason": "same imported multipack Clear shampoo"
+    },
+    {
+      "index": 229,
+      "reason": "mixed shampoo combo"
+    },
+    {
+      "index": 230,
+      "reason": "mouthwash plus toothpaste combo"
+    },
+    {
+      "index": 234,
+      "reason": "charcoal toothpaste multipack and mouthwash combo"
+    },
+    {
+      "index": 236,
+      "reason": "four herbal toothpaste tubes for single"
+    },
+    {
+      "index": 237,
+      "reason": "herbal toothpaste instead of kids toothpaste"
+    },
+    {
+      "index": 245,
+      "reason": "advert with three sensitive toothpaste variants"
+    },
+    {
+      "index": 246,
+      "reason": "specific Total Sensitive instead of unspecified Colgate variant"
+    },
+    {
+      "index": 248,
+      "reason": "4-pack toothpaste"
+    },
+    {
+      "index": 249,
+      "reason": "back of toothpaste pack"
+    },
+    {
+      "index": 251,
+      "reason": "Comfort Desire 2L image used for all generic price variants"
+    },
+    {
+      "index": 258,
+      "reason": "side of cornflour carton"
+    },
+    {
+      "index": 260,
+      "reason": "crystal metaphysical cards; source unclear"
+    },
+    {
+      "index": 261,
+      "reason": "Sai Ashirwad incense packs instead of cups"
+    },
+    {
+      "index": 270,
+      "reason": "two Amla bottles combo"
+    },
+    {
+      "index": 272,
+      "reason": "ingredients label instead of product front"
+    },
+    {
+      "index": 276,
+      "reason": "two jars honey"
+    },
+    {
+      "index": 278,
+      "reason": "two baby oil packs"
+    },
+    {
+      "index": 283,
+      "reason": "mixed shampoo combo"
+    },
+    {
+      "index": 284,
+      "reason": "cooked potatoes dish instead of dried curd chilli"
+    },
+    {
+      "index": 288,
+      "reason": "500ml pack for 200g dalda"
+    },
+    {
+      "index": 289,
+      "reason": "Rath plus Dalda combo instead of Dalda 500g"
+    },
+    {
+      "index": 290,
+      "reason": "marketing panel instead of front"
+    },
+    {
+      "index": 302,
+      "reason": "270g mayonnaise for kg"
+    },
+    {
+      "index": 303,
+      "reason": "gift combo for Denver fragrance"
+    },
+    {
+      "index": 304,
+      "reason": "five unlabelled spray cards for Denver pocket fragrance"
+    },
+    {
+      "index": 306,
+      "reason": "Oxyfine talc instead of Denver powder"
+    },
+    {
+      "index": 310,
+      "reason": "makhana combo instead of pink salt"
+    },
+    {
+      "index": 312,
+      "reason": "mixed handwash assortment"
+    },
+    {
+      "index": 314,
+      "reason": "cleaner use instructions instead of front"
+    },
+    {
+      "index": 315,
+      "reason": "cleaner use instructions instead of front"
+    },
+    {
+      "index": 317,
+      "reason": "cleaner use instructions instead of front"
+    },
+    {
+      "index": 321,
+      "reason": "mixed soap types for Original"
+    },
+    {
+      "index": 322,
+      "reason": "packaging-change graphic instead of shaving cream front"
+    },
+    {
+      "index": 327,
+      "reason": "liquid toilet cleaner instead of Domex powder"
+    },
+    {
+      "index": 328,
+      "reason": "coconut variant for unspecified Dove soap"
+    },
+    {
+      "index": 330,
+      "reason": "shampoo and body cream mixed combo"
+    },
+    {
+      "index": 331,
+      "reason": "back of soap box"
+    },
+    {
+      "index": 333,
+      "reason": "shampoo conditioner kit instead of shampoo"
+    },
+    {
+      "index": 338,
+      "reason": "large branded mixed nuts jar for loose 10g"
+    },
+    {
+      "index": 339,
+      "reason": "large branded mixed nuts jar for loose100g"
+    },
+    {
+      "index": 351,
+      "reason": "cardamom / cinnamon combo source for single cardamom"
+    },
+    {
+      "index": 352,
+      "reason": "cinnamon-cardamom combo instead of single cardamom"
+    },
+    {
+      "index": 356,
+      "reason": "1kg image for 5kg atta"
+    },
+    {
+      "index": 357,
+      "reason": "Patanjali Delite biscuits instead of Elite"
+    },
+    {
+      "index": 361,
+      "reason": "assorted pocket fragrances"
+    },
+    {
+      "index": 366,
+      "reason": "back of Eva talc"
+    },
+    {
+      "index": 375,
+      "reason": "mixed Everest spices advert instead of biryani chicken"
+    },
+    {
+      "index": 379,
+      "reason": "two-packs masala"
+    },
+    {
+      "index": 380,
+      "reason": "two-packs masala"
+    },
+    {
+      "index": 386,
+      "reason": "Thai advert instead of product front"
+    },
+    {
+      "index": 387,
+      "reason": "garam masala plus milk masala combo"
+    },
+    {
+      "index": 391,
+      "reason": "back of pack"
+    },
+    {
+      "index": 399,
+      "reason": "Adani chilli powder instead of Everest pepper powder"
+    },
+    {
+      "index": 400,
+      "reason": "side of pepper box"
+    },
+    {
+      "index": 402,
+      "reason": "pack of two masala"
+    },
+    {
+      "index": 403,
+      "reason": "Eastern rasam powder instead of Everest sambar"
+    },
+    {
+      "index": 407,
+      "reason": "tandoori chicken and kitchen king combo"
+    },
+    {
+      "index": 408,
+      "reason": "Kashmirilal instead of Tikhalal 100g"
+    },
+    {
+      "index": 409,
+      "reason": "Kashmirilal 100g instead of Tikhalal 200g"
+    },
+    {
+      "index": 410,
+      "reason": "Kashmirilal100g instead of Tikhalal500g"
+    },
+    {
+      "index": 411,
+      "reason": "two Tikhalal packs"
+    },
+    {
+      "index": 412,
+      "reason": "Himalaya+Everyuth combo for Everyuth aloe face wash"
+    },
+    {
+      "index": 414,
+      "reason": "Everyuth plus Nature brand assortment"
+    },
+    {
+      "index": 416,
+      "reason": "three different face wash variants"
+    },
+    {
+      "index": 421,
+      "reason": "two Ezee bottles"
+    },
+    {
+      "index": 425,
+      "reason": "FreshGlow instead of Fairglow; different brand"
+    },
+    {
+      "index": 426,
+      "reason": "FreshGlow vs Fairglow; inspect billing"
+    },
+    {
+      "index": 428,
+      "reason": "two-pack fairness cream"
+    },
+    {
+      "index": 439,
+      "reason": "mayonnaise instead of fish sauce"
+    },
+    {
+      "index": 443,
+      "reason": "Dhara sunflower instead of Fortune"
+    },
+    {
+      "index": 444,
+      "reason": "3x1L Fortune pouches for 5L"
+    },
+    {
+      "index": 445,
+      "reason": "two different mustard oil varieties"
+    },
+    {
+      "index": 451,
+      "reason": "Pears soap instead of Fresh Glow"
+    },
+    {
+      "index": 454,
+      "reason": "unrelated womens blades for Gallant razor"
+    },
+    {
+      "index": 455,
+      "reason": "shaving cream instead of razor blades"
+    },
+    {
+      "index": 463,
+      "reason": "three conditioner tubes"
+    },
+    {
+      "index": 466,
+      "reason": "two different hair-colour shades"
+    },
+    {
+      "index": 467,
+      "reason": "hair colour shampoo instead of ordinary Garnier shampoo"
+    },
+    {
+      "index": 476,
+      "reason": "double-edge blades for PII twin blade cartridge"
+    },
+    {
+      "index": 483,
+      "reason": "razor-and-refills kit for blades"
+    },
+    {
+      "index": 484,
+      "reason": "shaving foam instead of razor"
+    },
+    {
+      "index": 492,
+      "reason": "razor kit instead of shaving brush"
+    },
+    {
+      "index": 495,
+      "reason": "back of blade packet"
+    },
+    {
+      "index": 503,
+      "reason": "glass plate instead of drinking glass"
+    },
+    {
+      "index": 511,
+      "reason": "womens face wash for men"
+    },
+    {
+      "index": 512,
+      "reason": "womens face cream for men"
+    },
+    {
+      "index": 515,
+      "reason": "womens Ayurvedic care for men"
+    },
+    {
+      "index": 518,
+      "reason": "winter cream used for LB/light beauty cream"
+    },
+    {
+      "index": 520,
+      "reason": "womens winter cream for men"
+    },
+    {
+      "index": 530,
+      "reason": "creme hair colour instead of liquid dye 40ml"
+    },
+    {
+      "index": 531,
+      "reason": "powder hair dye instead of liquid dye85ml"
+    },
+    {
+      "index": 533,
+      "reason": "Fab plus Pril combo; different company; Rs10 liquid detergent"
+    },
+    {
+      "index": 535,
+      "reason": "biometric access-control device instead of mosquito Fast Card"
+    },
+    {
+      "index": 536,
+      "reason": "advertisement instead of pack front"
+    },
+    {
+      "index": 539,
+      "reason": "mixed soap+shaving round combo"
+    },
+    {
+      "index": 543,
+      "reason": "unrelated product for Godrej shaving cream inspect"
+    },
+    {
+      "index": 547,
+      "reason": "toilet cleaner multipack"
+    },
+    {
+      "index": 548,
+      "reason": "Godzilla figurine instead of pest control"
+    },
+    {
+      "index": 549,
+      "reason": "Godzilla figurine instead of pest control"
+    },
+    {
+      "index": 550,
+      "reason": "soan papdi sweets instead of besan"
+    },
+    {
+      "index": 551,
+      "reason": "soan papdi sweets instead of chana dal"
+    },
+    {
+      "index": 552,
+      "reason": "Gokul snack dal instead of raw dal check"
+    },
+    {
+      "index": 553,
+      "reason": "BB body powder instead of Gokul Santol talc"
+    },
+    {
+      "index": 555,
+      "reason": "unrelated grains product label inspect"
+    },
+    {
+      "index": 557,
+      "reason": "1L cooking oil pouch for15kg tin"
+    },
+    {
+      "index": 558,
+      "reason": "advertisement1L for15L oil"
+    },
+    {
+      "index": 559,
+      "reason": "advertisement1L for5L oil"
+    },
+    {
+      "index": 563,
+      "reason": "5kg rice bag for30kg"
+    },
+    {
+      "index": 564,
+      "reason": "Golden Harvest instead of Golden Grain rice"
+    },
+    {
+      "index": 569,
+      "reason": "machine+refill instead of refill"
+    },
+    {
+      "index": 574,
+      "reason": "green tea80bags instead of100g loose tea ambiguous"
+    },
+    {
+      "index": 576,
+      "reason": "peanut jaggery laddu instead of jaggery balls inspect"
+    },
+    {
+      "index": 577,
+      "reason": "marketing graphic"
+    },
+    {
+      "index": 580,
+      "reason": "Hair&Care marketing graphic"
+    },
+    {
+      "index": 581,
+      "reason": "Hair&Care marketing graphic"
+    },
+    {
+      "index": 586,
+      "reason": "chilli powder bags for turmeric"
+    },
+    {
+      "index": 587,
+      "reason": "two bhelpuri packs"
+    },
+    {
+      "index": 589,
+      "reason": "multipack Hamam for single"
+    },
+    {
+      "index": 590,
+      "reason": "Harpic+Lyzol multiproduct combo"
+    },
+    {
+      "index": 594,
+      "reason": "two imported Head Shoulders bottles used all packs"
+    },
+    {
+      "index": 598,
+      "reason": "back of butter box"
+    },
+    {
+      "index": 602,
+      "reason": "three different Hershey chocolates"
+    },
+    {
+      "index": 604,
+      "reason": "cream facewash combo for aloe gel"
+    },
+    {
+      "index": 605,
+      "reason": "baby lotion and cream combo"
+    },
+    {
+      "index": 607,
+      "reason": "baby gift kit for hair oil"
+    },
+    {
+      "index": 608,
+      "reason": "baby gift kit for lotion"
+    },
+    {
+      "index": 611,
+      "reason": "soap and powder combo"
+    },
+    {
+      "index": 614,
+      "reason": "baby lotion instead of general body lotion plus combo"
+    },
+    {
+      "index": 618,
+      "reason": "facewash combo for orange peeloff"
+    },
+    {
+      "index": 622,
+      "reason": "all sizes shampoo assortment"
+    },
+    {
+      "index": 623,
+      "reason": "neem orange mixed soap combo"
+    },
+    {
+      "index": 625,
+      "reason": "Ratol cake ad instead of HIT"
+    },
+    {
+      "index": 627,
+      "reason": "red HIT spray + gel combo"
+    },
+    {
+      "index": 628,
+      "reason": "Waar HIT gel unrelated to Godrej HIT"
+    },
+    {
+      "index": 633,
+      "reason": "bottle instead of12 sachets"
+    },
+    {
+      "index": 634,
+      "reason": "bottle vs200g pack inspect"
+    },
+    {
+      "index": 644,
+      "reason": "two hand wash bottles"
+    },
+    {
+      "index": 646,
+      "reason": "marketing graphic"
+    },
+    {
+      "index": 648,
+      "reason": "back of rice bags"
+    },
+    {
+      "index": 650,
+      "reason": "back of rice bag"
+    },
+    {
+      "index": 653,
+      "reason": "price advert for hair oil"
+    },
+    {
+      "index": 657,
+      "reason": "sprayer machine for plastic broom"
+    },
+    {
+      "index": 659,
+      "reason": "20g mace jar for10g loose"
+    },
+    {
+      "index": 660,
+      "reason": "20g mace jar for100g loose"
+    },
+    {
+      "index": 665,
+      "reason": "baby shampoo and lotion combo"
+    },
+    {
+      "index": 669,
+      "reason": "three baby soaps instead of single"
+    },
+    {
+      "index": 679,
+      "reason": "mixed nuts400g jar for cashew crumbs100g"
+    },
+    {
+      "index": 683,
+      "reason": "ingredient label only"
+    },
+    {
+      "index": 685,
+      "reason": "six spice jars assortment for kalonji"
+    },
+    {
+      "index": 686,
+      "reason": "brand50g camphor jar across50g100g"
+    },
+    {
+      "index": 693,
+      "reason": "cornflakes and muesli combo"
+    },
+    {
+      "index": 695,
+      "reason": "back of colour jar"
+    },
+    {
+      "index": 696,
+      "reason": "Patanjali herbal holi colour instead of edible kesar yellow100g"
+    },
+    {
+      "index": 698,
+      "reason": "hair oil instead of shampoo"
+    },
+    {
+      "index": 699,
+      "reason": "hair oil instead of shampoo"
+    },
+    {
+      "index": 701,
+      "reason": "Kinder mini eggs instead of Kinder Joy"
+    },
+    {
+      "index": 706,
+      "reason": "mixed flavours squash bottles for grape"
+    },
+    {
+      "index": 708,
+      "reason": "no onion no garlic variant for generic tomato ketchup"
+    },
+    {
+      "index": 710,
+      "reason": "blurred image"
+    },
+    {
+      "index": 712,
+      "reason": "blurred image"
+    },
+    {
+      "index": 714,
+      "reason": "back of cleaner box"
+    },
+    {
+      "index": 716,
+      "reason": "three soup packets"
+    },
+    {
+      "index": 719,
+      "reason": "back of biscuit packet"
+    },
+    {
+      "index": 723,
+      "reason": "Gopuram ghee powder? label inspect"
+    },
+    {
+      "index": 725,
+      "reason": "shampoo+hair colour combo"
+    },
+    {
+      "index": 727,
+      "reason": "buy2get1 multipack"
+    },
+    {
+      "index": 731,
+      "reason": "different skincare variants none sunscreen"
+    },
+    {
+      "index": 733,
+      "reason": "generic unavailable produce placeholder instead of chilli"
+    },
+    {
+      "index": 734,
+      "reason": "two baby oils"
+    },
+    {
+      "index": 747,
+      "reason": "5L sanitizer for Rs95"
+    },
+    {
+      "index": 748,
+      "reason": "10 soap multipack"
+    },
+    {
+      "index": 752,
+      "reason": "two lipbalm flavours"
+    },
+    {
+      "index": 755,
+      "reason": "single for multipack"
+    },
+    {
+      "index": 759,
+      "reason": "pack of2 cleaner"
+    },
+    {
+      "index": 763,
+      "reason": "mixed whole spices instead of cloves"
+    },
+    {
+      "index": 764,
+      "reason": "mixed whole spices instead of cloves"
+    },
+    {
+      "index": 765,
+      "reason": "long pepper instead of cloves"
+    },
+    {
+      "index": 767,
+      "reason": "assorted Biscoff pack sizes"
+    },
+    {
+      "index": 768,
+      "reason": "assorted Lux soap variants"
+    },
+    {
+      "index": 771,
+      "reason": "5pack for single international soap"
+    },
+    {
+      "index": 772,
+      "reason": "Soft Glow instead of Lux International multipack"
+    },
+    {
+      "index": 773,
+      "reason": "single instead of multipack"
+    },
+    {
+      "index": 777,
+      "reason": "ketchup+Maggi seasoning combo"
+    },
+    {
+      "index": 778,
+      "reason": "noodles instead of Maggi masala seasoning"
+    },
+    {
+      "index": 779,
+      "reason": "noodles instead of30masala sachets"
+    },
+    {
+      "index": 782,
+      "reason": "ketchup+seasoning combo"
+    },
+    {
+      "index": 783,
+      "reason": "5sachets instead of tomato sauce bottle"
+    },
+    {
+      "index": 784,
+      "reason": "mixed biscuit variants"
+    },
+    {
+      "index": 789,
+      "reason": "Everyday meat masala instead of Mamta"
+    },
+    {
+      "index": 791,
+      "reason": "Nirantaram masala instead of Mamta turmeric"
+    },
+    {
+      "index": 794,
+      "reason": "8soap packs for single"
+    },
+    {
+      "index": 795,
+      "reason": "side label of soap"
+    },
+    {
+      "index": 796,
+      "reason": "single soap for multipack"
+    },
+    {
+      "index": 798,
+      "reason": "tea-shop logo for packaged Marwadi tea"
+    },
+    {
+      "index": 799,
+      "reason": "Century momo seasoning for ambiguous masala pack"
+    },
+    {
+      "index": 801,
+      "reason": "200ml ghee image for1L"
+    },
+    {
+      "index": 802,
+      "reason": "500ml ghee image for200ml"
+    },
+    {
+      "index": 809,
+      "reason": "marketing image for hair oil"
+    },
+    {
+      "index": 812,
+      "reason": "single soap for multipack"
+    },
+    {
+      "index": 816,
+      "reason": "Meera shampoo assortment instead of herbal oil"
+    },
+    {
+      "index": 818,
+      "reason": "marketing image"
+    },
+    {
+      "index": 819,
+      "reason": "two shampoo variants"
+    },
+    {
+      "index": 827,
+      "reason": "back of chilli powder packet"
+    },
+    {
+      "index": 829,
+      "reason": "1kg mixed dryfruit image for3kg"
+    },
+    {
+      "index": 830,
+      "reason": "candied fruit instead of mixed dryfruit inspect source"
+    },
+    {
+      "index": 832,
+      "reason": "single packet for multipack"
+    },
+    {
+      "index": 836,
+      "reason": "Swiffer device for cleaner"
+    },
+    {
+      "index": 837,
+      "reason": "aerosol sprays instead of mosquito cakes"
+    },
+    {
+      "index": 838,
+      "reason": "cockroach trap for unspecified Mortein product"
+    },
+    {
+      "index": 843,
+      "reason": "marketing panel"
+    },
+    {
+      "index": 844,
+      "reason": "back of MTR idli karam"
+    },
+    {
+      "index": 846,
+      "reason": "ready-to-eat rasam instead of rasam powder inspect"
+    },
+    {
+      "index": 847,
+      "reason": "two sambar jars"
+    },
+    {
+      "index": 851,
+      "reason": "back label only"
+    },
+    {
+      "index": 854,
+      "reason": "Ustraa aftershave instead of My Love"
+    },
+    {
+      "index": 856,
+      "reason": "Sri Sri sandal+oudh incense instead of Mysore Sandal"
+    },
+    {
+      "index": 859,
+      "reason": "marketing panel instead of powder"
+    },
+    {
+      "index": 863,
+      "reason": "Top detergent instead of Nature Protect"
+    },
+    {
+      "index": 864,
+      "reason": "marketing image"
+    },
+    {
+      "index": 865,
+      "reason": "marketing graphic"
+    },
+    {
+      "index": 867,
+      "reason": "Holi powder instead of Neon71 stationery"
+    },
+    {
+      "index": 868,
+      "reason": "coffee sachet strips all price packs"
+    },
+    {
+      "index": 871,
+      "reason": "17piece minis instead of Rs10 KitKat"
+    },
+    {
+      "index": 874,
+      "reason": "small tin instead of5kg milkmaid"
+    },
+    {
+      "index": 881,
+      "reason": "Vimal brand detergent instead of Nirma"
+    },
+    {
+      "index": 882,
+      "reason": "lotion+soap combo"
+    },
+    {
+      "index": 886,
+      "reason": "mixed deodorant variants"
+    },
+    {
+      "index": 887,
+      "reason": "retailer price advertisement"
+    },
+    {
+      "index": 893,
+      "reason": "two soap boxes"
+    },
+    {
+      "index": 896,
+      "reason": "Oodee instead of Nova moisturizer"
+    },
+    {
+      "index": 904,
+      "reason": "four different talc packs"
+    },
+    {
+      "index": 907,
+      "reason": "electric refill instead of Odomos"
+    },
+    {
+      "index": 908,
+      "reason": "roll-on assortment and cream"
+    },
+    {
+      "index": 909,
+      "reason": "four room freshener variants"
+    },
+    {
+      "index": 913,
+      "reason": "mixed creams"
+    },
+    {
+      "index": 916,
+      "reason": "two oils"
+    },
+    {
+      "index": 917,
+      "reason": "rice bran oil instead of Olive Active branded blended oil inspect"
+    },
+    {
+      "index": 921,
+      "reason": "500g instead of100g food colour"
+    },
+    {
+      "index": 930,
+      "reason": "different Padmini variants"
+    },
+    {
+      "index": 933,
+      "reason": "handwash instead of sanitizer"
+    },
+    {
+      "index": 936,
+      "reason": "two shampoo bottles for conditioner"
+    },
+    {
+      "index": 937,
+      "reason": "mixed shampoo conditioners"
+    },
+    {
+      "index": 944,
+      "reason": "two different Ayurvedic oils"
+    },
+    {
+      "index": 945,
+      "reason": "Parachute hot oil instead of gold oil"
+    },
+    {
+      "index": 949,
+      "reason": "two Ayurvedic/hot oils"
+    },
+    {
+      "index": 950,
+      "reason": "two Jasmine bottles"
+    },
+    {
+      "index": 952,
+      "reason": "back labels of aftershave"
+    },
+    {
+      "index": 953,
+      "reason": "back of soap box"
+    },
+    {
+      "index": 954,
+      "reason": "mixed deodorant brands incl KS and Almas"
+    },
+    {
+      "index": 958,
+      "reason": "2020+HappyHappy mixed biscuits instead of HappyHappy multipack"
+    },
+    {
+      "index": 961,
+      "reason": "back of biscuit pack"
+    },
+    {
+      "index": 962,
+      "reason": "back of biscuit pack"
+    },
+    {
+      "index": 963,
+      "reason": "butter masala variant for unspecified KrackJack"
+    },
+    {
+      "index": 969,
+      "reason": "back of turmeric pack"
+    },
+    {
+      "index": 981,
+      "reason": "hair cleanser instead of hair gel"
+    },
+    {
+      "index": 982,
+      "reason": "two shampoo bottles"
+    },
+    {
+      "index": 986,
+      "reason": "pack of3 soap instead of single"
+    },
+    {
+      "index": 987,
+      "reason": "single for multipack"
+    },
+    {
+      "index": 989,
+      "reason": "packaging transition graphic"
+    },
+    {
+      "index": 991,
+      "reason": "two penne pasta packs"
+    },
+    {
+      "index": 994,
+      "reason": "white pepper for unspecified black pepper source confirm"
+    },
+    {
+      "index": 995,
+      "reason": "white pepper for unspecified black pepper source confirm"
+    },
+    {
+      "index": 1000,
+      "reason": "Redman colour-flow paste instead of unspecified pink colour bottle"
+    },
+    {
+      "index": 1005,
+      "reason": "rose+pista syrups combo"
+    },
+    {
+      "index": 1007,
+      "reason": "white plates instead of brown"
+    },
+    {
+      "index": 1014,
+      "reason": "imported mixed skincare assortment"
+    },
+    {
+      "index": 1016,
+      "reason": "Ponds lotion plus unrelated creams"
+    },
+    {
+      "index": 1017,
+      "reason": "lotion and gel combo"
+    },
+    {
+      "index": 1018,
+      "reason": "model face photograph instead of cream"
+    },
+    {
+      "index": 1020,
+      "reason": "facewash+gel instead of moisturiser"
+    },
+    {
+      "index": 1026,
+      "reason": "loose face powder compact instead of talc billing unclear"
+    },
+    {
+      "index": 1042,
+      "reason": "back of two pink salt bags"
+    },
+    {
+      "index": 1046,
+      "reason": "whole mustard instead of mustard powder"
+    },
+    {
+      "index": 1047,
+      "reason": "four mustard packets"
+    },
+    {
+      "index": 1048,
+      "reason": "four henna packs"
+    },
+    {
+      "index": 1053,
+      "reason": "back of glue trap"
+    },
+    {
+      "index": 1055,
+      "reason": "1kg Sagar idli rava for500g generic rava"
+    },
+    {
+      "index": 1056,
+      "reason": "mixed sauces combo"
+    },
+    {
+      "index": 1057,
+      "reason": "mixed sauces combo"
+    },
+    {
+      "index": 1058,
+      "reason": "OxyClean instead of Revive starch powder"
+    },
+    {
+      "index": 1059,
+      "reason": "Stain Buster detergent plus yellow cleaner instead of Revive liquid starch"
+    },
+    {
+      "index": 1060,
+      "reason": "joint health supplement instead of Revive powder"
+    },
+    {
+      "index": 1062,
+      "reason": "single soap for multipack"
+    },
+    {
+      "index": 1063,
+      "reason": "assorted roll-ons"
+    },
+    {
+      "index": 1064,
+      "reason": "two500ml bottles for Rs45 pack"
+    },
+    {
+      "index": 1065,
+      "reason": "4bars vs single"
+    },
+    {
+      "index": 1067,
+      "reason": "detergent powder instead of front-load liquid"
+    },
+    {
+      "index": 1068,
+      "reason": "blurred TV advert instead of top-load liquid"
+    },
+    {
+      "index": 1070,
+      "reason": "3bars for single"
+    },
+    {
+      "index": 1073,
+      "reason": "back of cleaner bottle"
+    },
+    {
+      "index": 1080,
+      "reason": "two incense variants"
+    },
+    {
+      "index": 1081,
+      "reason": "detergent advertisement"
+    },
+    {
+      "index": 1082,
+      "reason": "dishwash liquid instead of Sabeena cleaning powder"
+    },
+    {
+      "index": 1083,
+      "reason": "two jars basil seeds"
+    },
+    {
+      "index": 1088,
+      "reason": "15L can for1L oil"
+    },
+    {
+      "index": 1090,
+      "reason": "marketing multi-size graphic"
+    },
+    {
+      "index": 1093,
+      "reason": "plain oats instead of muesli oats"
+    },
+    {
+      "index": 1094,
+      "reason": "300g oats for200g"
+    },
+    {
+      "index": 1097,
+      "reason": "oats combo1kg plus another"
+    },
+    {
+      "index": 1099,
+      "reason": "Sagar Veda mustard oil instead of Sagar Gold Field"
+    },
+    {
+      "index": 1101,
+      "reason": "Kurnool rice bag instead of Sai Baba Maharaja"
+    },
+    {
+      "index": 1102,
+      "reason": "Kurnool rice bag instead of Sai Baba Subodayam"
+    },
+    {
+      "index": 1103,
+      "reason": "Kurnool rice bag instead of Sai Baba Vasavi"
+    },
+    {
+      "index": 1104,
+      "reason": "US Sterling oil gallon instead of loose salad oil"
+    },
+    {
+      "index": 1105,
+      "reason": "5-pack salted biscuits"
+    },
+    {
+      "index": 1106,
+      "reason": "5-pack for single aloe soap"
+    },
+    {
+      "index": 1108,
+      "reason": "different soap variants instead of aloe"
+    },
+    {
+      "index": 1109,
+      "reason": "3 baby soaps instead of single"
+    },
+    {
+      "index": 1110,
+      "reason": "back of baby soap"
+    },
+    {
+      "index": 1112,
+      "reason": "three soap variants"
+    },
+    {
+      "index": 1113,
+      "reason": "Royal Sandal instead of Gold"
+    },
+    {
+      "index": 1115,
+      "reason": "large handwash jug for Rs138"
+    },
+    {
+      "index": 1116,
+      "reason": "single soap for multipack"
+    },
+    {
+      "index": 1117,
+      "reason": "two talcs"
+    },
+    {
+      "index": 1118,
+      "reason": "6soaps instead of single"
+    },
+    {
+      "index": 1120,
+      "reason": "back of soap packet"
+    },
+    {
+      "index": 1124,
+      "reason": "plain fennel instead of mix"
+    },
+    {
+      "index": 1129,
+      "reason": "sanitizer jug+small bottle combo"
+    },
+    {
+      "index": 1130,
+      "reason": "fryums snack instead of whole spice badam? source ambiguous"
+    },
+    {
+      "index": 1134,
+      "reason": "Black Agar instead of Selfie Agar"
+    },
+    {
+      "index": 1137,
+      "reason": "back of toothpaste pack"
+    },
+    {
+      "index": 1140,
+      "reason": "back of hair gel pouch"
+    },
+    {
+      "index": 1142,
+      "reason": "rock/chalk instead of Shalimar atta"
+    },
+    {
+      "index": 1148,
+      "reason": "table instead of foil cover9x12"
+    },
+    {
+      "index": 1151,
+      "reason": "Royal Max instead of Silver Max razor blades"
+    },
+    {
+      "index": 1157,
+      "reason": "cosmetic cleanser instead of Soft Touch fabric conditioner"
+    },
+    {
+      "index": 1161,
+      "reason": "strip of talc sachets all pack sizes"
+    },
+    {
+      "index": 1164,
+      "reason": "different pooja oil brands"
+    },
+    {
+      "index": 1165,
+      "reason": "star anise and mace mixed combo"
+    },
+    {
+      "index": 1166,
+      "reason": "250g anise for100g"
+    },
+    {
+      "index": 1171,
+      "reason": "hair highlighting kit for plain hair colour"
+    },
+    {
+      "index": 1174,
+      "reason": "Stevia unrelated brand instead of Sugar Free"
+    },
+    {
+      "index": 1175,
+      "reason": "Stevia advert instead of Sugar Free tablets"
+    },
+    {
+      "index": 1176,
+      "reason": "peanut butter with jelly instead of plain"
+    },
+    {
+      "index": 1177,
+      "reason": "three packs for single"
+    },
+    {
+      "index": 1180,
+      "reason": "138g Yumfills cake for Rs10 cake"
+    },
+    {
+      "index": 1183,
+      "reason": "5pack noodles for generic single"
+    },
+    {
+      "index": 1184,
+      "reason": "marketing graphic"
+    },
+    {
+      "index": 1187,
+      "reason": "foreign Sunsilk black shampoo design"
+    },
+    {
+      "index": 1188,
+      "reason": "combo for conditioner"
+    },
+    {
+      "index": 1190,
+      "reason": "Sunsilk perfume bottle instead of hair serum"
+    },
+    {
+      "index": 1191,
+      "reason": "Rs2 sachet for all shampoo packs"
+    },
+    {
+      "index": 1193,
+      "reason": "rate watermark for shampoo"
+    },
+    {
+      "index": 1198,
+      "reason": "back of detergent bag"
+    },
+    {
+      "index": 1202,
+      "reason": "Comfort+Surf mixed combo"
+    },
+    {
+      "index": 1204,
+      "reason": "5L refill for all small packs"
+    },
+    {
+      "index": 1206,
+      "reason": "Shakthi coriander instead of Swastik"
+    },
+    {
+      "index": 1207,
+      "reason": "random chilli bags instead of Swastik turmeric"
+    },
+    {
+      "index": 1208,
+      "reason": "Shakthi turmeric instead of Swastik"
+    },
+    {
+      "index": 1209,
+      "reason": "Three Mango chilli instead of Swastik"
+    },
+    {
+      "index": 1212,
+      "reason": "back of Three Mango mustard powder instead of Swastik"
+    },
+    {
+      "index": 1213,
+      "reason": "company logo instead of turmeric"
+    },
+    {
+      "index": 1214,
+      "reason": "Shakthi cumin instead of Swastik"
+    },
+    {
+      "index": 1215,
+      "reason": "toilet seat covers instead of disposable table cover"
+    },
+    {
+      "index": 1219,
+      "reason": "back of drink powder jar"
+    },
+    {
+      "index": 1220,
+      "reason": "child advertisement instead of Tang pack"
+    },
+    {
+      "index": 1226,
+      "reason": "assorted Tata Gluco flavours"
+    },
+    {
+      "index": 1229,
+      "reason": "back of Tata tea"
+    },
+    {
+      "index": 1244,
+      "reason": "herbal tea instead of loose black tea"
+    },
+    {
+      "index": 1247,
+      "reason": "oregano instead of tasting salt MSG"
+    },
+    {
+      "index": 1250,
+      "reason": "2kg Tide for500g"
+    },
+    {
+      "index": 1251,
+      "reason": "4bars for Rs6 single"
+    },
+    {
+      "index": 1252,
+      "reason": "3bars for single"
+    },
+    {
+      "index": 1254,
+      "reason": "9kg for Tide green Rs50"
+    },
+    {
+      "index": 1256,
+      "reason": "10kg for1kg detergent"
+    },
+    {
+      "index": 1258,
+      "reason": "bottle plus refill combo"
+    },
+    {
+      "index": 1259,
+      "reason": "generic Tide liquid instead of specified front load"
+    },
+    {
+      "index": 1265,
+      "reason": "five laddu tubs"
+    },
+    {
+      "index": 1268,
+      "reason": "mixed cleaning brushes"
+    },
+    {
+      "index": 1270,
+      "reason": "recipe food bowl instead of tomato sauce product"
+    },
+    {
+      "index": 1273,
+      "reason": "advert instead of product front"
+    },
+    {
+      "index": 1275,
+      "reason": "four conditioners"
+    },
+    {
+      "index": 1277,
+      "reason": "bottles from salon instead of product front"
+    },
+    {
+      "index": 1282,
+      "reason": "detergent instead of Crisp starch"
+    },
+    {
+      "index": 1285,
+      "reason": "assorted biscuits instead of single"
+    },
+    {
+      "index": 1286,
+      "reason": "assorted biscuits instead of single"
+    },
+    {
+      "index": 1287,
+      "reason": "hair colour shade assortment"
+    },
+    {
+      "index": 1290,
+      "reason": "Harpic+Vanish combo"
+    },
+    {
+      "index": 1292,
+      "reason": "usage diagram"
+    },
+    {
+      "index": 1293,
+      "reason": "body lotion advertisement"
+    },
+    {
+      "index": 1296,
+      "reason": "lotion assortment instead of cream"
+    },
+    {
+      "index": 1297,
+      "reason": "model advertisement"
+    },
+    {
+      "index": 1299,
+      "reason": "two hair dye bottles"
+    },
+    {
+      "index": 1300,
+      "reason": "oil plus shampoo combo"
+    },
+    {
+      "index": 1304,
+      "reason": "old/new packaging graphic"
+    },
+    {
+      "index": 1308,
+      "reason": "three removal creams"
+    },
+    {
+      "index": 1310,
+      "reason": "razor+cartridges bundle for blades"
+    },
+    {
+      "index": 1311,
+      "reason": "advertisement"
+    },
+    {
+      "index": 1312,
+      "reason": "two facewash varieties"
+    },
+    {
+      "index": 1313,
+      "reason": "side of toothpaste carton"
+    },
+    {
+      "index": 1317,
+      "reason": "three different Vicco cream variants"
+    },
+    {
+      "index": 1319,
+      "reason": "generic unbranded keychain inhaler instead of Vicks"
+    },
+    {
+      "index": 1320,
+      "reason": "Vicks+Volini combo"
+    },
+    {
+      "index": 1321,
+      "reason": "back of Vicks bottle"
+    },
+    {
+      "index": 1328,
+      "reason": "nutrition label instead of rice bran oil"
+    },
+    {
+      "index": 1330,
+      "reason": "assorted Vim product lineup"
+    },
+    {
+      "index": 1333,
+      "reason": "red 999 vinegar for ordinary vinegar inspect source"
+    },
+    {
+      "index": 1334,
+      "reason": "assorted hair colour shampoo boxes"
+    },
+    {
+      "index": 1340,
+      "reason": "baking advertisement"
+    },
+    {
+      "index": 1345,
+      "reason": "1kg cornflour box for2kg"
+    },
+    {
+      "index": 1347,
+      "reason": "two custard packs"
+    },
+    {
+      "index": 1348,
+      "reason": "mango custard instead of vanilla unspecified"
+    },
+    {
+      "index": 1349,
+      "reason": "marketing panel"
+    },
+    {
+      "index": 1350,
+      "reason": "small mango custard pack instead of2kg"
+    },
+    {
+      "index": 1352,
+      "reason": "back of custard box"
+    },
+    {
+      "index": 1353,
+      "reason": "four falooda flavours"
+    },
+    {
+      "index": 1355,
+      "reason": "macaroni+penne combo"
+    },
+    {
+      "index": 1356,
+      "reason": "4kg Wheel instead of500g"
+    },
+    {
+      "index": 1357,
+      "reason": "back of Wheel bag"
+    },
+    {
+      "index": 1358,
+      "reason": "4kg Wheel instead of1kg"
+    },
+    {
+      "index": 1362,
+      "reason": "powder+cream combo"
+    },
+    {
+      "index": 1363,
+      "reason": "multiple powder boxes"
+    },
+    {
+      "index": 1364,
+      "reason": "six scent variants instead of125g product"
+    },
+    {
+      "index": 1365,
+      "reason": "6x100g soaps for500g powder? inspect source"
+    },
+    {
+      "index": 1366,
+      "reason": "deodorant+soap instead of powder"
+    },
+    {
+      "index": 1367,
+      "reason": "magnetic window device for floor wiper"
+    },
+    {
+      "index": 1371,
+      "reason": "two handwash bottles"
+    },
+    {
+      "index": 1372,
+      "reason": "two cleaner bottles"
+    },
+    {
+      "index": 1374,
+      "reason": "Nirma10bars instead of Xtra bar"
+    },
+    {
+      "index": 1375,
+      "reason": "Nirma10bars instead of Xtra bar"
+    },
+    {
+      "index": 1376,
+      "reason": "Xpert Choice soap instead of Xtra soap"
+    },
+    {
+      "index": 1386,
+      "reason": "Mahabringaraj hair oil instead of Zandu Mentho Plus balm"
+    },
+    {
+      "index": 1387,
+      "reason": "back of balm box"
+    }
+  ]
+}

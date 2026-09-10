@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { loadImageReview, reviewedImageMatch } from './product_image_review.mjs';
 
 const workspace = path.resolve(import.meta.dirname, '..');
 const classifiedPath = path.join(
@@ -28,6 +29,7 @@ const toNumber = (value) => {
 
 const rows = JSON.parse(await fs.readFile(classifiedPath, 'utf8'));
 const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf8'));
+const imageReview = await loadImageReview();
 const rejectedUrls = new Set(JSON.parse(await fs.readFile(rejectedUrlsPath, 'utf8')));
 const activeProducts = rows.filter(
   (row) => row.action === 'Include' && toNumber(row.raw?.[10]) > 0,
@@ -38,7 +40,7 @@ const missingAssets = [];
 const rejectedReferences = [];
 for (const row of activeProducts) {
   const barcode = String(row.raw?.[28] ?? '').trim();
-  const match = manifest[barcode] ?? manifest[`row-${row.excelRow}`] ?? null;
+  const match = reviewedImageMatch(row, manifest, imageReview);
   if (!match?.assetImagePath) continue;
   const absolutePath = path.join(workspace, match.assetImagePath);
   let stats = null;
@@ -124,9 +126,15 @@ const report = {
   rejectedReferences,
 };
 
-assert.ok(report.coveragePercent >= 60);
+// Coverage is reported, not an identity criterion. A known-wrong photograph
+// must never be kept merely to meet a numeric coverage target.
 assert.equal(report.missingAssetCount, 0);
-assert.equal(report.unreferencedWebAssetCount, 0);
+// Old files are retained for recovery; their catalogue references are removed.
+const quarantinedAssets = new Set(imageReview.decisions.flatMap((d) => [
+  d.previous?.assetImagePath,
+  ...(d.history ?? []).map((entry) => entry.replacement?.assetImagePath),
+]));
+assert.deepEqual(unreferencedWebAssets.filter((asset) => !quarantinedAssets.has(asset)), []);
 assert.equal(report.rejectedReferenceCount, 0);
 assert.ok(report.openFoodFactsProductCount >= 10);
 assert.ok(report.openFactsProductCount >= report.openFoodFactsProductCount);
@@ -135,4 +143,5 @@ assert.ok(report.webAssetCount > 0);
 
 await fs.mkdir(path.dirname(reportPath), { recursive: true });
 await fs.writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`);
-console.log(JSON.stringify({ reportPath, ...report, categories: undefined }, null, 2));
+console.log(JSON.stringify({ reportPath, ...report, categories: undefined,
+  unreferencedWebAssets: undefined, missingAssets: undefined, rejectedReferences: undefined }, null, 2));

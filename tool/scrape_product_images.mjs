@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { enforceImageReview, loadImageReview } from './product_image_review.mjs';
 
 const workspace = path.resolve(import.meta.dirname, '..');
 const classifiedPath = path.join(
@@ -462,6 +463,7 @@ await fs.mkdir(path.dirname(reportPath), { recursive: true });
 const rows = JSON.parse(await fs.readFile(classifiedPath, 'utf8'));
 const customerNames = JSON.parse(await fs.readFile(customerNamesPath, 'utf8'));
 const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf8'));
+const imageReview = await loadImageReview();
 try {
   rejectedImageUrls = new Set(
     JSON.parse(await fs.readFile(rejectedImageUrlsPath, 'utf8')),
@@ -734,6 +736,7 @@ for (let index = 0; index < groups.length; index += 1) {
 }
 
 if (applyChanges) {
+  enforceImageReview(manifest, imageReview);
   await fs.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 }
 

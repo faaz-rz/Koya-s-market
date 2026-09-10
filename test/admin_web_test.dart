@@ -58,7 +58,7 @@ void main() {
     final state = container.read(storeProvider);
     final category = state.categories.first;
     final selectedProduct = state.products.firstWhere(
-      (product) => product.categoryId == category.id,
+      (product) => product.categoryId == category.id && product.brand.isNotEmpty,
     );
     final otherBrandProduct = state.products.firstWhere(
       (product) =>

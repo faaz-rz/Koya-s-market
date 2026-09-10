@@ -115,6 +115,17 @@ choose an optional picture, complete the product details, and save. Pictures
 are previewed before saving and validated as JPEG, PNG, or WebP up to 5 MB. The
 same picture control can replace the photo on an existing product.
 
+### Client catalogue review
+
+The bundled catalogue now uses the client's specific departments, including
+Dal, Atta, Millets, Masala Box, Basmati and Detergents. See the
+[catalogue review](catalogue/CATALOGUE_REVIEW.md) for image decisions, replacement
+sources, verification commands and deployment boundaries. The
+[photo queue](catalogue/IMAGE_PHOTO_QUEUE.md) lists products still needing exact
+store photos. The September 7 category and image-metadata migrations are narrow
+updates; they do not reset prices or stock. These local changes do not mean
+the live database or store-uploaded photos have been updated.
+
 ## Staff website production build
 
 The staff site and customer app share models and the Supabase data layer, but

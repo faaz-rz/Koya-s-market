@@ -75,6 +75,7 @@ flutter:
     - assets/category_images/
     - assets/product_images/
     - assets/product_images/web/
+    - assets/product_images/open_facts/
 
   fonts:
     - family: Manrope

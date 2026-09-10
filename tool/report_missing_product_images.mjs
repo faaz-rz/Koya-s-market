@@ -1,7 +1,9 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { loadImageReview, reviewedImageMatch } from './product_image_review.mjs';
 
 const workspace = path.resolve(import.meta.dirname, '..');
+const imageReview = await loadImageReview();
 const rows = JSON.parse(
   await fs.readFile(
     path.join(workspace, '.codex_work/product_master/classified_products.json'),
@@ -50,7 +52,7 @@ const activeProducts = rows
   .map((row) => {
     const mapping = customerNames[String(row.excelRow)];
     const barcode = String(row.raw?.[28] ?? '').trim();
-    const match = manifest[barcode] ?? manifest[`row-${row.excelRow}`] ?? null;
+    const match = reviewedImageMatch(row, manifest, imageReview);
     return {
       row: row.excelRow,
       barcode,
@@ -63,7 +65,7 @@ const activeProducts = rows
       sourcePrintName: String(row.printName ?? '').trim(),
       category: row.category,
       subcategory: row.subcategory,
-      covered: Boolean(match),
+      covered: Boolean(match?.assetImagePath),
       match,
     };
   });

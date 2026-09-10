@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../core/utils/product_grid_layout.dart';
 import '../../../core/utils/price_format.dart';
 import '../../../core/widgets/koyas_surface.dart';
 import '../../cart/widgets/quantity_stepper.dart';
@@ -43,12 +44,13 @@ class ProductCard extends ConsumerWidget {
         ProductVariants.variantLabel(priceProduct) ?? priceProduct.unit;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final compact = constraints.maxWidth < 160;
+        final compact =
+            constraints.maxWidth < ProductGridLayout.compactCardBreakpoint;
         final theme = Theme.of(context);
         final textScale = MediaQuery.textScalerOf(
           context,
         ).scale(1).clamp(1.0, 1.5);
-        final actionHeight = 44 + ((textScale - 1) * (compact ? 12 : 16));
+        const actionSize = 44.0;
         final metadata = hasMultipleSizes
             ? '$selectedSize · ${variants.length} options'
             : [
@@ -56,113 +58,63 @@ class ProductCard extends ConsumerWidget {
                 if (product.subcategory.isNotEmpty) product.subcategory,
               ].join(' · ');
 
-        final action = !available
-            ? SizedBox(
-                height: actionHeight,
-                child: Center(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      'Out of stock',
-                      style: compact ? theme.textTheme.labelMedium : null,
+        final showQuantityStepper =
+            available && !hasMultipleSizes && quantity > 0;
+        final quickAction = !available
+            ? Semantics(
+                label: 'Out of stock',
+                child: Tooltip(
+                  message: 'Out of stock',
+                  child: SizedBox.square(
+                    dimension: actionSize,
+                    child: Icon(
+                      Icons.remove_shopping_cart_outlined,
+                      color: AppColors.inkTertiary,
+                      size: compact ? 18 : 20,
                     ),
                   ),
                 ),
               )
             : hasMultipleSizes
-            ? SizedBox(
-                width: double.infinity,
-                height: actionHeight,
-                child: OutlinedButton(
+            ? SizedBox.square(
+                dimension: actionSize,
+                child: IconButton.outlined(
                   key: Key('choose-size-${product.id}'),
+                  tooltip: 'Choose size for $displayName',
                   onPressed: () => showProductVariantSheet(
                     context: context,
                     family: family!,
                   ),
-                  style: OutlinedButton.styleFrom(
+                  style: IconButton.styleFrom(
                     minimumSize: Size.zero,
+                    fixedSize: Size.square(actionSize),
+                    padding: EdgeInsets.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: compact ? AppSpacing.xs : AppSpacing.sm,
-                      vertical: AppSpacing.xxs,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppRadii.md),
-                    ),
+                    side: const BorderSide(color: AppColors.brand600),
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        quantity == 0 ? 'ADD' : '$quantity IN CART',
-                        maxLines: 1,
-                        style: compact
-                            ? theme.textTheme.labelMedium?.copyWith(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                              )
-                            : null,
-                      ),
-                      Text(
-                        '${variants.length} options',
-                        maxLines: 1,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppColors.brand700,
-                          fontSize: compact ? 9 : null,
-                        ),
-                      ),
-                    ],
+                  icon: Badge.count(
+                    count: quantity,
+                    isLabelVisible: quantity > 0,
+                    child: Icon(Icons.add_rounded, size: compact ? 20 : 22),
                   ),
                 ),
               )
-            : quantity == 0
-            ? SizedBox(
-                width: double.infinity,
-                height: actionHeight,
-                child: FilledButton.tonal(
+            : showQuantityStepper
+            ? null
+            : SizedBox.square(
+                dimension: actionSize,
+                child: IconButton.filledTonal(
                   key: Key('add-product-${product.id}'),
+                  tooltip: 'Add $displayName to cart',
                   onPressed: () =>
                       ref.read(storeProvider.notifier).addToCart(product.id),
-                  style: FilledButton.styleFrom(
+                  style: IconButton.styleFrom(
                     minimumSize: Size.zero,
+                    fixedSize: Size.square(actionSize),
+                    padding: EdgeInsets.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: compact ? AppSpacing.xs : AppSpacing.sm,
-                    ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.add_rounded, size: compact ? 15 : 18),
-                      const SizedBox(width: AppSpacing.xxs),
-                      Text(
-                        'ADD',
-                        style: compact
-                            ? theme.textTheme.labelMedium?.copyWith(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                              )
-                            : null,
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            : SizedBox(
-                width: double.infinity,
-                height: actionHeight,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: QuantityStepper(
-                    quantity: quantity,
-                    compact: true,
-                    onIncrement: () =>
-                        ref.read(storeProvider.notifier).addToCart(product.id),
-                    onDecrement: () => ref
-                        .read(storeProvider.notifier)
-                        .decrementCart(product.id),
-                  ),
+                  icon: Icon(Icons.add_rounded, size: compact ? 20 : 22),
                 ),
               );
 
@@ -279,38 +231,6 @@ class ProductCard extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: AppSpacing.sm),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 22,
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                formatPrice(priceProduct.effectivePricePaise),
-                                style: theme.textTheme.titleLarge?.copyWith(
-                                  fontSize: 16,
-                                ),
-                              ),
-                              if (priceProduct.discountPricePaise != null) ...[
-                                const SizedBox(width: AppSpacing.xs),
-                                Text(
-                                  formatPrice(priceProduct.pricePaise),
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: AppColors.inkTertiary,
-                                    fontSize: 9,
-                                    decoration: TextDecoration.lineThrough,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
                   ] else ...[
                     if (product.brand.isNotEmpty) ...[
                       Text(
@@ -338,29 +258,73 @@ class ProductCard extends ConsumerWidget {
                         color: AppColors.inkSecondary,
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: AppSpacing.xs,
-                      runSpacing: AppSpacing.xxs,
+                  ],
+                  const SizedBox(height: AppSpacing.sm),
+                  SizedBox(
+                    height: actionSize,
+                    child: Row(
                       children: [
-                        Text(
-                          formatPrice(priceProduct.effectivePricePaise),
-                          style: theme.textTheme.titleLarge,
-                        ),
-                        if (priceProduct.discountPricePaise != null)
-                          Text(
-                            formatPrice(priceProduct.pricePaise),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: AppColors.inkTertiary,
-                              decoration: TextDecoration.lineThrough,
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    formatPrice(
+                                      priceProduct.effectivePricePaise,
+                                    ),
+                                    style: theme.textTheme.titleLarge?.copyWith(
+                                      fontSize: compact ? 16 : null,
+                                    ),
+                                  ),
+                                  if (priceProduct.discountPricePaise !=
+                                      null) ...[
+                                    const SizedBox(width: AppSpacing.xs),
+                                    Text(
+                                      formatPrice(priceProduct.pricePaise),
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: AppColors.inkTertiary,
+                                        fontSize: compact ? 9 : null,
+                                        decoration: TextDecoration.lineThrough,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ),
                           ),
+                        ),
+                        if (quickAction != null) ...[
+                          const SizedBox(width: AppSpacing.xs),
+                          quickAction,
+                        ],
                       ],
                     ),
+                  ),
+                  if (showQuantityStepper) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    SizedBox(
+                      key: Key('quantity-product-${product.id}'),
+                      width: double.infinity,
+                      height: actionSize,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: QuantityStepper(
+                          quantity: quantity,
+                          compact: true,
+                          onIncrement: () => ref
+                              .read(storeProvider.notifier)
+                              .addToCart(product.id),
+                          onDecrement: () => ref
+                              .read(storeProvider.notifier)
+                              .decrementCart(product.id),
+                        ),
+                      ),
+                    ),
                   ],
-                  SizedBox(height: compact ? AppSpacing.sm : AppSpacing.sm),
-                  action,
                 ],
               ),
             ),

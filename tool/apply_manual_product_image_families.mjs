@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { enforceImageReview, loadImageReview } from './product_image_review.mjs';
 
 const workspace = path.resolve(import.meta.dirname, '..');
 const configPath = path.join(
@@ -132,6 +133,7 @@ for (const item of config) {
     console.warn(`${item.id}: FAILED — ${error.message}`);
   }
 }
+enforceImageReview(manifest, await loadImageReview());
 await fs.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 await fs.mkdir(path.dirname(reportPath), { recursive: true });
 await fs.writeFile(

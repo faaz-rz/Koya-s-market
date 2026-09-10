@@ -1,0 +1,100 @@
+[
+  {
+    "key": "amul-buttermilk-pouch",
+    "rows": [233],
+    "billingNames": {"233": "AMUL BUTTER MILK RS15"},
+    "name": "Amul Buttermilk pouch",
+    "sourceUrl": "https://dudhsagardairy.coop/dairy/products/amul-probiotic-pouch-buttermilk/",
+    "image": "https://dudhsagardairy.coop/wp-content/uploads/2026/04/Amul-Probiotic-Buttermilk-Pouch-img-1024x1024.webp",
+    "previousSha256": {"233": "026ae4824c8cd16fcd4cc8594e45294e59dce9269c386db98c52da66e1f0210a"},
+    "reason": "User identified the earlier Masti carton as different. Price alone did not identify that carton uniquely.",
+    "evidence": "Manufacturer-supplied Amul Buttermilk pouch photo. Dudhsagar Dairy explicitly lists a Rs15 pouch, matching the billing price; the Masti spiced carton is withdrawn. Pouch selection is source-backed but the store's exact regional volume is not in the billing master, so no product size or variant text was changed."
+  },
+  {
+    "key": "saffola-gold-1l",
+    "rows": [149,1459],
+    "billingNames": {"149":"SAFOLA GOLD 1LTR RS  210","1459":"SAFOLA GOLD 1LTR RS 215"},
+    "name": "Saffola Gold 1 L pouch",
+    "sourceUrl": "https://www.vishalmegamart.com/en-in/food/staples/oils-and-ghee/saffola-saffola-gold-oil/1313001050.html",
+    "image": "https://www.vishalmegamart.com/on/demandware.static/-/Sites-vmm-fmcg-master-catalog/default/dwafe23381/images/large/1313001050.jpg",
+    "evidence": "Single Saffola Gold pouch. Retailer specifications identify the 1 L pouch, matching both 1 L billing entries; not the previously pictured 5 L bonus bundle."
+  },
+  {
+    "key": "elite-atta-5kg",
+    "rows": [2574],
+    "billingNames": {"2574":"ELITE ATTA 5KG"},
+    "name": "Elite Chakki Atta 5 kg",
+    "sourceUrl": "https://www.bigbasket.com/pd/40189372/elite-whole-wheat-atta-5-kg-pouch/",
+    "image": "https://www.bbassets.com/media/uploads/p/l/40189372_2-elite-whole-wheat-atta.jpg",
+    "evidence": "Elite whole-wheat chakki atta pack; source listing specifies 5 kg, matching the billing entry."
+  },
+  {
+    "key": "gold-drop-5l",
+    "rows": [3335],
+    "billingNames": {"3335":"GD 5L"},
+    "name": "Gold Drop Refined Sunflower Oil 5 L",
+    "sourceUrl": "https://www.bigbasket.com/pd/20003922/gold-drop-refined-sunflower-oil-5-l-can/",
+    "image": "https://www.bbassets.com/media/uploads/p/l/20003922_7-gold-drop-refined-sunflower-oil.jpg",
+    "evidence": "Single Gold Drop refined sunflower oil can; source listing specifies 5 L, matching the billing entry."
+  },
+  {
+    "key": "gold-drop-15kg",
+    "rows": [3334],
+    "billingNames": {"3334":"GD 15KG"},
+    "name": "Gold Drop Refined Sunflower Oil 15 kg",
+    "sourceUrl": "https://www.bigbasket.com/pd/20003921/gold-drop-refined-sunflower-oil-15-kg-tin/",
+    "image": "https://www.bbassets.com/media/uploads/p/l/20003921_4-gold-drop-refined-sunflower-oil.jpg",
+    "evidence": "Gold Drop refined sunflower oil tin; source listing specifies 15 kg. Deliberately not applied to the separate 15 L billing entry."
+  },
+  {
+    "key":"amulya-500g", "rows":[1060], "billingNames":{"1060":"AMULYA 500G RS 255"},
+    "name":"Amulya Dairy Whitener 500 g pouch",
+    "sourceUrl":"https://shop.amul.com/en/product/amulya-dairy-whitener-pouch-500-g",
+    "image":"https://shop.amul.com/s/62fa94df8c13af2e242eba16/6a2bad025fd97d9176820349/01-hero-image_amulya-dairy-whitener-pouch-500g.png",
+    "evidence":"Amul's own 500 g pouch listing and Rs255 MRP both match the billing entry. Single dairy-whitener pouch, not a tin or different powder."
+  },
+  {
+    "key":"loose-star-anise", "rows":[3021,3276], "billingNames":{"3021":"STAR 100G","3276":"STAR 10 G"},
+    "name":"Loose whole star anise",
+    "sourceUrl":"https://www.indiamart.com/proddetail/whole-star-anise-spice-2853126200433.html",
+    "image":"https://5.imimg.com/data5/SELLER/Default/2023/12/371676894/HX/JA/MT/162860806/whole-star-anise-1000x1000.jpg",
+    "localAssetImagePath":"assets/product_images/web/1795-8d7d5651a0.webp",
+    "evidence":"Visually checked unbranded whole star-anise ingredient photo, already used for the store's loose kilogram entry. No branded packaging or misleading printed weight; representative ingredient photo, not a store-pack photo."
+  },
+  {
+    "key":"loose-black-mustard", "rows":[3285], "billingNames":{"3285":"P RAI"},
+    "name":"Loose black mustard seeds",
+    "sourceUrl":"https://manvikfoods.com/product/black-mustard-seeds-rai-seeds-sarson-seeds/",
+    "image":"https://manvikfoods.com/wp-content/uploads/2021/06/ME-MSTD-0100G-001-C.jpg",
+    "localAssetImagePath":"assets/product_images/web/manual-generic-rai-mustard-seeds-4fa5af9b.webp",
+    "evidence":"Visually checked bowl of black mustard seeds, matching rai; no branded pack or weight is pictured. Representative loose ingredient photo."
+  },
+  {
+    "key":"loose-cloves", "rows":[3033,3336,3337], "billingNames":{"3033":"LONG 10G","3336":"LONG 100G","3337":"LONG KG"},
+    "name":"Loose whole cloves",
+    "sourceUrl":"https://www.freefoodphotos.com/imagelibrary/herbs/slides/cloves.html",
+    "image":"https://freefoodphotos.com/imagelibrary/herbs/slides/cloves.jpg",
+    "evidence":"Actual whole-clove photograph, visibly nail-shaped dried buds. Used only for loose cloves (long/laung); no packaging or printed quantity. Representative ingredient photo."
+  },
+  {
+    "key":"loose-green-cardamom", "rows":[3034,3338,3339], "billingNames":{"3034":"ELACHI 10G","3338":"ELACHI 100 GRM","3339":"ELACHI KG"},
+    "name":"Loose green cardamom",
+    "sourceUrl":"https://freshharvestmarket.com/products/cardamom-green-pods-whole.html",
+    "image":"https://cdn11.bigcommerce.com/s-sgjjzfblll/images/stencil/1280x1280/products/2931/3476/e69b04de-eeef-4a98-9484-687ab333ef48__59351.1711571275.jpg?c=1",
+    "evidence":"Whole green cardamom pods with no cinnamon, branded packet or printed quantity. Applied to ordinary elachi entries only, not the separate ambiguous W ELACHI rows. Representative ingredient photo."
+  },
+  {
+    "key":"loose-mace", "rows":[3035,3277], "billingNames":{"3035":"JAPATHRI 10G","3277":"JAPATHRI 100 GRM"},
+    "name":"Loose mace / japatri",
+    "sourceUrl":"https://www.epoojastore.in/japatri-mace-250-grams",
+    "image":"https://www.epoojastore.in/image/cache/catalog/Products/pooja-items/homam-samagri/japatri-mace-epoojastore-1-1000x1000.jpg",
+    "evidence":"Dried mace arils (japatri) visibly match the spice; no nutmeg, branded packaging or printed 250 g label is depicted. Representative loose ingredient photo."
+  },
+  {
+    "key":"loose-almonds", "rows":[98,2674,3304,3305], "billingNames":{"98":"BADAM NO 1","2674":"BADAM 250G","3304":"BADAM KG","3305":"BADAM 100 GRM"},
+    "name":"Loose raw almonds",
+    "sourceUrl":"https://www.coracaoconfections.com/products/organic-almonds",
+    "image":"https://www.coracaoconfections.com/cdn/shop/files/organic_raw_almonds.webp?v=1727423345&width=1080",
+    "evidence":"Plain raw almond kernels, with no branded packet or quantity. Representative ingredient photograph only; does not assert the supplier's organic certification or origin for store stock. The ambiguous SB BADAM entries are not changed."
+  }
+]

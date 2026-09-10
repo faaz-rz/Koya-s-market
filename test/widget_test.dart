@@ -457,10 +457,18 @@ void main() {
     ];
 
     for (final width in widths) {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(storeProvider.notifier);
+      controller.loginDemo(isAdmin: true);
+      for (final product in products) {
+        controller.adminSaveProduct(product);
+      }
       tester.view.physicalSize = Size(width, 900);
       tester.view.devicePixelRatio = 1;
       await tester.pumpWidget(
-        ProviderScope(
+        UncontrolledProviderScope(
+          container: container,
           child: MaterialApp(
             home: MediaQuery(
               data: MediaQueryData(
@@ -491,7 +499,23 @@ void main() {
       final delegate =
           grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
       expect(delegate.crossAxisCount, 3, reason: 'width $width');
-      expect(find.text('ADD'), findsNWidgets(3));
+      expect(find.text('ADD'), findsNothing);
+      for (final product in products) {
+        final addButton = find.byKey(Key('add-product-${product.id}'));
+        expect(addButton, findsOneWidget, reason: 'width $width');
+        expect(
+          tester.getSize(addButton),
+          const Size.square(44),
+          reason: 'width $width',
+        );
+      }
+      await tester.tap(find.byKey(const Key('add-product-responsive-1')));
+      await tester.pump();
+      expect(
+        find.byKey(const Key('quantity-product-responsive-1')),
+        findsOneWidget,
+        reason: 'width $width',
+      );
       expect(tester.takeException(), isNull, reason: 'width $width');
     }
   });

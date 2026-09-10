@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,13 +9,48 @@ import 'package:koyas_supermarket/features/store/data/generated_product_catalog.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('nested downloaded product images are bundled with the app', () async {
-    final nestedAsset = GeneratedProductCatalog.products
+  test('every referenced product image is bundled with the app', () async {
+    final assets = GeneratedProductCatalog.products
         .map((product) => product.imageAsset)
-        .firstWhere((asset) => asset.startsWith('assets/product_images/web/'));
+        .where((asset) => asset.isNotEmpty)
+        .toSet();
+    for (final asset in assets) {
+      final bytes = await rootBundle.load(asset);
+      expect(bytes.lengthInBytes, greaterThan(0), reason: asset);
+    }
+  });
 
-    final bytes = await rootBundle.load(nestedAsset);
-    expect(bytes.lengthInBytes, greaterThan(0));
+  test('SKU image reviews override guessed family and barcode images', () {
+    final review =
+        jsonDecode(
+              File('catalogue/product_image_review.json').readAsStringSync(),
+            )
+            as Map<String, dynamic>;
+    final products = {
+      for (final product in GeneratedProductCatalog.products)
+        product.id: product,
+    };
+    final decisions = review['decisions'] as List<dynamic>;
+    expect(decisions, isNotEmpty);
+    for (final item in decisions.cast<Map<String, dynamic>>()) {
+      final product = products[item['productId']];
+      expect(product, isNotNull, reason: '${item['row']}');
+      expect(product!.billingName, item['billingName']);
+      final replacement = item['replacement'] as Map<String, dynamic>?;
+      expect(product.imageAsset, replacement?['assetImagePath'] ?? '');
+      expect(product.imageUrl ?? '', replacement?['externalImageUrl'] ?? '');
+      expect(product.imageAttribution, replacement?['attribution'] ?? '');
+      if (replacement != null) {
+        expect(product.imageAsset, isNot(item['previous']['assetImagePath']));
+        expect(item['evidence'], isNotEmpty);
+      }
+    }
+    // Regression: barcode sources can contain another product's photo too.
+    final balm = products.values.firstWhere(
+      (product) => product.billingName == 'MENTO PLUS RS 44',
+    );
+    expect(balm.imageAsset, isEmpty);
+    expect(balm.imageUrl, isNull);
   });
 
   test('every storefront category image is bundled with the app', () async {
@@ -45,7 +81,22 @@ void main() {
     final categoryIds = categories.map((category) => category.id).toSet();
     final productIds = products.map((product) => product.id).toSet();
 
-    expect(categories, hasLength(12));
+    final categoryDefinitions =
+        jsonDecode(File('catalogue/categories.json').readAsStringSync())
+            as List<dynamic>;
+    expect(
+      categories.map((c) => c.name),
+      orderedEquals(categoryDefinitions.map((c) => c['name'])),
+    );
+    expect(categories.map((c) => c.name), isNot(contains('Grocery & Staples')));
+    expect(categories.map((c) => c.id).toSet(), hasLength(categories.length));
+    for (final category in categories) {
+      expect(
+        products.where((p) => p.categoryId == category.id),
+        isNotEmpty,
+        reason: category.name,
+      );
+    }
     expect(products, hasLength(GeneratedProductCatalog.customerProductCount));
     expect(GeneratedProductCatalog.sourceProductCount, 3380);
     expect(
@@ -74,11 +125,8 @@ void main() {
     final photographedProducts = products
         .where((product) => product.imageAsset.isNotEmpty)
         .toList(growable: false);
-    expect(
-      photographedProducts.length / products.length,
-      greaterThanOrEqualTo(0.60),
-      reason: 'At least 60% of the active catalogue must have product images',
-    );
+    // Identity takes priority over a coverage quota. The review regression
+    // above requires every rejected URL and asset to stay off its product.
     final openFoodFactsProducts = photographedProducts
         .where(
           (product) => product.imageAttribution.contains('Open Food Facts'),

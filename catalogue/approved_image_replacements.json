@@ -1,0 +1,18 @@
+{
+  "reviewedAt": "2026-09-06",
+  "note": "Explicit visual decisions, not search-score approvals. Source row lists are deliberately SKU-specific, not family-wide.",
+  "candidates": [
+    {"index":8,"candidate":2,"rows":[248],"evidence":"Single Aashirvaad whole-wheat atta pack; source listing specifies 5 kg, not multigrain 10 kg."},
+    {"index":284,"candidate":1,"rows":[1297],"evidence":"Unbranded loose sun-dried curd chillies; no branded pack or other quantity is depicted. Representative ingredient photo, not a store-pack photograph."},
+    {"index":409,"candidate":2,"rows":[1972],"evidence":"Everest Tikhalal red chilli powder with an explicit 200 g label; source does not specify pouch versus jar."},
+    {"index":484,"candidate":2,"rows":[2377],"evidence":"One Gillette Guard razor in its wrapper, not shaving foam or a refill bundle."},
+    {"index":535,"candidate":3,"rows":[2656],"evidence":"Goodknight Advanced Fast Card mosquito-repellent pack, made by Godrej; not an access-control device. Exact retail card count remains unspecified in the billing master."},
+    {"index":564,"candidate":2,"rows":[438],"evidence":"Golden Grain basmati rice, visibly marked net weight 1 kg, not Golden Harvest."},
+    {"index":867,"candidate":2,"rows":[2466],"evidence":"Single Neon No. 71 playing-card box, not Holi powder."},
+    {"index":1208,"candidate":1,"rows":[2822],"evidence":"Swastik Agmark turmeric powder, retailer listing explicitly 500 g, matching billing name HP 500G."},
+    {"index":1208,"candidate":2,"rows":[693],"evidence":"Swastik Agmark turmeric powder; retailer listing explicitly 200 g. Same brand family as the store's Swastik products, not Sai Swastik Organics."}
+  ],
+  "reuse": [
+    {"index":678,"rows":[1341],"evidence":"Unbranded loose cashew crumbs, matching Kaju Chura. No incorrect retail pack weight or mixed-nut assortment is depicted."}
+  ]
+}

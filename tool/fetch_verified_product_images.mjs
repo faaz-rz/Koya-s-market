@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { enforceImageReview, loadImageReview } from './product_image_review.mjs';
 
 const workspace = '/Users/muhammadfaazrazi/Documents/Koyas 2';
 const sourcePath = path.join(workspace, '.codex_work/product_master/classified_products.json');
@@ -347,6 +348,7 @@ const report = {
   }),
 };
 
+enforceImageReview(manifest, await loadImageReview());
 await fs.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 await fs.writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`);
 

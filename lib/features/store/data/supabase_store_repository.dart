@@ -8,6 +8,7 @@ import '../../products/models/product.dart';
 import '../../products/models/product_image_upload.dart';
 import '../../profile/models/customer_profile.dart';
 import '../providers/store_provider.dart';
+import 'customer_catalog_categories.dart';
 
 class RemoteStoreBundle {
   const RemoteStoreBundle({
@@ -724,6 +725,8 @@ class SupabaseStoreRepository {
   }
 
   String _categoryVisual(String name) {
+    final clientVisual = CustomerCatalogCategories.visualForName(name);
+    if (clientVisual != null) return clientVisual;
     final normalized = name.toLowerCase();
     if (normalized.contains('fruit') || normalized.contains('vegetable')) {
       return 'fresh';
