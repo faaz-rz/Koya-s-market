@@ -1,4 +1,10 @@
+import 'dart:convert';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../../core/config/app_environment.dart';
+import '../../../core/config/usage_policy.dart';
+import '../../../core/utils/transaction_request.dart';
 
 import '../../checkout/models/checkout_models.dart';
 import '../../offers/models/store_offer.dart';
@@ -9,6 +15,8 @@ import '../../products/models/product_image_upload.dart';
 import '../../profile/models/customer_profile.dart';
 import '../providers/store_provider.dart';
 import 'customer_catalog_categories.dart';
+import 'catalogue_cache_storage.dart';
+import 'store_sync_cache.dart';
 
 class RemoteStoreBundle {
   const RemoteStoreBundle({
@@ -28,6 +36,8 @@ class RemoteStoreBundle {
     required this.pickupEnabled,
     required this.deliveryEnabled,
     required this.cashOnDeliveryEnabled,
+    this.loadSequence = 0,
+    this.settingsRevision = 0,
   });
 
   final CustomerProfile profile;
@@ -41,62 +51,190 @@ class RemoteStoreBundle {
   final bool isAdmin;
   final Set<String> serviceablePincodes;
   final int minimumOrderPaise;
+  final int settingsRevision;
   final int baseDeliveryChargePaise;
   final int freeDeliveryThresholdPaise;
   final bool pickupEnabled;
   final bool deliveryEnabled;
   final bool cashOnDeliveryEnabled;
+  final int loadSequence;
 }
 
 class SupabaseStoreRepository {
-  SupabaseStoreRepository({SupabaseClient? client})
-    : _client = client ?? Supabase.instance.client;
+  SupabaseStoreRepository({
+    SupabaseClient? client,
+    this.requestTimeout = const Duration(seconds: 20),
+  }) : _client = client ?? Supabase.instance.client;
 
   final SupabaseClient _client;
+  final Duration requestTimeout;
+  static final _inventoryRequests = InventoryRequestRegistry();
+  static int _loadSequence = 0;
+  static final _sessions = Expando<Map<String, _ReadSession>>();
+  static final _generations = Expando<int>();
 
-  Future<RemoteStoreBundle> loadStore() async {
+  static void clearReadCache(SupabaseClient client) {
+    _inventoryRequests.clearScope(client.rest.url);
+    _generations[client] = (_generations[client] ?? 0) + 1;
+    _sessions[client] = null;
+  }
+
+  String _requestOwner() {
     final user = _client.auth.currentUser;
     if (user == null) throw const AuthException('Authentication required.');
+    // Token refresh keeps session_id; a new login gets a different session.
+    final token = _client.auth.currentSession?.accessToken;
+    final claims = token == null
+        ? <String, dynamic>{}
+        : jsonDecode(
+                utf8.decode(
+                  base64Url.decode(base64Url.normalize(token.split('.')[1])),
+                ),
+              )
+              as Map;
+    return '${user.id}:${claims['session_id'] ?? ''}:${_generations[_client] ?? 0}';
+  }
 
-    final isAdmin = await _client.rpc('is_admin') as bool? ?? false;
-    final profileRow = await _client
-        .from('profiles')
-        .select()
-        .eq('id', user.id)
-        .maybeSingle();
-    final categoryRows = await _client
-        .from('categories')
-        .select()
-        .eq('active', true)
-        .order('sort_order');
-    final productRows = await _loadProductRows(includeInactive: isAdmin);
-    final addressRows = await _client
-        .from('addresses')
-        .select()
-        .eq('user_id', user.id)
-        .order('is_default', ascending: false);
-    final slotRows = await _client
-        .from('fulfilment_slots')
-        .select()
-        .eq('active', true)
-        .order('sort_order');
-    final settingsRow = await _client
-        .from('store_settings')
-        .select()
-        .eq('id', 1)
-        .single();
-    final pincodeRows = await _client
-        .from('serviceable_pincodes')
-        .select('pincode')
-        .eq('active', true);
-    final orderRows = await _loadOrderRows(
-      includeAllCustomers: isAdmin,
-      userId: user.id,
+  void _checkOwner(String owner) {
+    if (_requestOwner() != owner) {
+      throw const AuthException('Session changed. Sign in and try again.');
+    }
+  }
+
+  Future<dynamic> _rpc(
+    String name,
+    Map<String, dynamic> params,
+    String owner,
+  ) async {
+    _checkOwner(owner);
+    try {
+      final result = await _client
+          .rpc(name, params: params)
+          .timeout(requestTimeout);
+      _checkOwner(owner);
+      return result;
+    } finally {
+      // Also invalidate a read after an uncertain response; the write may have
+      // committed. A timeout never authorizes a new purchase or new request ID.
+      if (_client.auth.currentUser != null && _requestOwner() == owner) {
+        _recordMutation();
+      }
+    }
+  }
+
+  Future<Map<String, dynamic>> _receiptRpc(
+    String name,
+    Map<String, dynamic> request,
+  ) {
+    final owner = _requestOwner();
+    return _inventoryRequests.run(
+      userId: '${_client.rest.url}:$owner',
+      request: {'rpc': name, ...request},
+      send: (id) async => Map<String, dynamic>.from(
+        await _rpc(name, {...request, 'request_id': id}, owner) as Map,
+      ),
     );
-    final offerRows = await _client
-        .from('offers')
-        .select()
-        .order('created_at', ascending: false);
+  }
+
+  Future<void> _retryRpc(String name, Map<String, dynamic> params) async {
+    final owner = _requestOwner();
+    await retryTransaction(() => _rpc(name, params, owner));
+  }
+
+  Future<RemoteStoreBundle> loadStore() {
+    final user = _client.auth.currentUser;
+    if (user == null) throw const AuthException('Authentication required.');
+    final sessions = _sessions[_client] ??= {};
+    final session = sessions.putIfAbsent(user.id, _ReadSession.new);
+    return session.running ??= _loadAfterMutations(
+      user,
+      session,
+    ).whenComplete(() => session.running = null);
+  }
+
+  void _recordMutation() {
+    final session = _sessions[_client]?[_client.auth.currentUser?.id];
+    if (session != null) session.mutationEpoch++;
+  }
+
+  Future<RemoteStoreBundle> _loadAfterMutations(
+    User user,
+    _ReadSession session,
+  ) async {
+    for (var attempt = 0; attempt < 3; attempt++) {
+      final epoch = session.mutationEpoch;
+      final bundle = await _loadStore(user, session);
+      // A coalesced read started before a checkout/admin save must not be
+      // returned as the post-save refresh. Validate again after that commit.
+      if (epoch == session.mutationEpoch) return bundle;
+    }
+    throw StateError('Store changed repeatedly during refresh. Try again.');
+  }
+
+  Future<RemoteStoreBundle> _loadStore(User user, _ReadSession session) async {
+    final owner = _requestOwner();
+    final sequence = ++_loadSequence;
+    if (!session.restored) {
+      session.restored = true;
+      if (AppEnvironment.supabaseUrl.isNotEmpty) {
+        session.cache.restorePublicCatalogue(
+          await readCatalogueCache(
+            AppEnvironment.supabaseUrl,
+          ).timeout(const Duration(seconds: 2), onTimeout: () => null),
+        );
+      }
+    }
+    final response = Map<String, dynamic>.from(
+      await _client
+              .rpc('sync_store', params: session.cache.request)
+              .timeout(const Duration(seconds: 15))
+          as Map,
+    );
+    if (_client.auth.currentUser?.id != user.id ||
+        _requestOwner() != owner ||
+        !identical(_sessions[_client]?[user.id], session)) {
+      throw const AuthException('Session changed while refreshing the store.');
+    }
+    final changed = session.cache.apply(response, expectedUserId: user.id);
+    if (!changed && session.bundle != null) return session.bundle!;
+    final data = session.cache.metadata!;
+    final isAdmin = session.cache.isAdmin;
+    final profileRow = data['profile'] as Map<String, dynamic>?;
+    List<Map<String, dynamic>> rows(String key) => (data[key] as List)
+        .map((row) => Map<String, dynamic>.from(row as Map))
+        .toList(growable: false);
+    final categoryRows = rows('categories');
+    final reuseProducts =
+        (response['catalogue'] as List).isEmpty &&
+        response['metadata'] == null &&
+        session.bundle != null;
+    final productRows = reuseProducts
+        ? <Map<String, dynamic>>[]
+        : session.cache.products;
+    productRows.sort((a, b) {
+      final availability = (b['available'] == true ? 1 : 0).compareTo(
+        a['available'] == true ? 1 : 0,
+      );
+      return availability != 0
+          ? availability
+          : (a['name'] as String).compareTo(b['name'] as String);
+    });
+    final addressRows = rows('addresses');
+    final slotRows = rows('slots');
+    final settingsRow = data['settings'] as Map<String, dynamic>;
+    final pincodeRows = rows('pincodes');
+    final orderRows = session.cache.orders;
+    final offerRows = rows('offers');
+    if ((response['catalogue'] as List).isNotEmpty &&
+        AppEnvironment.supabaseUrl.isNotEmpty) {
+      final cache = session.cache.publicCatalogueJson();
+      if (cache != null) {
+        await writeCatalogueCache(
+          AppEnvironment.supabaseUrl,
+          cache,
+        ).timeout(const Duration(seconds: 2), onTimeout: () {});
+      }
+    }
 
     final categories = categoryRows
         .map(
@@ -110,42 +248,45 @@ class SupabaseStoreRepository {
     final categoryVisuals = {
       for (final category in categories) category.id: category.visualKey,
     };
-    final products = productRows
-        .where((row) => categoryVisuals.containsKey(row['category_id']))
-        .map((row) {
-          final imagePath = row['image_path'] as String?;
-          final available = row['available'] as bool? ?? true;
-          return Product(
-            id: row['id'] as String,
-            categoryId: row['category_id'] as String,
-            name: row['name'] as String,
-            description: row['description'] as String? ?? '',
-            unit: row['unit'] as String,
-            pricePaise: row['price_paise'] as int,
-            discountPricePaise: row['discount_price_paise'] as int?,
-            stockQuantity: available ? row['stock_quantity'] as int : 0,
-            visualKey: categoryVisuals[row['category_id']] ?? 'grocery',
-            subcategory: row['subcategory'] as String? ?? '',
-            brand: row['brand'] as String? ?? '',
-            billingName: row['source_product_name'] as String? ?? '',
-            printName: row['source_print_name'] as String? ?? '',
-            itemCode: row['source_item_code'] as String? ?? '',
-            barcode: row['barcode'] as String? ?? '',
-            // Production clients only fetch product media from the controlled
-            // Supabase bucket. Imported third-party URLs would disclose each
-            // customer's IP address and user agent to unrelated hosts.
-            imageUrl: imagePath == null || imagePath.isEmpty
-                ? null
-                : _client.storage
-                      .from('product-images')
-                      .getPublicUrl(imagePath),
-            imagePath: imagePath ?? '',
-            imageAttribution: row['image_attribution'] as String? ?? '',
-            featured: row['featured'] as bool? ?? false,
-            active: row['active'] as bool? ?? true,
-          );
-        })
-        .toList(growable: false);
+    final products = reuseProducts
+        ? session.bundle!.products
+        : productRows
+              .where((row) => categoryVisuals.containsKey(row['category_id']))
+              .map((row) {
+                final imagePath = row['image_path'] as String?;
+                return Product(
+                  id: row['id'] as String,
+                  categoryId: row['category_id'] as String,
+                  name: row['name'] as String,
+                  description: row['description'] as String? ?? '',
+                  unit: row['unit'] as String,
+                  pricePaise: row['price_paise'] as int,
+                  discountPricePaise: row['discount_price_paise'] as int?,
+                  stockQuantity: row['stock_quantity'] as int,
+                  revision: (row['revision'] as num?)?.toInt() ?? 0,
+                  visualKey: categoryVisuals[row['category_id']] ?? 'grocery',
+                  subcategory: row['subcategory'] as String? ?? '',
+                  brand: row['brand'] as String? ?? '',
+                  billingName: row['source_product_name'] as String? ?? '',
+                  printName: row['source_print_name'] as String? ?? '',
+                  itemCode: row['source_item_code'] as String? ?? '',
+                  barcode: row['barcode'] as String? ?? '',
+                  // Production clients only fetch product media from the controlled
+                  // Supabase bucket. Imported third-party URLs would disclose each
+                  // customer's IP address and user agent to unrelated hosts.
+                  imageUrl: imagePath == null || imagePath.isEmpty
+                      ? null
+                      : _client.storage
+                            .from('product-images')
+                            .getPublicUrl(imagePath),
+                  imagePath: imagePath ?? '',
+                  imageAttribution: row['image_attribution'] as String? ?? '',
+                  featured: row['featured'] as bool? ?? false,
+                  active: row['active'] as bool? ?? true,
+                  available: row['available'] as bool? ?? true,
+                );
+              })
+              .toList(growable: false);
     final addresses = addressRows
         .map(
           (row) => CustomerAddress(
@@ -158,6 +299,7 @@ class SupabaseStoreRepository {
             pincode: row['pincode'] as String,
             instructions: row['instructions'] as String? ?? '',
             isDefault: row['is_default'] as bool? ?? false,
+            revision: (row['revision'] as num?)?.toInt() ?? 0,
           ),
         )
         .toList(growable: false);
@@ -178,6 +320,7 @@ class SupabaseStoreRepository {
         .map(
           (row) => StoreOffer(
             id: row['id'] as String,
+            revision: (row['revision'] as num?)?.toInt() ?? 0,
             code: row['code'] as String,
             title: row['title'] as String,
             description: row['description'] as String? ?? '',
@@ -209,9 +352,11 @@ class SupabaseStoreRepository {
         )
         .toList(growable: false);
     final metadataName = user.userMetadata?['full_name'] as String?;
-    return RemoteStoreBundle(
+    final bundle = RemoteStoreBundle(
+      loadSequence: sequence,
       profile: CustomerProfile(
         id: user.id,
+        revision: (profileRow?['revision'] as num?)?.toInt() ?? 0,
         name: (profileRow?['full_name'] as String?)?.trim().isNotEmpty == true
             ? profileRow!['full_name'] as String
             : metadataName?.trim().isNotEmpty == true
@@ -235,6 +380,7 @@ class SupabaseStoreRepository {
       serviceablePincodes: pincodeRows
           .map((row) => row['pincode'] as String)
           .toSet(),
+      settingsRevision: (settingsRow['revision'] as num?)?.toInt() ?? 0,
       minimumOrderPaise: settingsRow['minimum_order_paise'] as int,
       baseDeliveryChargePaise: settingsRow['delivery_charge_paise'] as int,
       freeDeliveryThresholdPaise:
@@ -243,65 +389,14 @@ class SupabaseStoreRepository {
       deliveryEnabled: settingsRow['delivery_enabled'] as bool,
       cashOnDeliveryEnabled: settingsRow['cash_on_delivery_enabled'] as bool,
     );
-  }
-
-  Future<List<Map<String, dynamic>>> _loadProductRows({
-    required bool includeInactive,
-  }) async {
-    const pageSize = 1000;
-    final products = <Map<String, dynamic>>[];
-    for (var offset = 0; ; offset += pageSize) {
-      final page = includeInactive
-          ? await _client
-                .from('products')
-                .select()
-                .order('available', ascending: false)
-                .order('name')
-                .order('id')
-                .range(offset, offset + pageSize - 1)
-          : await _client
-                .from('products')
-                .select()
-                .eq('active', true)
-                .order('available', ascending: false)
-                .order('name')
-                .order('id')
-                .range(offset, offset + pageSize - 1);
-      products.addAll(page.cast<Map<String, dynamic>>());
-      if (page.length < pageSize) break;
-    }
-    return products;
-  }
-
-  Future<List<Map<String, dynamic>>> _loadOrderRows({
-    required bool includeAllCustomers,
-    required String userId,
-  }) async {
-    const pageSize = 500;
-    final orders = <Map<String, dynamic>>[];
-    for (var offset = 0; ; offset += pageSize) {
-      final page = includeAllCustomers
-          ? await _client
-                .from('orders')
-                .select('*, order_items(*)')
-                .order('created_at', ascending: false)
-                .range(offset, offset + pageSize - 1)
-          : await _client
-                .from('orders')
-                .select('*, order_items(*)')
-                .eq('user_id', userId)
-                .order('created_at', ascending: false)
-                .range(offset, offset + pageSize - 1);
-      final typedPage = page.cast<Map<String, dynamic>>();
-      orders.addAll(typedPage);
-      if (typedPage.length < pageSize) break;
-    }
-    return orders;
+    session.bundle = bundle;
+    return bundle;
   }
 
   Future<String> placeOrder({
     required StoreState store,
     required String idempotencyKey,
+    DateTime? checkoutStartedAt,
   }) async {
     final slots = store.fulfilmentType == FulfilmentType.pickup
         ? store.pickupSlots
@@ -316,112 +411,136 @@ class SupabaseStoreRepository {
     // Pickup has no customer-selected date. PostgreSQL keeps a fulfilment_date
     // for compatibility, so pickup orders use the day they are placed.
     final requestedDate = store.fulfilmentType == FulfilmentType.pickup
-        ? DateTime.now()
+        ? checkoutStartedAt ?? DateTime.now()
         : store.selectedDate;
     try {
-      final response = await _client.rpc(
-        'place_order_v2',
-        params: {
-          'requested_items': store.cartItems
-              .map(
-                (item) => {
-                  'product_id': item.product.id,
-                  'quantity': item.quantity,
-                },
-              )
-              .toList(),
-          'requested_fulfilment': store.fulfilmentType.name,
-          'requested_address_id':
-              store.fulfilmentType == FulfilmentType.delivery
-              ? store.selectedAddressId
-              : null,
-          'requested_date': requestedDate.toIso8601String().split('T').first,
-          'requested_slot_id': selectedSlot.id,
-          'requested_payment': _paymentMethodToDatabase(store.paymentMethod),
-          'requested_instructions': store.deliveryInstructions,
-          'requested_idempotency_key': idempotencyKey,
-          'requested_offer_code': store.selectedOfferCode,
-        },
-      );
+      final response = await _rpc('place_order_v2', {
+        'requested_items': store.cartItems
+            .map(
+              (item) => {
+                'product_id': item.product.id,
+                'quantity': item.quantity,
+              },
+            )
+            .toList(),
+        'requested_fulfilment': store.fulfilmentType.name,
+        'requested_address_id': store.fulfilmentType == FulfilmentType.delivery
+            ? store.selectedAddressId
+            : null,
+        'requested_date': requestedDate.toIso8601String().split('T').first,
+        'requested_slot_id': selectedSlot.id,
+        'requested_payment': _paymentMethodToDatabase(store.paymentMethod),
+        'requested_instructions': store.deliveryInstructions,
+        'requested_idempotency_key': idempotencyKey,
+        'requested_offer_code': store.selectedOfferCode,
+      }, _requestOwner());
       return response as String;
     } on PostgrestException catch (error) {
+      // Keep rollback/conflict codes for the checkout coordinator. Business
+      // errors are rendered safely by the payment screen after it resets the
+      // failed attempt; a conflicting/uncertain attempt must keep its key.
+      if (error.code == 'PT409' ||
+          const {
+            '40001',
+            '40P01',
+            '55P03',
+            '57014',
+            '502',
+            '503',
+            '504',
+          }.contains(error.code)) {
+        rethrow;
+      }
       final message = error.message.toLowerCase();
       if (message.contains('offer code was not found')) {
-        throw const StoreValidationException('Offer code was not found.');
+        throw TransactionValidationException(
+          'Offer code was not found.',
+          error.code,
+        );
       }
       if (message.contains('offer is not active')) {
-        throw const StoreValidationException('This offer is no longer active.');
+        throw TransactionValidationException(
+          'This offer is no longer active.',
+          error.code,
+        );
       }
       if (message.contains('minimum basket')) {
-        throw const StoreValidationException(
+        throw TransactionValidationException(
           'Your basket no longer meets this offer’s minimum.',
+          error.code,
         );
       }
       if (message.contains('free product')) {
-        throw const StoreValidationException(
+        throw TransactionValidationException(
           'The free product is currently unavailable.',
+          error.code,
         );
       }
       if (message.contains('already used') ||
           message.contains('redemption limit')) {
-        throw const StoreValidationException(
+        throw TransactionValidationException(
           'This offer has reached its usage limit.',
+          error.code,
         );
       }
       if (message.contains('fulfilment method')) {
-        throw const StoreValidationException(
+        throw TransactionValidationException(
           'This offer is not valid for the selected fulfilment method.',
+          error.code,
         );
       }
       rethrow;
     }
   }
 
-  Future<CustomerAddress> addAddress(CustomerAddress address) async {
-    final user = _client.auth.currentUser;
-    if (user == null) throw const AuthException('Authentication required.');
-    if (address.isDefault) {
-      await _client
-          .from('addresses')
-          .update({'is_default': false})
-          .eq('user_id', user.id);
-    }
-    final row = await _client
-        .from('addresses')
-        .insert({
-          'user_id': user.id,
-          'label': address.label,
-          'recipient_name': address.recipientName,
-          'phone': address.phone,
-          'line1': address.line1,
-          'city': address.city,
-          'pincode': address.pincode,
-          'instructions': address.instructions,
-          'is_default': address.isDefault,
-        })
-        .select()
-        .single();
-    return CustomerAddress(
-      id: row['id'] as String,
-      label: row['label'] as String,
-      recipientName: row['recipient_name'] as String,
-      phone: row['phone'] as String,
-      line1: row['line1'] as String,
-      city: row['city'] as String,
-      pincode: row['pincode'] as String,
-      instructions: row['instructions'] as String? ?? '',
-      isDefault: row['is_default'] as bool? ?? false,
-    );
-  }
+  Map<String, dynamic> _addressMutation(CustomerAddress address) => {
+    'action': 'save_address',
+    'address_id': _isUuid(address.id) ? address.id : null,
+    'label': address.label,
+    'recipient_name': address.recipientName,
+    'phone': address.phone,
+    'line1': address.line1,
+    'city': address.city,
+    'pincode': address.pincode,
+    'instructions': address.instructions,
+    'is_default': address.isDefault,
+  };
+
+  CustomerAddress _addressFromRow(Map<String, dynamic> row) => CustomerAddress(
+    id: row['id'] as String,
+    revision: (row['revision'] as num).toInt(),
+    label: row['label'] as String,
+    recipientName: row['recipient_name'] as String,
+    phone: row['phone'] as String,
+    line1: row['line1'] as String,
+    city: row['city'] as String,
+    pincode: row['pincode'] as String,
+    instructions: row['instructions'] as String? ?? '',
+    isDefault: row['is_default'] as bool? ?? false,
+  );
+
+  Future<CustomerAddress> addAddress(CustomerAddress address) async =>
+      _addressFromRow(
+        await _receiptRpc('mutate_customer', {
+          'expected_revision': null,
+          'mutation': {..._addressMutation(address), 'address_id': null},
+        }),
+      );
 
   Future<CustomerProfile> updateProfile(CustomerProfile profile) async {
-    final row = await _client
-        .from('profiles')
-        .update({'full_name': profile.name, 'phone': profile.phone})
-        .eq('id', profile.id)
-        .select()
-        .single();
+    if (profile.id != _client.auth.currentUser?.id) {
+      throw const AuthException('Session changed. Sign in and try again.');
+    }
+    final row = await _receiptRpc('mutate_customer', {
+      'expected_revision': profile.revision,
+      'mutation': {
+        'action': 'save_profile',
+        'full_name': profile.name,
+        'phone': profile.phone,
+      },
+    });
     return profile.copyWith(
+      revision: (row['revision'] as num).toInt(),
       name: row['full_name'] as String,
       phone: row['phone'] as String? ?? '',
     );
@@ -435,90 +554,109 @@ class SupabaseStoreRepository {
     final user = _client.auth.currentUser;
     if (user == null) throw const AuthException('Authentication required.');
 
-    String? uploadedPath;
-    if (image != null) {
-      uploadedPath =
-          'products/${user.id}/${DateTime.now().microsecondsSinceEpoch}.${image.extension}';
-      await _client.storage
-          .from('product-images')
-          .uploadBinary(
-            uploadedPath,
-            image.bytes,
-            fileOptions: FileOptions(
-              cacheControl: '31536000',
-              contentType: image.contentType,
-            ),
-          );
-    }
-
-    try {
-      await _client.rpc(
-        'admin_save_product_v2',
-        params: {
-          'target_product_id': _isUuid(product.id) ? product.id : null,
-          'product_category_id': product.categoryId,
-          'product_name': product.name,
-          'product_description': product.description,
-          'product_unit': product.unit,
-          'product_price_paise': product.pricePaise,
-          'product_discount_price_paise': product.discountPricePaise,
-          'product_stock_quantity': product.stockQuantity,
-          'product_featured': product.featured,
-          'product_active': product.active,
-          'product_available': product.active,
-          'product_subcategory': product.subcategory,
-          'product_brand': product.brand,
-          'product_billing_name': product.billingName,
-          'product_print_name': product.printName,
-          'product_item_code': product.itemCode,
-          'product_barcode': product.barcode,
-          'product_image_path': uploadedPath,
-          'remove_product_image': removeImage,
-        },
+    final mutation = <String, dynamic>{
+      'action': 'save',
+      'target_product_id': _isUuid(product.id) ? product.id : null,
+      'product_category_id': product.categoryId,
+      'product_name': product.name,
+      'product_description': product.description,
+      'product_unit': product.unit,
+      'product_price_paise': product.pricePaise,
+      'product_discount_price_paise': product.discountPricePaise,
+      'product_stock_quantity': product.stockQuantity,
+      'product_featured': product.featured,
+      'product_active': product.active,
+      'product_available': product.active && product.available,
+      'product_subcategory': product.subcategory,
+      'product_brand': product.brand,
+      'product_billing_name': product.billingName,
+      'product_print_name': product.printName,
+      'product_item_code': product.itemCode,
+      'product_barcode': product.barcode,
+      'remove_product_image': removeImage,
+    };
+    if (image != null &&
+        image.bytes.length > UsagePolicy.optimizedImageMaxBytes) {
+      throw const FormatException(
+        'Optimise the product image to 150 KB or less before uploading.',
       );
-    } catch (_) {
-      if (uploadedPath != null) {
-        try {
-          await _client.storage.from('product-images').remove([uploadedPath]);
-        } catch (_) {
-          // The unreferenced object can be cleaned up later if rollback fails.
+    }
+    final owner = _requestOwner();
+    await _inventoryRequests.run(
+      userId: '${_client.rest.url}:$owner',
+      // Image bytes are part of the LOCAL retry identity, never the RPC body.
+      // This keeps the upload path and mutation ID stable after a lost response.
+      request: {
+        'expected_revision': product.revision,
+        'mutation': mutation,
+        'image': image == null ? null : base64Encode(image.bytes),
+      },
+      send: (id) async {
+        _checkOwner(owner);
+        final uploadedPath = image == null
+            ? null
+            : 'products/${user.id}/$id.${image.extension}';
+        if (image != null) {
+          try {
+            await _client.storage
+                .from('product-images')
+                .uploadBinary(
+                  uploadedPath!,
+                  image.bytes,
+                  fileOptions: FileOptions(
+                    cacheControl: '31536000',
+                    contentType: image.contentType,
+                  ),
+                )
+                .timeout(requestTimeout);
+            _checkOwner(owner);
+          } on StorageException catch (error) {
+            // Only this immutable request can have written this random path.
+            // A retry must not replace it or generate a different RPC payload.
+            if (error.statusCode != '409' && error.error != 'Duplicate') {
+              rethrow;
+            }
+          }
         }
-      }
-      rethrow;
-    }
-
-    if ((uploadedPath != null || removeImage) &&
-        product.imagePath.isNotEmpty &&
-        product.imagePath != uploadedPath) {
-      try {
-        await _client.storage.from('product-images').remove([
-          product.imagePath,
-        ]);
-      } catch (_) {
-        // The new product image is already saved; stale-image cleanup can retry.
-      }
-    }
+        return Map<String, dynamic>.from(
+          await _rpc('admin_mutate_product', {
+                'request_id': id,
+                'expected_revision': product.revision,
+                'mutation': {...mutation, 'product_image_path': uploadedPath},
+              }, owner)
+              as Map,
+        );
+      },
+    );
+    _recordMutation();
+    // Do not delete storage objects from the client: an uncertain save or a
+    // concurrent editor may still reference them. Garbage collection must be
+    // a separate server-side, reference-aware maintenance operation.
   }
 
   Future<void> updateOrderPricing({
     required int minimumOrderPaise,
     required int deliveryChargePaise,
     required int freeDeliveryThresholdPaise,
+    required int expectedRevision,
   }) async {
-    await _client.rpc(
-      'admin_update_order_pricing',
-      params: {
+    await _receiptRpc('admin_mutate_configuration', {
+      'expected_revision': expectedRevision,
+      'mutation': {
+        'action': 'pricing',
         'requested_minimum_order_paise': minimumOrderPaise,
         'requested_delivery_charge_paise': deliveryChargePaise,
         'requested_free_delivery_threshold_paise': freeDeliveryThresholdPaise,
       },
-    );
+    });
+    _recordMutation();
   }
 
   Future<void> saveOffer(StoreOffer offer) async {
-    await _client.rpc(
-      'admin_save_offer',
-      params: {
+    await _receiptRpc('admin_mutate_configuration', {
+      'expected_revision': offer.revision,
+      'mutation': {
+        'action': 'offer',
         'target_offer_id': _isUuid(offer.id) ? offer.id : null,
         'requested_code': offer.code,
         'requested_title': offer.title,
@@ -540,20 +678,29 @@ class SupabaseStoreRepository {
         'requested_per_customer_limit': offer.perCustomerLimit,
         'requested_active': offer.active,
       },
-    );
+    });
+    _recordMutation();
   }
 
   /// Sets the client's counted on-hand quantity without overwriting price,
   /// name, or other product fields.
-  Future<int> setProductStock(String productId, int quantity) async {
+  Future<int> setProductStock(
+    String productId,
+    int quantity, {
+    required int expectedRevision,
+  }) async {
     if (!_isUuid(productId)) {
       throw ArgumentError.value(productId, 'productId', 'Expected a UUID');
     }
-    final result = await _client.rpc(
-      'admin_set_product_stock',
-      params: {'target_product_id': productId, 'requested_stock': quantity},
+    final result = await _mutateProduct(
+      expectedRevision: expectedRevision,
+      mutation: {
+        'action': 'set_stock',
+        'target_product_id': productId,
+        'requested_stock': quantity,
+      },
     );
-    return (result as num).toInt();
+    return (result['stock_quantity'] as num).toInt();
   }
 
   /// Applies quick +/- stock controls atomically so a simultaneous order does
@@ -562,11 +709,25 @@ class SupabaseStoreRepository {
     if (!_isUuid(productId)) {
       throw ArgumentError.value(productId, 'productId', 'Expected a UUID');
     }
-    final result = await _client.rpc(
-      'admin_adjust_product_stock',
-      params: {'target_product_id': productId, 'stock_delta': delta},
+    final result = await _mutateProduct(
+      mutation: {
+        'action': 'adjust_stock',
+        'target_product_id': productId,
+        'stock_delta': delta,
+      },
     );
-    return (result as num).toInt();
+    return (result['stock_quantity'] as num).toInt();
+  }
+
+  Future<Map<String, dynamic>> _mutateProduct({
+    required Map<String, dynamic> mutation,
+    int? expectedRevision,
+  }) async {
+    final result = await _receiptRpc('admin_mutate_product', {
+      'expected_revision': expectedRevision,
+      'mutation': mutation,
+    });
+    return result;
   }
 
   Future<void> advanceOrder(CustomerOrder order) async {
@@ -588,16 +749,13 @@ class SupabaseStoreRepository {
         OrderStatus.delivered,
       _ => order.status,
     };
-    await _client.rpc(
-      'update_order_status',
-      params: {
-        'target_order_id': order.id,
-        'next_status': _orderStatusToDatabase(next),
-        'ready_at': null,
-        'delivery_name': null,
-        'delivery_phone': null,
-      },
-    );
+    await _retryRpc('update_order_status', {
+      'target_order_id': order.id,
+      'next_status': _orderStatusToDatabase(next),
+      'ready_at': null,
+      'delivery_name': null,
+      'delivery_phone': null,
+    });
   }
 
   Future<void> rejectOrder(String orderId) =>
@@ -606,70 +764,57 @@ class SupabaseStoreRepository {
   Future<void> cancelOrderByAdmin(String orderId) =>
       _updateAdminOrderStatus(orderId, OrderStatus.cancelled);
 
-  Future<void> _updateAdminOrderStatus(String orderId, OrderStatus status) =>
-      _client.rpc(
-        'update_order_status',
-        params: {
-          'target_order_id': orderId,
-          'next_status': _orderStatusToDatabase(status),
-          'ready_at': null,
-          'delivery_name': null,
-          'delivery_phone': null,
-        },
+  Future<void> _updateAdminOrderStatus(
+    String orderId,
+    OrderStatus status,
+  ) async {
+    await _retryRpc('update_order_status', {
+      'target_order_id': orderId,
+      'next_status': _orderStatusToDatabase(status),
+      'ready_at': null,
+      'delivery_name': null,
+      'delivery_phone': null,
+    });
+  }
+
+  Future<void> markOrderPaid(String orderId) async {
+    await _retryRpc('admin_mark_order_paid', {'target_order_id': orderId});
+  }
+
+  Future<void> cancelOrder(String orderId) async {
+    await _retryRpc('cancel_own_order', {
+      'target_order_id': orderId,
+      'reason': 'Cancelled by customer',
+    });
+  }
+
+  Future<CustomerAddress> updateAddress(CustomerAddress address) async =>
+      _addressFromRow(
+        await _receiptRpc('mutate_customer', {
+          'expected_revision': address.revision,
+          'mutation': _addressMutation(address),
+        }),
       );
 
-  Future<void> markOrderPaid(String orderId) => _client.rpc(
-    'admin_mark_order_paid',
-    params: {'target_order_id': orderId},
+  Future<void> deleteAddress(
+    String addressId, {
+    required int expectedRevision,
+  }) async {
+    await _receiptRpc('mutate_customer', {
+      'expected_revision': expectedRevision,
+      'mutation': {'action': 'delete_address', 'address_id': addressId},
+    });
+  }
+
+  Future<CustomerAddress> setDefaultAddress(
+    String addressId, {
+    required int expectedRevision,
+  }) async => _addressFromRow(
+    await _receiptRpc('mutate_customer', {
+      'expected_revision': expectedRevision,
+      'mutation': {'action': 'default_address', 'address_id': addressId},
+    }),
   );
-
-  Future<void> cancelOrder(String orderId) => _client.rpc(
-    'cancel_own_order',
-    params: {'target_order_id': orderId, 'reason': 'Cancelled by customer'},
-  );
-
-  Future<CustomerAddress> updateAddress(CustomerAddress address) async {
-    final row = await _client
-        .from('addresses')
-        .update({
-          'label': address.label,
-          'recipient_name': address.recipientName,
-          'phone': address.phone,
-          'line1': address.line1,
-          'city': address.city,
-          'pincode': address.pincode,
-          'instructions': address.instructions,
-        })
-        .eq('id', address.id)
-        .select()
-        .single();
-    return address.copyWith(
-      label: row['label'] as String,
-      recipientName: row['recipient_name'] as String,
-      phone: row['phone'] as String,
-      line1: row['line1'] as String,
-      city: row['city'] as String,
-      pincode: row['pincode'] as String,
-      instructions: row['instructions'] as String? ?? '',
-    );
-  }
-
-  Future<void> deleteAddress(String addressId) async {
-    await _client.from('addresses').delete().eq('id', addressId);
-  }
-
-  Future<void> setDefaultAddress(String addressId) async {
-    final user = _client.auth.currentUser;
-    if (user == null) throw const AuthException('Authentication required.');
-    await _client
-        .from('addresses')
-        .update({'is_default': false})
-        .eq('user_id', user.id);
-    await _client
-        .from('addresses')
-        .update({'is_default': true})
-        .eq('id', addressId);
-  }
 
   CustomerOrder _orderFromRow(Map<String, dynamic> row) {
     final itemRows = (row['order_items'] as List<dynamic>? ?? const [])
@@ -804,9 +949,18 @@ class SupabaseStoreRepository {
   ).hasMatch(value);
 }
 
+class _ReadSession {
+  final cache = StoreSyncCache();
+  bool restored = false;
+  int mutationEpoch = 0;
+  RemoteStoreBundle? bundle;
+  Future<RemoteStoreBundle>? running;
+}
+
 extension RemoteStoreHydration on StoreController {
   void hydrateRemoteBundle(RemoteStoreBundle bundle) {
     hydrateFromBackend(
+      loadSequence: bundle.loadSequence,
       profile: bundle.profile,
       categories: bundle.categories,
       products: bundle.products,
@@ -818,11 +972,32 @@ extension RemoteStoreHydration on StoreController {
       isAdmin: bundle.isAdmin,
       serviceablePincodes: bundle.serviceablePincodes,
       minimumOrderPaise: bundle.minimumOrderPaise,
+      settingsRevision: bundle.settingsRevision,
       baseDeliveryChargePaise: bundle.baseDeliveryChargePaise,
       freeDeliveryThresholdPaise: bundle.freeDeliveryThresholdPaise,
       pickupEnabled: bundle.pickupEnabled,
       deliveryEnabled: bundle.deliveryEnabled,
       cashOnDeliveryEnabled: bundle.cashOnDeliveryEnabled,
     );
+  }
+
+  /// Owns the refresh independently of the payment route, which is disposed as
+  /// soon as confirmation opens. Never hydrate a later login or checkout.
+  Future<void> refreshConfirmedCheckout({
+    required String orderId,
+    required String? customerId,
+    required Future<RemoteStoreBundle> Function() load,
+  }) async {
+    if (!ownsConfirmedCheckout(orderId, customerId)) return;
+    try {
+      final bundle = await load().timeout(const Duration(seconds: 20));
+      if (ownsConfirmedCheckout(orderId, customerId) &&
+          bundle.profile.id == customerId) {
+        hydrateRemoteBundle(bundle);
+      }
+    } catch (_) {
+      // Checkout committed. Confirmation retains the order ID and Orders can
+      // retry loading details; never repeat the purchase because of this read.
+    }
   }
 }

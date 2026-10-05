@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/price_format.dart';
 import '../../store/providers/store_provider.dart';
@@ -17,6 +18,7 @@ class OfferRedemptionPanel extends ConsumerWidget {
   ) async {
     final code = await showDialog<String>(
       context: context,
+      animationStyle: AppMotion.dialogStyle(context),
       builder: (context) => _OfferPickerDialog(store: store),
     );
     if (code == null || !context.mounted) return;
@@ -67,7 +69,8 @@ class OfferRedemptionPanel extends ConsumerWidget {
                   onPressed: () => _chooseOffer(context, ref, store),
                   child: const Text('View offers'),
                 );
-                if (constraints.maxWidth < 320) {
+                if (constraints.maxWidth < 320 ||
+                    MediaQuery.textScalerOf(context).scale(14) > 20) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [

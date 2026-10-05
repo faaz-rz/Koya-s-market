@@ -5,6 +5,7 @@ enum OfferDiscountType { flat, percentage }
 class StoreOffer {
   const StoreOffer({
     required this.id,
+    this.revision = 0,
     required this.code,
     required this.title,
     required this.minimumSubtotalPaise,
@@ -23,6 +24,7 @@ class StoreOffer {
   });
 
   final String id;
+  final int revision;
   final String code;
   final String title;
   final String description;
@@ -62,6 +64,7 @@ class StoreOffer {
   }
 
   StoreOffer copyWith({
+    int? revision,
     String? id,
     String? code,
     String? title,
@@ -88,6 +91,7 @@ class StoreOffer {
   }) {
     return StoreOffer(
       id: id ?? this.id,
+      revision: revision ?? this.revision,
       code: code ?? this.code,
       title: title ?? this.title,
       description: description ?? this.description,

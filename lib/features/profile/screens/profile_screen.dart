@@ -1,3 +1,5 @@
+import '../../../core/services/network_status.dart';
+import '../../../core/utils/transaction_request.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/config/app_environment.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/koyas_surface.dart';
 import '../../checkout/models/checkout_models.dart';
@@ -13,6 +16,8 @@ import '../models/customer_profile.dart';
 import '../../store/data/supabase_store_repository.dart';
 import '../../store/providers/store_provider.dart';
 import '../../auth/data/auth_repository.dart';
+import '../../orders/models/order.dart';
+import '../widgets/delete_account_dialog.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -24,74 +29,127 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _deletingAccount = false;
 
-  Future<void> _editProfile() async {
-    final profile = ref.read(storeProvider).profile;
-    if (profile == null) return;
-    final updated = await showDialog<CustomerProfile>(
-      context: context,
-      builder: (context) => _ProfileEditorDialog(profile: profile),
-    );
-    if (updated == null) return;
+  Future<void> _refreshSavedCustomer(SupabaseStoreRepository repository) async {
     try {
-      final saved = AppEnvironment.hasSupabaseConfig
-          ? await SupabaseStoreRepository().updateProfile(updated)
-          : updated;
-      ref.read(storeProvider.notifier).updateProfile(saved);
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile could not be updated.')),
-        );
+      final bundle = await repository.loadStore();
+      if (mounted && ref.read(storeProvider).profile?.id == bundle.profile.id) {
+        ref.read(storeProvider.notifier).hydrateRemoteBundle(bundle);
       }
-    }
-  }
-
-  Future<void> _saveAddress([CustomerAddress? current]) async {
-    final edited = await showDialog<CustomerAddress>(
-      context: context,
-      builder: (context) => _AddressEditorDialog(address: current),
-    );
-    if (edited == null) return;
-    try {
-      final saved = AppEnvironment.hasSupabaseConfig
-          ? current == null
-                ? await SupabaseStoreRepository().addAddress(edited)
-                : await SupabaseStoreRepository().updateAddress(edited)
-          : edited;
-      if (current == null) {
-        ref.read(storeProvider.notifier).addAddress(saved);
-      } else {
-        ref.read(storeProvider.notifier).updateAddress(saved);
-      }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Address could not be saved.')),
-        );
-      }
-    }
-  }
-
-  Future<void> _setDefault(CustomerAddress address) async {
-    try {
-      if (AppEnvironment.hasSupabaseConfig) {
-        await SupabaseStoreRepository().setDefaultAddress(address.id);
-      }
-      ref.read(storeProvider.notifier).setDefaultAddress(address.id);
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Default address could not be changed.'),
+            content: Text(
+              'Change saved. Store details could not refresh; try refreshing before another edit.',
+            ),
           ),
         );
       }
     }
   }
 
+  void _customerFailure(Object error, String fallback) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          connectionFailureMessage(
+            error,
+            transactionFailureMessage(error, fallback),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editProfile() async {
+    final profile = ref.read(storeProvider).profile;
+    if (profile == null) return;
+    final updated = await showDialog<CustomerProfile>(
+      context: context,
+      animationStyle: AppMotion.dialogStyle(context),
+      builder: (context) => _ProfileEditorDialog(profile: profile),
+    );
+    if (updated == null) return;
+    final customerId = ref.read(storeProvider).profile?.id;
+    final repository = AppEnvironment.hasSupabaseConfig
+        ? SupabaseStoreRepository()
+        : null;
+    try {
+      final saved = repository != null
+          ? await repository.updateProfile(updated)
+          : updated;
+      if (!mounted || ref.read(storeProvider).profile?.id != customerId) return;
+      ref.read(storeProvider.notifier).updateProfile(saved);
+      if (repository != null) await _refreshSavedCustomer(repository);
+    } catch (error) {
+      _customerFailure(
+        error,
+        'Profile save was not confirmed. Check your profile before retrying.',
+      );
+    }
+  }
+
+  Future<void> _saveAddress([CustomerAddress? current]) async {
+    final edited = await showDialog<CustomerAddress>(
+      context: context,
+      animationStyle: AppMotion.dialogStyle(context),
+      builder: (context) => _AddressEditorDialog(address: current),
+    );
+    if (edited == null) return;
+    final customerId = ref.read(storeProvider).profile?.id;
+    final repository = AppEnvironment.hasSupabaseConfig
+        ? SupabaseStoreRepository()
+        : null;
+    try {
+      final saved = repository != null
+          ? current == null
+                ? await repository.addAddress(edited)
+                : await repository.updateAddress(edited)
+          : edited;
+      if (!mounted || ref.read(storeProvider).profile?.id != customerId) return;
+      if (current == null) {
+        ref.read(storeProvider.notifier).addAddress(saved);
+      } else {
+        ref.read(storeProvider.notifier).updateAddress(saved);
+      }
+      if (repository != null) await _refreshSavedCustomer(repository);
+    } catch (error) {
+      _customerFailure(
+        error,
+        'Address save was not confirmed. Check saved addresses before retrying.',
+      );
+    }
+  }
+
+  Future<void> _setDefault(CustomerAddress address) async {
+    final customerId = ref.read(storeProvider).profile?.id;
+    final repository = AppEnvironment.hasSupabaseConfig
+        ? SupabaseStoreRepository()
+        : null;
+    try {
+      final saved = repository == null
+          ? address
+          : await repository.setDefaultAddress(
+              address.id,
+              expectedRevision: address.revision,
+            );
+      if (!mounted || ref.read(storeProvider).profile?.id != customerId) return;
+      ref.read(storeProvider.notifier).updateAddress(saved);
+      ref.read(storeProvider.notifier).setDefaultAddress(address.id);
+      if (repository != null) await _refreshSavedCustomer(repository);
+    } catch (error) {
+      _customerFailure(
+        error,
+        'Default address change was not confirmed. Check saved addresses before retrying.',
+      );
+    }
+  }
+
   Future<void> _deleteAddress(CustomerAddress address) async {
     final confirmed = await showDialog<bool>(
       context: context,
+      animationStyle: AppMotion.dialogStyle(context),
       builder: (context) => AlertDialog(
         title: const Text('Delete address?'),
         content: Text('Remove ${address.label} from your saved addresses?'),
@@ -107,24 +165,33 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ],
       ),
     );
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
+    final customerId = ref.read(storeProvider).profile?.id;
+    final repository = AppEnvironment.hasSupabaseConfig
+        ? SupabaseStoreRepository()
+        : null;
     try {
-      if (AppEnvironment.hasSupabaseConfig) {
-        await SupabaseStoreRepository().deleteAddress(address.id);
-      }
-      ref.read(storeProvider.notifier).deleteAddress(address.id);
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Address could not be deleted.')),
+      if (repository != null) {
+        await repository.deleteAddress(
+          address.id,
+          expectedRevision: address.revision,
         );
       }
+      if (!mounted || ref.read(storeProvider).profile?.id != customerId) return;
+      ref.read(storeProvider.notifier).deleteAddress(address.id);
+      if (repository != null) await _refreshSavedCustomer(repository);
+    } catch (error) {
+      _customerFailure(
+        error,
+        'Address deletion was not confirmed. Check saved addresses before retrying.',
+      );
     }
   }
 
   Future<void> _logout() async {
     final confirmed = await showDialog<bool>(
       context: context,
+      animationStyle: AppMotion.dialogStyle(context),
       builder: (context) => AlertDialog(
         title: const Text('Log out?'),
         content: const Text('Your cart on this device will be cleared.'),
@@ -144,6 +211,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       if (AppEnvironment.hasSupabaseConfig) {
         await AuthRepository().signOut();
       }
+      if (!mounted) return;
       ref.read(storeProvider.notifier).logout();
       if (mounted) context.go('/login');
     }
@@ -169,22 +237,75 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _deleteAccount() async {
     if (_deletingAccount) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => _DeleteAccountDialog(
-        onOpenRequestPage: () => _openExternal(
-          AppEnvironment.accountDeletionUrl,
-          'Account deletion request page',
-        ),
-      ),
-    );
-    if (confirmed != true || !mounted) return;
     setState(() => _deletingAccount = true);
     try {
-      if (AppEnvironment.hasSupabaseConfig) {
-        await AuthRepository().deleteAccount();
+      final repository = AppEnvironment.hasSupabaseConfig
+          ? AuthRepository()
+          : null;
+      void checkDemoAllowed() {
+        if (!AppEnvironment.allowCustomerDemo) {
+          throw const AccountDeletionException(
+            'Account deletion is not configured. Use the web request page.',
+          );
+        }
+        if (ref
+            .read(storeProvider)
+            .orders
+            .any(
+              (order) => !{
+                OrderStatus.collected,
+                OrderStatus.delivered,
+                OrderStatus.cancelled,
+                OrderStatus.rejected,
+              }.contains(order.status),
+            )) {
+          throw const AccountDeletionException(
+            'Complete or cancel your active orders before deleting your account.',
+            code: 'active_orders',
+          );
+        }
       }
+
+      final confirmed = await showDialog<bool>(
+        context: context,
+        animationStyle: AppMotion.dialogStyle(context),
+        barrierDismissible: false,
+        builder: (context) => DeleteAccountDialog(
+          isDemo: AppEnvironment.allowCustomerDemo,
+          requestCode: () async {
+            if (repository != null) {
+              return repository.requestAccountDeletionOtp();
+            }
+            checkDemoAllowed();
+            return AccountDeletionChallenge(
+              id: 'demo',
+              expiresAt: DateTime.now().add(const Duration(minutes: 10)),
+              emailHint: 'your demo email',
+            );
+          },
+          confirmDeletion: (challenge, code) async {
+            if (repository != null) {
+              await repository.deleteAccount(
+                challengeId: challenge.id,
+                otp: code,
+              );
+              return;
+            }
+            checkDemoAllowed();
+            if (code != '123456') {
+              throw const AccountDeletionException(
+                'Incorrect demo code. Use 123456.',
+                code: 'invalid_code',
+              );
+            }
+          },
+          onOpenRequestPage: () => _openExternal(
+            AppEnvironment.accountDeletionUrl,
+            'Account deletion request page',
+          ),
+        ),
+      );
+      if (confirmed != true || !mounted) return;
       ref.read(storeProvider.notifier).logout();
       if (mounted) context.go('/login?reason=account-deleted');
     } on AccountDeletionException catch (error) {
@@ -303,7 +424,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Row(
+                                Wrap(
+                                  spacing: AppSpacing.sm,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
                                   children: [
                                     Text(
                                       address.label,
@@ -312,7 +435,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                       ).textTheme.titleSmall,
                                     ),
                                     if (address.isDefault) ...[
-                                      const SizedBox(width: AppSpacing.sm),
                                       const Text('· Default'),
                                     ],
                                   ],
@@ -436,14 +558,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         subtitle: const Text(
                           'Permanently remove your account and personal data',
                         ),
-                        trailing: _deletingAccount
-                            ? const SizedBox.square(
-                                dimension: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.chevron_right_rounded),
+                        trailing: const Icon(Icons.chevron_right_rounded),
                         onTap: _deletingAccount ? null : _deleteAccount,
                       ),
                     ],
@@ -472,77 +587,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       .take(2)
       .map((part) => part[0].toUpperCase())
       .join();
-}
-
-class _DeleteAccountDialog extends StatefulWidget {
-  const _DeleteAccountDialog({required this.onOpenRequestPage});
-
-  final VoidCallback onOpenRequestPage;
-
-  @override
-  State<_DeleteAccountDialog> createState() => _DeleteAccountDialogState();
-}
-
-class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
-  final _confirmation = TextEditingController();
-
-  @override
-  void dispose() {
-    _confirmation.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final confirmed = _confirmation.text.trim().toUpperCase() == 'DELETE';
-    return AlertDialog(
-      title: const Text('Permanently delete account?'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'Your sign-in, profile, saved addresses and notification tokens will be removed. Completed transaction records are retained only in anonymized form for accounting and legal obligations.',
-            ),
-            const SizedBox(height: AppSpacing.md),
-            const Text(
-              'Active pickup or delivery orders must be completed or cancelled first. This action cannot be undone.',
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            TextField(
-              key: const Key('delete-account-confirmation'),
-              controller: _confirmation,
-              textCapitalization: TextCapitalization.characters,
-              onChanged: (_) => setState(() {}),
-              decoration: const InputDecoration(
-                labelText: 'Type DELETE to confirm',
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            TextButton.icon(
-              key: const Key('delete-account-request-page'),
-              onPressed: widget.onOpenRequestPage,
-              icon: const Icon(Icons.open_in_new_rounded),
-              label: const Text('Use the web deletion request page'),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Keep account'),
-        ),
-        FilledButton(
-          key: const Key('delete-account-final'),
-          onPressed: confirmed ? () => Navigator.of(context).pop(true) : null,
-          style: FilledButton.styleFrom(backgroundColor: AppColors.error),
-          child: const Text('Delete permanently'),
-        ),
-      ],
-    );
-  }
 }
 
 class _AppVersionLabel extends StatefulWidget {
@@ -736,6 +780,7 @@ class _AddressEditorDialogState extends State<_AddressEditorDialog> {
         pincode: _pincode.text.trim(),
         instructions: _instructions.text.trim(),
         isDefault: widget.address?.isDefault ?? false,
+        revision: widget.address?.revision ?? 0,
       ),
     );
   }

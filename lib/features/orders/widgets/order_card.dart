@@ -27,9 +27,12 @@ class OrderCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final stacked =
+                  constraints.maxWidth < 320 ||
+                  MediaQuery.textScalerOf(context).scale(14) > 20;
+              final visual = Container(
                 width: 54,
                 height: 54,
                 decoration: BoxDecoration(
@@ -40,27 +43,24 @@ class OrderCard extends StatelessWidget {
                   ProductVisual.iconFor(first.visualKey),
                   color: AppColors.inkSecondary,
                 ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Order #${order.displayReference.replaceFirst('KOY', '')}',
-                      style: Theme.of(context).textTheme.titleMedium,
+              );
+              final details = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Order #${order.displayReference.replaceFirst('KOY', '')}',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    DateFormat('d MMM yyyy · h:mm a').format(order.createdAt),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.inkSecondary,
                     ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      DateFormat('d MMM yyyy · h:mm a').format(order.createdAt),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.inkSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
+                  ),
+                ],
+              );
+              final status = Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.md,
                   vertical: AppSpacing.sm,
@@ -76,8 +76,29 @@ class OrderCard extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-              ),
-            ],
+              );
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      visual,
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(child: details),
+                      if (!stacked) ...[
+                        const SizedBox(width: AppSpacing.sm),
+                        status,
+                      ],
+                    ],
+                  ),
+                  if (stacked) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    status,
+                  ],
+                ],
+              );
+            },
           ),
           const SizedBox(height: AppSpacing.lg),
           Text(

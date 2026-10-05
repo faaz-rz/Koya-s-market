@@ -1,5 +1,19 @@
 project_id = "koyas-supermarket"
 
+# Customer verification uses email only. Mirror these Auth settings in the
+# hosted project before launch; migrations do not change hosted Auth settings.
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+double_confirm_changes = true
+max_frequency = "1m"
+otp_length = 6
+otp_expiry = 600
+
+[auth.sms]
+enable_signup = false
+enable_confirmations = false
+
 [functions.create-razorpay-order]
 verify_jwt = true
 

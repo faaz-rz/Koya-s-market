@@ -11,6 +11,7 @@ void main() {
         'android/app/src/main/AndroidManifest.xml',
       ).readAsStringSync();
       final gradle = File('android/app/build.gradle.kts').readAsStringSync();
+      final rootGradle = File('android/build.gradle.kts').readAsStringSync();
       final settings = File('android/settings.gradle.kts').readAsStringSync();
       final gradleProperties = File(
         'android/gradle.properties',
@@ -43,7 +44,21 @@ void main() {
       expect(gradle, contains('Release signing is required'));
       expect(gradle, contains('Release legal URLs are required'));
       expect(gradle, contains('ENABLE_PLAY_REVIEW_LOGIN'));
-      expect(pubspec, contains('version: 1.1.5+9'));
+      expect(
+        rootGradle,
+        contains('"androidx.test:runner:1.2+" -> useVersion("1.2.0")'),
+      );
+      expect(
+        rootGradle,
+        contains('"androidx.test:rules:1.2+" -> useVersion("1.2.0")'),
+      );
+      expect(
+        rootGradle,
+        contains(
+          '"androidx.test.espresso:espresso-core:3.3+" -> useVersion("3.3.0")',
+        ),
+      );
+      expect(pubspec, contains('version: 1.1.5+11'));
     },
   );
 
@@ -113,6 +128,12 @@ void main() {
       'supabase/functions/delete-account/index.ts',
     ).readAsStringSync();
     final config = File('supabase/config.toml').readAsStringSync();
+    final handler = File(
+      'supabase/functions/delete-account/handler.ts',
+    ).readAsStringSync();
+    final dialog = File(
+      'lib/features/profile/widgets/delete_account_dialog.dart',
+    ).readAsStringSync();
     final profile = File(
       'lib/features/profile/screens/profile_screen.dart',
     ).readAsStringSync();
@@ -130,15 +151,18 @@ void main() {
     expect(migration, contains('delivery_recipient_phone_snapshot = null'));
     expect(migration, contains('revoke all on function'));
     expect(function, contains('userClient.auth.getUser()'));
-    expect(function, contains('payload.confirmation !== "DELETE"'));
+    expect(handler, contains('payload.confirmation !== "DELETE_WITH_OTP"'));
+    expect(handler, contains('deps.verifyCode(user.email, payload.otp)'));
+    expect(handler, contains('deps.consume(user, payload.challenge_id)'));
     expect(function, contains('adminClient.auth.admin.deleteUser'));
     expect(function, contains('SUPABASE_SERVICE_ROLE_KEY'));
     expect(clientSources, isNot(contains('SUPABASE_SERVICE_ROLE_KEY')));
     expect(config, contains('[functions.delete-account]\nverify_jwt = true'));
     expect(profile, contains("Key('profile-privacy-policy')"));
     expect(profile, contains("Key('profile-delete-account')"));
-    expect(profile, contains("Key('delete-account-confirmation')"));
-    expect(profile, contains("Key('delete-account-final')"));
+    expect(dialog, contains("Key('delete-account-confirmation')"));
+    expect(dialog, contains("Key('delete-account-final')"));
+    expect(dialog, contains("Key('delete-account-otp')"));
   });
 
   test('review credentials are entered at runtime and never embedded', () {

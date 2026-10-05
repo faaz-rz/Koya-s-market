@@ -1,3 +1,4 @@
+import '../../core/services/network_status.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +10,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/koyas_button.dart';
 import '../../core/widgets/koyas_logo.dart';
 import '../../features/auth/data/auth_repository.dart';
+import '../../features/auth/data/otp_send_limiter.dart';
 import '../../features/store/data/supabase_store_repository.dart';
 import '../../features/store/providers/store_provider.dart';
 
@@ -103,6 +105,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
   }
 
   Future<void> _continue() async {
+    if (_loading) return;
     if (!_formKey.currentState!.validate()) return;
 
     if (!AppEnvironment.hasSupabaseConfig) {
@@ -201,6 +204,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
   void _showError(Object error) {
     if (!mounted) return;
     final message = switch (error) {
+      OtpCooldownException() => error.message,
       StoreValidationException() => error.message,
       AuthException(statusCode: '429') =>
         'Too many attempts. Wait a few minutes and try again.',
@@ -211,7 +215,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
       _ => 'Could not sign in. Check the details and try again.',
     };
     setState(() {
-      _message = message;
+      _message = connectionFailureMessage(error, message);
       _messageIsError = true;
     });
   }

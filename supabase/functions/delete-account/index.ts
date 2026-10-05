@@ -1,94 +1,130 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import {
-  corsHeaders,
-  json,
-  limitedJson,
-  requiredEnv,
-} from "../_shared/http.ts";
+import { requiredEnv } from "../_shared/http.ts";
+import { createDeletionHandler, DeletionFailure } from "./handler.ts";
 
-Deno.serve(async (request) => {
-  if (request.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
-  if (request.method !== "POST") {
-    return json({ error: "Method not allowed" }, 405);
-  }
+const url = requiredEnv("SUPABASE_URL");
+const anonKey = requiredEnv("SUPABASE_ANON_KEY");
+const options = {
+  global: {
+    fetch: (input: RequestInfo | URL, init?: RequestInit) => fetch(input, {
+      ...init,
+      signal: init?.signal
+        ? AbortSignal.any([init.signal, AbortSignal.timeout(10_000)])
+        : AbortSignal.timeout(10_000),
+    }),
+  },
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false,
+  },
+};
+const adminClient = createClient(
+  url,
+  requiredEnv("SUPABASE_SERVICE_ROLE_KEY"),
+  options,
+);
 
-  try {
-    const authorization = request.headers.get("Authorization");
-    if (!authorization) {
-      return json({ error: "Authentication required" }, 401);
-    }
-    const payload = await limitedJson(request, 1024);
-    if (payload.confirmation !== "DELETE") {
-      return json({ error: "Deletion confirmation is required" }, 400);
-    }
-
-    const url = requiredEnv("SUPABASE_URL");
-    const userClient = createClient(url, requiredEnv("SUPABASE_ANON_KEY"), {
-      global: { headers: { Authorization: authorization } },
+Deno.serve(createDeletionHandler({
+  async getUser(authorization) {
+    const userClient = createClient(url, anonKey, {
+      ...options,
+      global: { ...options.global, headers: { Authorization: authorization } },
     });
-    const adminClient = createClient(
-      url,
-      requiredEnv("SUPABASE_SERVICE_ROLE_KEY"),
+    const { data, error } = await userClient.auth.getUser();
+    return error ? null : data.user;
+  },
+  async begin(user) {
+    const { data, error } = await adminClient.rpc(
+      "begin_account_deletion_otp",
+      {
+        target_user: user.id,
+        account_email: user.email,
+      },
     );
-    const { data: userData, error: userError } = await userClient.auth.getUser();
-    if (userError || !userData.user) {
-      return json({ error: "Invalid or expired session" }, 401);
+    if (error) throw error;
+    return data;
+  },
+  async sendCode(email) {
+    // An isolated Auth client prevents sessions leaking between requests.
+    const { error } = await createClient(url, anonKey, options).auth
+      .signInWithOtp({
+        email,
+        options: { shouldCreateUser: false },
+      });
+    if (error) {
+      throw new DeletionFailure(
+        error.status === 429 ? "rate_limited" : "email_unavailable",
+        error.status === 429 ? 429 : 503,
+        60,
+      );
     }
-    const userId = userData.user.id;
-
-    const { data: staff } = await adminClient
-      .from("admins")
-      .select("user_id")
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (staff) {
-      return json({ error: "Staff accounts require administrator removal" }, 403);
-    }
-
-    const { data: activeOrder, error: orderError } = await adminClient
-      .from("orders")
-      .select("id")
-      .eq("user_id", userId)
-      .not("order_status", "in", "(collected,delivered,cancelled,rejected)")
-      .limit(1)
-      .maybeSingle();
-    if (orderError) throw orderError;
-    if (activeOrder) {
-      return json({
-        error: "Complete or cancel active orders before deleting this account",
-        code: "active_orders",
-      }, 409);
-    }
-
-    // The database deletion trigger anonymizes retained order rows and blocks
-    // races that create an active order after the check above. Cascading
-    // foreign keys remove profile, address, token, notification, and redemption
-    // data in the same Auth-user deletion transaction.
-    const { error: deletionError } = await adminClient.auth.admin.deleteUser(
-      userId,
-      false,
+  },
+  async finishSend(user, challenge, sent) {
+    const { data, error } = await adminClient.from(
+      "account_deletion_challenges",
+    )
+      .update({ status: sent ? "pending" : "failed" }).eq("user_id", user.id)
+      .eq("challenge_id", challenge).eq("status", "sending").select("user_id");
+    if (error) throw error;
+    return data.length === 1;
+  },
+  async claim(user, challenge) {
+    const { data, error } = await adminClient.rpc(
+      "claim_account_deletion_attempt",
+      {
+        target_user: user.id,
+        requested_challenge: challenge,
+        account_email: user.email,
+      },
     );
-    if (deletionError) {
-      if (deletionError.message.toLowerCase().includes("active order")) {
-        return json({
-          error: "Complete or cancel active orders before deleting this account",
-          code: "active_orders",
-        }, 409);
-      }
-      throw deletionError;
+    if (error) throw error;
+    return data;
+  },
+  async verifyCode(email, code) {
+    const { data, error } = await createClient(url, anonKey, options).auth
+      .verifyOtp({
+        email,
+        token: code,
+        type: "email",
+      });
+    if (error?.status === 429) {
+      throw new DeletionFailure("rate_limited", 429, 60);
     }
-
-    return json({ deleted: true });
-  } catch (error) {
-    if (error instanceof RangeError) {
-      return json({ error: "Payload too large" }, 413);
+    if (error && (!error.status || error.status >= 500)) {
+      throw new DeletionFailure("verification_unavailable", 503);
     }
-    if (error instanceof SyntaxError || error instanceof TypeError) {
-      return json({ error: "Invalid request body" }, 400);
+    return error ? null : data.user?.id ?? null;
+  },
+  async consume(user, challenge) {
+    const { data, error } = await adminClient.rpc(
+      "consume_account_deletion_otp",
+      {
+        target_user: user.id,
+        requested_challenge: challenge,
+        account_email: user.email,
+      },
+    );
+    if (error) throw error;
+    return data === true;
+  },
+  async deleteUser(user) {
+    // The database trigger rechecks active orders and anonymizes retained
+    // transactions atomically with removal of the Auth user and private data.
+    const { error } = await adminClient.auth.admin.deleteUser(user.id, false);
+    if (error) {
+      throw new DeletionFailure(
+        error.message.toLowerCase().includes("active order")
+          ? "active_orders"
+          : "deletion_unavailable",
+        error.message.toLowerCase().includes("active order") ? 409 : 503,
+      );
     }
-    console.error(error);
-    return json({ error: "Account deletion failed" }, 500);
-  }
-});
+  },
+  async failChallenge(user, challenge) {
+    const { error } = await adminClient.from("account_deletion_challenges")
+      .update({ status: "failed" }).eq("user_id", user.id)
+      .eq("challenge_id", challenge).eq("status", "consumed");
+    if (error) throw error;
+  },
+}));

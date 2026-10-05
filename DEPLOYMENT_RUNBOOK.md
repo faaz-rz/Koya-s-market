@@ -48,14 +48,28 @@ findings. The migrations already enable RLS, restricted RPC permissions,
 Realtime tables, the product-image bucket, order contact snapshots, manual
 payment collection, offer limits, audit logs, and account anonymization.
 
+The final request-protocol migration is
+`supabase/migrations/202610050001_request_protocols.sql`. It adds replay
+receipts, stale-editor conflicts, atomic address/default changes, and the
+revised settings, offer, profile, and address fields. Deploy the matching
+client build after the migration has been applied.
+
 ### Configure customer and staff email OTP
 
 1. In **Authentication → Providers**, keep Email enabled and allow customer
    account creation. The customer OTP flow intentionally creates a new account
    on first successful sign-in.
-2. Configure a trusted custom SMTP provider in **Authentication → SMTP**. The
-   built-in Supabase mail service is not suitable for public production OTP.
-3. In **Authentication → Email Templates → Magic Link/OTP**, use
+2. Disable phone/SMS sign-up and confirmation. This release uses email OTP only;
+   phone numbers are optional delivery contacts and are never authentication
+   factors. The repository's `supabase/config.toml` records this policy for
+   local projects.
+3. Set email OTP length to 6 digits, expiry to 600 seconds, and resend
+   frequency to at least one minute. These values match the client cooldowns.
+4. Configure a trusted custom SMTP provider in **Authentication → SMTP**. The
+   built-in Supabase mail service is limited and is not suitable for public
+   production OTP. Email-only avoids SMS charges, but the SMTP provider's free
+   allowance or pricing still applies.
+5. In **Authentication → Email Templates → Magic Link/OTP**, use
    `{{ .Token }}` in the subject/body so the app receives a six-digit code,
    not a magic-link-only email. Example body:
 
@@ -66,10 +80,10 @@ payment collection, offer limits, audit logs, and account anonymization.
    <p>If you did not request it, ignore this email.</p>
    ```
 
-4. Set the Auth Site URL to the final HTTPS Vercel/custom domain. Add the same
+6. Set the Auth Site URL to the final HTTPS Vercel/custom domain. Add the same
    production origin to the redirect allow list even though this release uses
    typed OTP codes.
-5. Review OTP expiry and rate limits, then test delivery to addresses outside
+7. Review OTP expiry and rate limits, then test delivery to addresses outside
    the Supabase organization.
 
 ### Create the first administrator

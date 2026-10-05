@@ -1,17 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/cart/widgets/active_cart_ribbon.dart';
 import '../../features/store/widgets/store_realtime_sync.dart';
+import '../../features/store/providers/store_provider.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_shadows.dart';
+import '../theme/app_motion.dart';
+import 'customer_tab_transition.dart';
 
-class CustomerShell extends StatelessWidget {
+class CustomerShell extends ConsumerWidget {
   const CustomerShell({required this.navigationShell, super.key});
 
   final StatefulNavigationShell navigationShell;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cartCount = ref.watch(
+      storeProvider.select((store) => store.cartCount),
+    );
     void navigate(int index) {
+      FocusManager.instance.primaryFocus?.unfocus();
       navigationShell.goBranch(
         index,
         initialLocation: index == navigationShell.currentIndex,
@@ -22,6 +32,10 @@ class CustomerShell extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final desktop = constraints.maxWidth >= 900;
+          final branch = CustomerTabTransition(
+            index: navigationShell.currentIndex,
+            child: navigationShell,
+          );
           return Scaffold(
             body: desktop
                 ? Row(
@@ -67,49 +81,102 @@ class CustomerShell extends StatelessWidget {
                       Expanded(
                         child: Column(
                           children: [
-                            Expanded(child: navigationShell),
+                            Expanded(child: branch),
                             const ActiveCartRibbon(),
                           ],
                         ),
                       ),
                     ],
                   )
-                : navigationShell,
+                : branch,
             bottomNavigationBar: desktop
                 ? null
                 : Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const ActiveCartRibbon(respectBottomSafeArea: false),
-                      NavigationBar(
-                        selectedIndex: navigationShell.currentIndex,
-                        onDestinationSelected: navigate,
-                        destinations: const [
-                          NavigationDestination(
-                            key: Key('customer-tab-home'),
-                            icon: Icon(Icons.home_outlined),
-                            selectedIcon: Icon(Icons.home_rounded),
-                            label: 'Home',
+                      DecoratedBox(
+                        decoration: const BoxDecoration(
+                          color: AppColors.surface,
+                          border: Border(
+                            top: BorderSide(color: AppColors.outline),
                           ),
-                          NavigationDestination(
-                            key: Key('customer-tab-categories'),
-                            icon: Icon(Icons.grid_view_outlined),
-                            selectedIcon: Icon(Icons.grid_view_rounded),
-                            label: 'Categories',
+                          boxShadow: AppShadows.low,
+                        ),
+                        child: NavigationBar(
+                          height: 76,
+                          indicatorColor: Colors.transparent,
+                          labelBehavior:
+                              MediaQuery.textScalerOf(context).scale(12) > 18
+                              ? NavigationDestinationLabelBehavior.alwaysHide
+                              : NavigationDestinationLabelBehavior.alwaysShow,
+                          animationDuration: AppMotion.duration(
+                            context,
+                            const Duration(milliseconds: 200),
                           ),
-                          NavigationDestination(
-                            key: Key('customer-tab-orders'),
-                            icon: Icon(Icons.receipt_long_outlined),
-                            selectedIcon: Icon(Icons.receipt_long_rounded),
-                            label: 'Orders',
-                          ),
-                          NavigationDestination(
-                            key: Key('customer-tab-profile'),
-                            icon: Icon(Icons.person_outline_rounded),
-                            selectedIcon: Icon(Icons.person_rounded),
-                            label: 'Profile',
-                          ),
-                        ],
+                          selectedIndex: navigationShell.currentIndex < 2
+                              ? navigationShell.currentIndex
+                              : navigationShell.currentIndex + 1,
+                          onDestinationSelected: (index) {
+                            if (index == 2) {
+                              FocusManager.instance.primaryFocus?.unfocus();
+                              context.push('/cart');
+                            } else {
+                              navigate(index < 2 ? index : index - 1);
+                            }
+                          },
+                          destinations: [
+                            const NavigationDestination(
+                              key: Key('customer-tab-home'),
+                              icon: Icon(Icons.home_outlined),
+                              selectedIcon: Icon(Icons.home_rounded),
+                              label: 'Home',
+                            ),
+                            const NavigationDestination(
+                              key: Key('customer-tab-categories'),
+                              icon: Icon(Icons.grid_view_outlined),
+                              selectedIcon: Icon(Icons.grid_view_rounded),
+                              label: 'Categories',
+                            ),
+                            NavigationDestination(
+                              key: const Key('customer-open-cart'),
+                              label: '',
+                              tooltip: 'Open cart',
+                              icon: Semantics(
+                                label: 'Open cart',
+                                child: Badge.count(
+                                  count: cartCount,
+                                  isLabelVisible: cartCount > 0,
+                                  child: Container(
+                                    width: 52,
+                                    height: 52,
+                                    decoration: const BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: AppColors.brand600,
+                                      boxShadow: AppShadows.medium,
+                                    ),
+                                    child: const Icon(
+                                      Icons.shopping_cart_outlined,
+                                      color: AppColors.surface,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const NavigationDestination(
+                              key: Key('customer-tab-orders'),
+                              icon: Icon(Icons.receipt_long_outlined),
+                              selectedIcon: Icon(Icons.receipt_long_rounded),
+                              label: 'Orders',
+                            ),
+                            const NavigationDestination(
+                              key: Key('customer-tab-profile'),
+                              icon: Icon(Icons.person_outline_rounded),
+                              selectedIcon: Icon(Icons.person_rounded),
+                              label: 'Profile',
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),

@@ -1,10 +1,14 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../core/config/usage_policy.dart';
 import '../models/product.dart';
 import 'category_tile.dart';
+import 'product_image_cache.dart';
 
 class ProductVisual extends StatelessWidget {
   const ProductVisual({
@@ -80,6 +84,7 @@ class ProductVisual extends StatelessWidget {
           color: AppColors.surface,
           child: Image.memory(
             imageBytes,
+            cacheWidth: UsagePolicy.imageDecodePixels,
             fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) => _Fallback(
               visualKey: product.visualKey,
@@ -98,6 +103,7 @@ class ProductVisual extends StatelessWidget {
           color: AppColors.surface,
           child: Image.asset(
             imageAsset,
+            cacheWidth: UsagePolicy.imageDecodePixels,
             fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) => _Fallback(
               visualKey: product.visualKey,
@@ -117,6 +123,13 @@ class ProductVisual extends StatelessWidget {
         borderRadius: BorderRadius.circular(radius),
         child: CachedNetworkImage(
           imageUrl: imageUri.toString(),
+          cacheManager: kIsWeb ? null : productImageCache,
+          memCacheWidth: UsagePolicy.imageDecodePixels,
+          fadeInDuration: AppMotion.duration(
+            context,
+            const Duration(milliseconds: 160),
+          ),
+          fadeOutDuration: Duration.zero,
           fit: BoxFit.contain,
           placeholder: (context, url) => _Fallback(
             visualKey: product.visualKey,

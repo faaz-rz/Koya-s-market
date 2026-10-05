@@ -1,7 +1,12 @@
+import '../../../core/services/network_status.dart';
+import '../../../core/utils/transaction_request.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/config/app_environment.dart';
 import '../../../core/theme/app_colors.dart';
@@ -10,6 +15,7 @@ import '../../../core/utils/price_format.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/koyas_button.dart';
 import '../../../core/widgets/koyas_surface.dart';
+import '../../../core/widgets/koyas_value_row.dart';
 import '../../offers/widgets/offer_redemption_panel.dart';
 import '../../store/providers/store_provider.dart';
 import '../../store/data/supabase_store_repository.dart';
@@ -28,15 +34,8 @@ class PaymentScreen extends ConsumerStatefulWidget {
 
 class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   bool _submitting = false;
-  late final String _idempotencyKey;
+  StoreState? _submissionSnapshot;
   RazorpayCheckout? _razorpayCheckout;
-
-  @override
-  void initState() {
-    super.initState();
-    _idempotencyKey =
-        'checkout-${DateTime.now().microsecondsSinceEpoch}-${identityHashCode(this)}';
-  }
 
   @override
   void dispose() {
@@ -46,9 +45,15 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
   Future<void> _placeOrder() async {
     if (_submitting) return;
-    setState(() => _submitting = true);
+    final controller = ref.read(storeProvider.notifier);
+    bool completed = false;
+    setState(() {
+      _submissionSnapshot =
+          controller.remoteCheckout.snapshot ?? ref.read(storeProvider);
+      _submitting = true;
+    });
     try {
-      final currentStore = ref.read(storeProvider);
+      final StoreState currentStore = _submissionSnapshot!;
       if (currentStore.paymentMethod == PaymentMethod.online &&
           !AppEnvironment.enableRazorpayPayments) {
         throw const StoreValidationException(
@@ -58,9 +63,13 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       late final String id;
       if (AppEnvironment.hasSupabaseConfig) {
         final repository = SupabaseStoreRepository();
-        id = await repository.placeOrder(
-          store: currentStore,
-          idempotencyKey: _idempotencyKey,
+        id = await controller.remoteCheckout.submit(
+          currentStore,
+          (snapshot, key, date) => repository.placeOrder(
+            store: snapshot,
+            idempotencyKey: key,
+            checkoutStartedAt: date,
+          ),
         );
         if (currentStore.paymentMethod == PaymentMethod.online) {
           final providerOrder = await PaymentRepository().createProviderOrder(
@@ -72,19 +81,65 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             customerPhone: currentStore.profile?.phone ?? '',
           );
         }
-        ref.read(storeProvider.notifier).finishRemoteCheckout(id);
-        final bundle = await repository.loadStore();
-        ref.read(storeProvider.notifier).hydrateRemoteBundle(bundle);
+        controller.finishRemoteCheckout(
+          id,
+          submittedCart: currentStore.cartQuantities,
+          customerId: currentStore.profile?.id,
+        );
+        // Show confirmation immediately. A slow/failed refresh must neither
+        // hold the customer here nor turn a committed order into a failure.
+        unawaited(
+          controller.refreshConfirmedCheckout(
+            orderId: id,
+            customerId: currentStore.profile?.id,
+            load: repository.loadStore,
+          ),
+        );
       } else {
         await Future<void>.delayed(const Duration(milliseconds: 550));
         id = ref.read(storeProvider.notifier).placeOrder();
       }
-      if (mounted) context.go('/order/confirmation/$id');
+      completed = true;
+      if (mounted &&
+          ref.read(storeProvider).profile?.id == currentStore.profile?.id) {
+        context.go('/order/confirmation/$id');
+      }
     } on StoreValidationException catch (error) {
+      if (!controller.remoteCheckout.hasUncertainResult) {
+        controller.remoteCheckout.reset();
+      }
       if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } on TransactionValidationException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } on PostgrestException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              error.code == 'PT409'
+                  ? 'This checkout already exists with different details. Check Orders before starting again.'
+                  : const {
+                      '40001',
+                      '40P01',
+                      '55P03',
+                      '57014',
+                      '502',
+                      '503',
+                      '504',
+                    }.contains(error.code)
+                  ? 'The store is busy. Please retry checkout in a moment.'
+                  : 'Stock or checkout details changed. Review your basket and try again.',
+            ),
+          ),
+        );
       }
     } on PaymentException catch (error) {
       if (mounted) {
@@ -92,24 +147,34 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           context,
         ).showSnackBar(SnackBar(content: Text(error.message)));
       }
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
-              'Checkout could not be completed. Your cart is safe—please try again.',
+              connectionFailureMessage(
+                error,
+                'Checkout was not confirmed. Your cart is safe; retry to check the same order.',
+              ),
             ),
           ),
         );
       }
     } finally {
-      if (mounted) setState(() => _submitting = false);
+      if (mounted && !completed) {
+        setState(() {
+          _submitting = false;
+          _submissionSnapshot = null;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final store = ref.watch(storeProvider);
+    final liveStore = ref.watch(storeProvider);
+    final pending = ref.read(storeProvider.notifier).remoteCheckout.snapshot;
+    final store = _submissionSnapshot ?? pending ?? liveStore;
     if (store.cartItems.isEmpty) {
       return Scaffold(
         appBar: AppBar(title: const Text('Payment')),
@@ -148,74 +213,98 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         ),
       );
     }
-    return Scaffold(
-      appBar: AppBar(title: const Text('Review and pay')),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final wide = constraints.maxWidth >= 860;
-            final methodSection = _PaymentMethods(
-              methods: methods,
-              selected: store.paymentMethod,
-            );
-            final summary = const _CheckoutSummary();
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1040),
-                  child: Column(
-                    children: [
-                      CheckoutProgress(
-                        currentStep: pickup ? 1 : 2,
-                        includeScheduleStep: !pickup,
-                      ),
-                      const SizedBox(height: AppSpacing.xxxl),
-                      if (wide)
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(flex: 3, child: methodSection),
-                            const SizedBox(width: AppSpacing.xxl),
-                            Expanded(flex: 2, child: summary),
-                          ],
-                        )
-                      else ...[
-                        methodSection,
-                        const SizedBox(height: AppSpacing.xxl),
-                        summary,
-                      ],
-                      const SizedBox(height: AppSpacing.xxl),
-                      KoyasButton(
-                        label: store.paymentMethod == PaymentMethod.online
-                            ? 'Pay ${formatPrice(store.totalPaise)} securely'
-                            : 'Place order · ${formatPrice(store.totalPaise)}',
-                        loading: _submitting,
-                        icon: store.paymentMethod == PaymentMethod.online
-                            ? Icons.lock_rounded
-                            : Icons.check_rounded,
-                        onPressed: _placeOrder,
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        store.paymentMethod == PaymentMethod.online
-                            ? AppEnvironment.hasSupabaseConfig
-                                  ? 'Razorpay securely processes UPI, card, and net-banking payments.'
-                                  : 'Online payment is simulated in demo mode; no charge is made.'
-                            : pickup
-                            ? 'Pay by cash or UPI at the store when you collect your order.'
-                            : 'Pay by cash or UPI when your order is delivered.',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.inkSecondary,
+    return PopScope(
+      canPop: !_submitting,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Review and pay'),
+          leading: IconButton(
+            tooltip: 'Back',
+            icon: const BackButtonIcon(),
+            onPressed: _submitting ? null : () => context.pop(),
+          ),
+        ),
+        body: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final wide = constraints.maxWidth >= 860;
+              final methodSection = IgnorePointer(
+                ignoring: pending != null || _submitting,
+                child: _PaymentMethods(
+                  methods: methods,
+                  selected: store.paymentMethod,
+                ),
+              );
+              final summary = _CheckoutSummary(
+                store: store,
+                locked: pending != null || _submitting,
+              );
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1040),
+                    child: Column(
+                      children: [
+                        CheckoutProgress(
+                          currentStep: pickup ? 1 : 2,
+                          includeScheduleStep: !pickup,
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: AppSpacing.xxxl),
+                        if (wide)
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(flex: 3, child: methodSection),
+                              const SizedBox(width: AppSpacing.xxl),
+                              Expanded(flex: 2, child: summary),
+                            ],
+                          )
+                        else ...[
+                          methodSection,
+                          const SizedBox(height: AppSpacing.xxl),
+                          summary,
+                        ],
+                        const SizedBox(height: AppSpacing.xxl),
+                        if (pending != null)
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: AppSpacing.md),
+                            child: Text(
+                              'A previous checkout needs confirmation. Retry uses the original basket, without creating a second order.',
+                            ),
+                          ),
+                        KoyasButton(
+                          label: pending != null
+                              ? 'Retry checkout'
+                              : store.paymentMethod == PaymentMethod.online
+                              ? 'Pay ${formatPrice(store.totalPaise)} securely'
+                              : 'Place order · ${formatPrice(store.totalPaise)}',
+                          loading: _submitting,
+                          icon: store.paymentMethod == PaymentMethod.online
+                              ? Icons.lock_rounded
+                              : Icons.check_rounded,
+                          onPressed: _placeOrder,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          store.paymentMethod == PaymentMethod.online
+                              ? AppEnvironment.hasSupabaseConfig
+                                    ? 'Razorpay securely processes UPI, card, and net-banking payments.'
+                                    : 'Online payment is simulated in demo mode; no charge is made.'
+                              : pickup
+                              ? 'Pay by cash or UPI at the store when you collect your order.'
+                              : 'Pay by cash or UPI when your order is delivered.',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: AppColors.inkSecondary),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );
@@ -298,12 +387,14 @@ class _PaymentMethods extends ConsumerWidget {
   }
 }
 
-class _CheckoutSummary extends ConsumerWidget {
-  const _CheckoutSummary();
+class _CheckoutSummary extends StatelessWidget {
+  const _CheckoutSummary({required this.store, required this.locked});
+
+  final StoreState store;
+  final bool locked;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final store = ref.watch(storeProvider);
+  Widget build(BuildContext context) {
     final pickup = store.fulfilmentType == FulfilmentType.pickup;
     return KoyasSurface(
       elevated: true,
@@ -376,7 +467,7 @@ class _CheckoutSummary extends ConsumerWidget {
             strong: true,
           ),
           const SizedBox(height: AppSpacing.lg),
-          const OfferRedemptionPanel(),
+          if (!locked) const OfferRedemptionPanel(),
         ],
       ),
     );
@@ -437,11 +528,11 @@ class _PriceLine extends StatelessWidget {
     final style = strong
         ? Theme.of(context).textTheme.titleMedium
         : Theme.of(context).textTheme.bodyMedium;
-    return Row(
-      children: [
-        Expanded(child: Text(label, style: style)),
-        Text(value, style: style),
-      ],
+    return KoyasValueRow(
+      label: label,
+      value: value,
+      labelStyle: style,
+      valueStyle: style,
     );
   }
 }

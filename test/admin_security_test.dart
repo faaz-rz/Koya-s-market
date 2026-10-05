@@ -52,10 +52,7 @@ void main() {
     expect(catalogueMigration, contains("'restore_product'"));
     expect(catalogueMigration, contains('remove_product_image'));
     expect(catalogueMigration, contains('if not public.is_admin()'));
-    expect(
-      repository,
-      contains("_client.rpc(\n        'admin_save_product_v2'"),
-    );
+    expect(repository, contains("'admin_mutate_product'"));
     expect(repository, isNot(contains("from('products').insert")));
     expect(repository, isNot(contains("from('products').update")));
   });
@@ -85,7 +82,7 @@ void main() {
       ),
     );
     expect(offerMigration, contains('set discount_price_paise = null'));
-    expect(repository, contains("'admin_update_order_pricing'"));
+    expect(repository, contains("'admin_mutate_configuration'"));
     expect(repository, isNot(contains("from('store_settings').update")));
     expect(realtime, contains("table: 'store_settings'"));
   });
@@ -150,7 +147,7 @@ void main() {
       expect(migration, contains("'update_offer'"));
       expect(migration, contains('revoke all on function public.place_order('));
       expect(repository, contains("'place_order_v2'"));
-      expect(repository, contains("'admin_save_offer'"));
+      expect(repository, contains("'admin_mutate_configuration'"));
       expect(repository, contains("'requested_offer_code'"));
       expect(realtime, contains("table: 'offers'"));
     },
@@ -196,7 +193,11 @@ void main() {
       'lib/features/store/data/supabase_store_repository.dart',
     ).readAsStringSync();
 
-    expect(repository, contains("_client.rpc('is_admin')"));
+    final sync = File(
+      'supabase/migrations/202609190001_efficient_store_sync.sql',
+    ).readAsStringSync();
+    expect(repository, contains(".rpc('sync_store'"));
+    expect(sync, contains('staff boolean := public.is_admin()'));
     expect(repository, isNot(contains(".from('admins')")));
   });
 

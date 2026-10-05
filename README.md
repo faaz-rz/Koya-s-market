@@ -41,6 +41,8 @@ Staff dashboard:
   out-of-stock metrics
 - Complete store order queue, filters, manual refresh, and a direct
   ready-for-pickup action
+- Printable traditional supermarket bills from each order's details, with
+  saved item rates, quantities, offers, delivery charges, and payment status
 - Searchable inventory by product, brand, billing name, item code, or barcode;
   each pack size remains a separate SKU so its stock can be counted accurately
 - Manual stock controls for setting the complete physical count or applying an
@@ -49,7 +51,7 @@ Staff dashboard:
   delivery fee, and free-delivery threshold
 - Inventory add/edit controls for price, offer price, unit, category, featured
   products, and JPEG/PNG/WebP product-picture upload or replacement
-- Live Supabase product and order updates across open staff and customer screens
+- Debounced staff live updates and cached, conditional customer refreshes
 - In-memory staff sessions, a 15-minute inactivity lock, periodic admin-access
   revalidation, secure sign-out, and no customer-shopping routes
 
@@ -104,16 +106,44 @@ flutter run -d chrome -t lib/admin_main.dart
 Staff demo: enter an email address and select **Open staff dashboard demo**.
 The customer app contains no admin route or admin-dashboard shortcut.
 
+To print an order, open **Orders → View details → Print bill**. The browser
+opens a black-and-white receipt and its print dialog, where staff can choose
+a printer or **Save as PDF**. The bill fits an 80 mm receipt roll and can also
+be printed on A4. Choose the matching paper size and turn off browser headers
+and footers. If pop-ups are blocked, allow them for the staff website and try
+again. Printing does not change the order or record a payment.
+
 For a physical stock count, find the exact product and pack size and select
 **Set**. Enter `0` to remove it from sale, or enter the counted shelf/store-room
 quantity to make it orderable. Use `+` and `-` only for quick corrections. In a
 configured Supabase build, these changes are saved immediately, audit logged,
-and sent to open customer apps through Realtime.
+and returned on the next conditional customer refresh. Customers poll every
+120 seconds while browsing, or 30 seconds with an active order; staff retain
+debounced live updates. Checkout always rechecks stock on the server.
 
 To create a catalogue item, select **Add product** in the staff inventory,
 choose an optional picture, complete the product details, and save. Pictures
-are previewed before saving and validated as JPEG, PNG, or WebP up to 5 MB. The
+are previewed before saving and validated as JPEG, PNG, or WebP up to 5 MB input.
+The staff website resizes and compresses new uploads to at most 150 KiB. The
 same picture control can replace the photo on an existing product.
+
+### Performance and hosting allowances
+
+Catalogue/order refreshes use a single conditional snapshot RPC and a bounded
+public catalogue cache. Images are cached, hidden sessions stop polling, and
+email-code requests have cooldown/deduplication guards. See
+[the pre-deployment checklist](docs/FREE_TIER_READINESS.md) for local load tests,
+hosted 50/100-shopper testing, usage estimates and the explicit launch gate.
+Local tests do not certify Supabase free-tier capacity. The current example
+bandwidth estimate needs more headroom, and SMTP/hosted-device checks remain
+unverified. No backend or hosting deployment was performed.
+
+The request and session rules are documented in
+[request protocols](docs/REQUEST_PROTOCOLS.md). Authentication uses email OTP;
+phone/SMS sign-in is disabled. The app shows a persistent no-internet banner
+when the network is unavailable and uses a shared rotating four-dot loader for
+requests. Email delivery itself still depends on the free allowance or pricing
+of the SMTP provider selected for the hosted project.
 
 ### Client catalogue review
 
@@ -125,6 +155,20 @@ sources, verification commands and deployment boundaries. The
 store photos. The September 7 category and image-metadata migrations are narrow
 updates; they do not reset prices or stock. These local changes do not mean
 the live database or store-uploaded photos have been updated.
+
+All 37 client departments have bundled representative pictures, shared by the
+customer home/categories/search screens and the staff inventory/category picker.
+They work locally without Supabase Storage or remote image requests. Category
+pictures are not substitutes for exact SKU photos: the outstanding product-photo
+queue stays separate. Run `python3 tool/category_image_sheet.py` (requires Pillow)
+to review the picture contact sheet, or
+`flutter test --no-pub tool/catalogue_preview_test.dart` for rendered customer and
+admin previews in `outputs/`.
+
+The 5 October customer layout/motion refresh follows the supplied visual
+reference while preserving existing wording and catalogue behaviour. See
+[customer UI refresh](docs/CUSTOMER_UI_REFRESH.md) for the Figma draft, local
+verification, testing APKs and the remaining physical-device checks.
 
 ## Staff website production build
 
@@ -312,7 +356,13 @@ supabase functions deploy delete-account
 ```
 
 The customer profile links to the public privacy policy and supports permanent
-self-service deletion. The database blocks deletion while an order is active,
+self-service deletion protected by a fresh email OTP verified by the Edge
+function. Apply `202609230001_account_deletion_otp.sql` before deploying the
+updated `delete-account` function. The email template must include `{{ .Token }}`
+(as for email OTP login). Deletion challenges expire after 10 minutes, allow five
+verification attempts, and enforce a 60-second resend wait and eight sends per
+account per hour. See `docs/ACCOUNT_DELETION_AND_TRANSITIONS.md` for testing and
+launch checks. The database blocks deletion while an order is active,
 then removes authentication, profile, addresses, tokens and offer-redemption
 data while anonymizing retained completed transaction records. The public
 `/delete-account` page provides the required assisted route for customers who
@@ -358,6 +408,11 @@ online payment require separate audited releases before either integration is
 restored.
 
 ## Verification
+
+Checkout/stock race protection and its isolated real-PostgreSQL test harness are
+documented in [Concurrency and safe retries](docs/CONCURRENCY.md). The September
+17 migration must be applied with the matching admin client during backend
+integration; these local tests do not mean Supabase or Vercel is deployed.
 
 ```sh
 dart format --output=none --set-exit-if-changed lib test

@@ -8,6 +8,7 @@ import '../../../core/utils/price_format.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/koyas_button.dart';
 import '../../../core/widgets/koyas_surface.dart';
+import '../../../core/widgets/koyas_value_row.dart';
 import '../../offers/widgets/offer_redemption_panel.dart';
 import '../../products/widgets/product_visual.dart';
 import '../../store/providers/store_provider.dart';
@@ -115,7 +116,7 @@ class _CartItems extends ConsumerWidget {
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final visual = SizedBox.square(
-                    dimension: 82,
+                    dimension: 72,
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(AppRadii.lg),
                       child: ProductVisual(product: item.product, iconSize: 36),
@@ -157,7 +158,8 @@ class _CartItems extends ConsumerWidget {
                         .removeFromCart(item.product.id),
                     child: const Text('Remove'),
                   );
-                  if (constraints.maxWidth < 340) {
+                  if (MediaQuery.textScalerOf(context).scale(14) > 20 ||
+                      constraints.maxWidth < 300) {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -183,10 +185,40 @@ class _CartItems extends ConsumerWidget {
                     children: [
                       visual,
                       const SizedBox(width: AppSpacing.md),
-                      Expanded(child: details),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [quantity, remove],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.product.name,
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                            const SizedBox(height: AppSpacing.xs),
+                            Text(
+                              item.product.unit,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: AppColors.inkSecondary),
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    formatPrice(item.totalPaise),
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleMedium,
+                                  ),
+                                ),
+                                quantity,
+                              ],
+                            ),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: remove,
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   );
@@ -320,11 +352,11 @@ class _SummaryRow extends StatelessWidget {
     final style = strong
         ? Theme.of(context).textTheme.titleMedium
         : Theme.of(context).textTheme.bodyMedium;
-    return Row(
-      children: [
-        Expanded(child: Text(label, style: style)),
-        Text(value, style: style),
-      ],
+    return KoyasValueRow(
+      label: label,
+      value: value,
+      labelStyle: style,
+      valueStyle: style,
     );
   }
 }

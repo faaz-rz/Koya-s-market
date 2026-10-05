@@ -12,6 +12,7 @@ class KoyasSurface extends StatelessWidget {
     this.radius = AppRadii.xl,
     this.elevated = false,
     this.borderColor = AppColors.outline,
+    this.onTap,
     super.key,
   });
 
@@ -21,6 +22,7 @@ class KoyasSurface extends StatelessWidget {
   final double radius;
   final bool elevated;
   final Color borderColor;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +37,13 @@ class KoyasSurface extends StatelessWidget {
         type: MaterialType.transparency,
         borderRadius: BorderRadius.circular(radius),
         clipBehavior: Clip.antiAlias,
-        child: Padding(padding: padding, child: child),
+        child: onTap == null
+            ? Padding(padding: padding, child: child)
+            : InkWell(
+                onTap: onTap,
+                borderRadius: BorderRadius.circular(radius),
+                child: Padding(padding: padding, child: child),
+              ),
       ),
     );
   }

@@ -280,7 +280,7 @@ class _CategoryFilters extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 48,
+      height: 32 + MediaQuery.textScalerOf(context).scale(12) * 1.33,
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
@@ -663,25 +663,12 @@ class _CategoryDiscoveryTile extends StatelessWidget {
           padding: const EdgeInsets.all(AppSpacing.md),
           child: Row(
             children: [
-              Container(
+              CategoryPicture(
+                visualKey: category.visualKey,
                 width: 56,
                 height: 56,
-                decoration: BoxDecoration(
-                  color: CategoryTile.colorFor(category.visualKey),
-                  borderRadius: BorderRadius.circular(AppRadii.md),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(2),
-                  child: Image.asset(
-                    CategoryTile.imageAssetFor(category.visualKey),
-                    fit: BoxFit.contain,
-                    filterQuality: FilterQuality.high,
-                    errorBuilder: (_, _, _) => Icon(
-                      CategoryTile.iconFor(category.visualKey),
-                      color: AppColors.ink,
-                    ),
-                  ),
-                ),
+                radius: AppRadii.md,
+                padding: 2,
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(

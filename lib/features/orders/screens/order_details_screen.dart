@@ -10,6 +10,7 @@ import '../../../core/utils/price_format.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/koyas_button.dart';
 import '../../../core/widgets/koyas_surface.dart';
+import '../../../core/widgets/koyas_value_row.dart';
 import '../../checkout/models/checkout_models.dart';
 import '../../products/widgets/product_visual.dart';
 import '../../store/data/supabase_store_repository.dart';
@@ -303,15 +304,11 @@ class _OrderDetails extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.md),
           ],
-          Row(
-            children: [
-              Text('Total', style: Theme.of(context).textTheme.titleMedium),
-              const Spacer(),
-              Text(
-                formatPrice(order.totalPaise),
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ],
+          KoyasValueRow(
+            label: 'Total',
+            value: formatPrice(order.totalPaise),
+            labelStyle: Theme.of(context).textTheme.titleMedium,
+            valueStyle: Theme.of(context).textTheme.titleMedium,
           ),
         ],
       ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:koyas_supermarket/admin/admin_app.dart';
+import 'package:koyas_supermarket/features/admin/printing/order_bill_printer.dart';
 import 'package:koyas_supermarket/features/orders/models/order.dart';
 import 'package:koyas_supermarket/features/store/providers/store_provider.dart';
 
@@ -658,7 +659,19 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const ProviderScope(child: KoyasAdminApp()));
+    final printedOrders = <CustomerOrder>[];
+    var blockPrinting = true;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          orderBillPrinterProvider.overrideWithValue((order) {
+            if (blockPrinting) throw StateError('Allow pop-ups to print.');
+            printedOrders.add(order);
+          }),
+        ],
+        child: const KoyasAdminApp(),
+      ),
+    );
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -703,6 +716,23 @@ void main() {
     );
     expect(find.text('Call on arrival; use the side gate.'), findsOneWidget);
 
+    final printBill = find.byKey(const Key('admin-print-bill-KOY34621'));
+    await tester.tap(printBill);
+    await tester.pumpAndSettle();
+    expect(find.text('Allow pop-ups to print.'), findsOneWidget);
+    expect(printedOrders, isEmpty);
+    blockPrinting = false;
+    final originalOrder = container
+        .read(storeProvider)
+        .orders
+        .firstWhere((order) => order.id == 'KOY34621');
+    await tester.tap(printBill);
+    await tester.pumpAndSettle();
+    expect(find.text('Allow pop-ups to print.'), findsNothing);
+    expect(printedOrders.single, same(originalOrder));
+    expect(originalOrder.paymentStatus, PaymentStatus.pending);
+    expect(originalOrder.status, OrderStatus.placed);
+
     await tester.tap(
       find.byKey(const Key('admin-close-order-details-KOY34621')),
     );
@@ -723,6 +753,22 @@ void main() {
     expect(paidOrder.paymentStatus, PaymentStatus.paid);
     expect(paidOrder.paidAt, isNotNull);
     expect(find.byKey(const Key('admin-advance-KOY34619')), findsOneWidget);
+
+    final paidDetails = find.byKey(const Key('admin-order-details-KOY34619'));
+    await tester.ensureVisible(paidDetails);
+    await tester.tap(paidDetails);
+    await tester.pumpAndSettle();
+    // A live update while the dialog is open must also reach the printer.
+    container.read(storeProvider.notifier).advanceOrder('KOY34619');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('admin-print-bill-KOY34619')));
+    await tester.pumpAndSettle();
+    expect(printedOrders.last.paymentStatus, PaymentStatus.paid);
+    expect(printedOrders.last.status, OrderStatus.collected);
+    await tester.tap(
+      find.byKey(const Key('admin-close-order-details-KOY34619')),
+    );
+    await tester.pumpAndSettle();
 
     final cancel = find.byKey(const Key('admin-cancel-KOY34620'));
     await tester.ensureVisible(cancel);

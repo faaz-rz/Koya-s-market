@@ -5,7 +5,7 @@
 - App name/brand: **Koya Stores**
 - Android application ID: **`com.koyas.koyas_supermarket`**
 - Current version name: **`1.1.5`**
-- Current version code: **`9`**
+- Current version code: **`11`**
 - Category: **Shopping**
 - Ads: **No**
 - Recommended target audience: **18 and over**. The service is for adults

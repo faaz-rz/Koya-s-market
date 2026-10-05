@@ -1,3 +1,5 @@
+import '../../../core/utils/transaction_request.dart';
+import '../../../core/services/network_status.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/config/app_environment.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/koyas_button.dart';
 import '../../store/data/supabase_store_repository.dart';
@@ -50,19 +53,32 @@ class _DeliveryCheckoutScreenState
   Future<void> _addAddress() async {
     final address = await showDialog<CustomerAddress>(
       context: context,
+      animationStyle: AppMotion.dialogStyle(context),
       builder: (context) => const _AddAddressDialog(),
     );
-    if (address != null) {
+    if (address != null && mounted) {
+      final customerId = ref.read(storeProvider).profile?.id;
       try {
         final saved = AppEnvironment.hasSupabaseConfig
             ? await SupabaseStoreRepository().addAddress(address)
             : address;
+        if (!mounted || ref.read(storeProvider).profile?.id != customerId) {
+          return;
+        }
         ref.read(storeProvider.notifier).addAddress(saved);
-      } catch (_) {
+      } catch (error) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Address could not be saved. Please try again.'),
+            SnackBar(
+              content: Text(
+                connectionFailureMessage(
+                  error,
+                  transactionFailureMessage(
+                    error,
+                    'Address save was not confirmed. Check saved addresses before retrying.',
+                  ),
+                ),
+              ),
             ),
           );
         }
@@ -90,20 +106,34 @@ class _DeliveryCheckoutScreenState
                 children: [
                   const CheckoutProgress(currentStep: 1),
                   const SizedBox(height: AppSpacing.xxxl),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Delivery address',
-                          style: Theme.of(context).textTheme.headlineSmall,
-                        ),
-                      ),
-                      TextButton.icon(
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final title = Text(
+                        'Delivery address',
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      );
+                      final add = TextButton.icon(
                         onPressed: _addAddress,
                         icon: const Icon(Icons.add_rounded),
                         label: const Text('Add new'),
-                      ),
-                    ],
+                      );
+                      if (MediaQuery.textScalerOf(context).scale(14) > 20) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            title,
+                            const SizedBox(height: AppSpacing.xs),
+                            add,
+                          ],
+                        );
+                      }
+                      return Row(
+                        children: [
+                          Expanded(child: title),
+                          add,
+                        ],
+                      );
+                    },
                   ),
                   const SizedBox(height: AppSpacing.md),
                   ...store.addresses.map((address) {

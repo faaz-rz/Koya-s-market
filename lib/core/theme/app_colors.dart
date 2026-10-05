@@ -3,21 +3,23 @@ import 'package:flutter/material.dart';
 abstract final class AppColors {
   static const heritageIvory = Color(0xFFFFFCF2);
 
-  static const canvas = Color(0xFFF7F8F3);
-  static const surface = Color(0xFFFFFFFF);
-  static const surfaceMuted = Color(0xFFEEF1E8);
+  static const canvas = Color(0xFFFBF6ED);
+  static const surface = Color(0xFFFFFCF6);
+  static const surfaceMuted = Color(0xFFF2EEE5);
+  static const mint = Color(0xFFDDF0E6);
+  static const peach = Color(0xFFF8E3D1);
 
-  static const brandSoft = Color(0xFFEEF5DC);
-  static const brand300 = Color(0xFFB3C968);
-  static const brand500 = Color(0xFF739127);
-  static const brand600 = Color(0xFF5B741E);
-  static const brand700 = Color(0xFF475C17);
+  static const brandSoft = Color(0xFFE0F2E9);
+  static const brand300 = Color(0xFF86CBB3);
+  static const brand500 = Color(0xFF26977B);
+  static const brand600 = Color(0xFF087F68);
+  static const brand700 = Color(0xFF11614F);
 
-  static const ink = Color(0xFF182018);
-  static const inkSecondary = Color(0xFF667064);
-  static const inkTertiary = Color(0xFF9AA496);
-  static const outline = Color(0xFFE1E6DA);
-  static const outlineStrong = Color(0xFF9AA496);
+  static const ink = Color(0xFF22352B);
+  static const inkSecondary = Color(0xFF56655C);
+  static const inkTertiary = Color(0xFF84928A);
+  static const outline = Color(0xFFE5E8DF);
+  static const outlineStrong = Color(0xFF84928A);
 
   static const offer = Color(0xFFF26745);
   static const success = Color(0xFF2E7D32);

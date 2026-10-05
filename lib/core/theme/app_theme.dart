@@ -1,10 +1,31 @@
 import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
+import 'app_motion.dart';
 import 'app_spacing.dart';
 import 'app_typography.dart';
 
 abstract final class AppTheme {
+  // The gradient lives behind the whole customer navigator, including routes
+  // during transitions. Staff pages retain a solid, readable workspace.
+  static final customer = light.copyWith(
+    scaffoldBackgroundColor: Colors.transparent,
+    appBarTheme: light.appBarTheme.copyWith(
+      backgroundColor: Colors.transparent,
+      centerTitle: true,
+      titleTextStyle: AppTypography.textTheme.titleLarge?.copyWith(
+        color: AppColors.ink,
+      ),
+    ),
+    bottomSheetTheme: const BottomSheetThemeData(
+      backgroundColor: AppColors.surface,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+    ),
+  );
+
   static final light = ThemeData(
     useMaterial3: true,
     brightness: Brightness.light,
@@ -40,6 +61,7 @@ abstract final class AppTheme {
       inversePrimary: AppColors.brand300,
     ),
     textTheme: AppTypography.textTheme,
+    pageTransitionsTheme: AppMotion.pageTransitions,
     appBarTheme: const AppBarTheme(
       backgroundColor: AppColors.canvas,
       foregroundColor: AppColors.ink,

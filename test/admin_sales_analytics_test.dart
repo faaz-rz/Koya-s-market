@@ -6,18 +6,22 @@ import 'package:koyas_supermarket/features/checkout/models/checkout_models.dart'
 import 'package:koyas_supermarket/features/orders/models/order.dart';
 
 void main() {
-  test('admin order history is paged beyond the backend row limit', () {
-    final repository = File(
-      'lib/features/store/data/supabase_store_repository.dart',
-    ).readAsStringSync();
+  test(
+    'admin order history uses complete delta snapshots beyond REST row limits',
+    () {
+      final repository = File(
+        'lib/features/store/data/supabase_store_repository.dart',
+      ).readAsStringSync();
 
-    expect(
-      repository,
-      contains('Future<List<Map<String, dynamic>>> _loadOrderRows'),
-    );
-    expect(repository, contains('const pageSize = 500'));
-    expect(repository, contains('.range(offset, offset + pageSize - 1)'));
-  });
+      expect(repository, contains(".rpc('sync_store'"));
+      final migration = File(
+        'supabase/migrations/202609190001_efficient_store_sync.sql',
+      ).readAsStringSync();
+      expect(migration, contains('visible_orders as materialized'));
+      expect(migration, contains('where staff or o.user_id=customer'));
+      expect(migration, contains('from visible_orders o where o.bucket=h.id'));
+    },
+  );
 
   test('daily, monthly, and yearly sales metrics use valid orders only', () {
     final now = DateTime(2026, 8, 24, 18);

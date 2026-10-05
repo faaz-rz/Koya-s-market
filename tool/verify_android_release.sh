@@ -4,7 +4,7 @@ set -euo pipefail
 artifact_path="${1:-}"
 expected_application_id="com.koyas.koyas_supermarket"
 expected_target_sdk="36"
-expected_version_code="9"
+expected_version_code="11"
 expected_version_name="1.1.5"
 if [[ -z "$artifact_path" || ! -f "$artifact_path" ]]; then
   echo "Usage: tool/verify_android_release.sh <release.apk|release.aab>" >&2

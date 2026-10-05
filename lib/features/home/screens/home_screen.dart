@@ -18,7 +18,7 @@ final _homeFeaturedProvider = Provider<List<ProductFamily>>((ref) {
   return ProductVariants.collapse(
     visibleProducts: products.where((product) => product.featured),
     catalogue: products,
-  );
+  ).take(24).toList(growable: false);
 });
 
 class HomeScreen extends ConsumerWidget {
@@ -47,24 +47,19 @@ class HomeScreen extends ConsumerWidget {
                   context.isCompact ? AppSpacing.xl : AppSpacing.xxxl,
                   AppSpacing.lg,
                   context.isCompact ? AppSpacing.xl : AppSpacing.xxxl,
-                  AppSpacing.xxxl,
+                  AppSpacing.md,
                 ),
                 sliver: SliverList.list(
                   children: [
                     _HomeHeader(cartCount: cartCount),
-                    const SizedBox(height: AppSpacing.xxl),
-                    Text(
-                      'Your neighbourhood supermarket,\nnow at your fingertips.',
-                      style: Theme.of(context).textTheme.displayLarge,
-                    ),
-                    const SizedBox(height: AppSpacing.md),
+                    const SizedBox(height: AppSpacing.sm),
                     Text(
                       'Pickup from Koya Stores or get your order delivered today.',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppColors.inkSecondary,
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.xxl),
+                    const SizedBox(height: AppSpacing.lg),
                     TextField(
                       readOnly: true,
                       onTap: () => context.push('/products'),
@@ -74,9 +69,9 @@ class HomeScreen extends ConsumerWidget {
                         suffixIcon: Icon(Icons.tune_rounded),
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.xxl),
+                    const SizedBox(height: AppSpacing.lg),
                     const _HomeOffer(),
-                    const SizedBox(height: AppSpacing.section),
+                    const SizedBox(height: AppSpacing.xxl),
                     _SectionHeader(
                       title: 'Shop by category',
                       onTap: () => context.go('/categories'),
@@ -109,29 +104,41 @@ class HomeScreen extends ConsumerWidget {
                         },
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.section),
+                    const SizedBox(height: AppSpacing.xxl),
                     _SectionHeader(
                       title: 'Popular near you',
                       onTap: () => context.push('/products'),
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    LayoutBuilder(
-                      builder: (context, constraints) => GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: featured.length,
-                        gridDelegate: ProductGridLayout.delegate(
-                          context,
-                          constraints.maxWidth,
-                        ),
-                        itemBuilder: (_, index) => ProductCard(
-                          product: featured[index].representative,
-                          family: featured[index],
-                        ),
-                      ),
-                    ),
                   ],
                 ),
+              ),
+              SliverLayoutBuilder(
+                builder: (context, constraints) {
+                  final inset = context.isCompact
+                      ? AppSpacing.xl
+                      : AppSpacing.xxxl;
+                  return SliverPadding(
+                    padding: EdgeInsets.fromLTRB(
+                      inset,
+                      0,
+                      inset,
+                      AppSpacing.xxxl,
+                    ),
+                    sliver: SliverGrid.builder(
+                      itemCount: featured.length,
+                      gridDelegate: ProductGridLayout.delegate(
+                        context,
+                        constraints.crossAxisExtent - inset * 2,
+                      ),
+                      itemBuilder: (_, index) => ProductCard(
+                        key: ValueKey(featured[index].representative.id),
+                        product: featured[index].representative,
+                        family: featured[index],
+                      ),
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -151,7 +158,21 @@ class _HomeHeader extends StatelessWidget {
     return Row(
       children: [
         const KoyasLogo(compact: true),
-        const Spacer(),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
+          child: Semantics(
+            header: true,
+            child: Text(
+              'Koya Stores',
+              key: const Key('home-store-title'),
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: AppColors.brand700,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
         Stack(
           clipBehavior: Clip.none,
           children: [
@@ -196,57 +217,73 @@ class _HomeOffer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(minHeight: 178),
-      padding: const EdgeInsets.all(AppSpacing.xxl),
+      constraints: const BoxConstraints(minHeight: 140),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColors.brand600,
+        gradient: const LinearGradient(
+          colors: [AppColors.brandSoft, AppColors.peach],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
         borderRadius: BorderRadius.circular(AppRadii.xxl),
         boxShadow: AppShadows.medium,
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final copy = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'SHOP YOUR WAY',
+                style: Theme.of(
+                  context,
+                ).textTheme.labelMedium?.copyWith(color: AppColors.brand700),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'Free pickup,\nevery day',
+                style: Theme.of(
+                  context,
+                ).textTheme.headlineMedium?.copyWith(color: AppColors.ink),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'We will notify you when it is ready',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.inkSecondary),
+              ),
+            ],
+          );
+          final illustration = ExcludeSemantics(
+            child: Image.asset(
+              'assets/category_images/fresh-produce.png',
+              width: context.isCompact ? 116 : 150,
+              height: 108,
+              fit: BoxFit.contain,
+            ),
+          );
+          if (constraints.maxWidth < 520 &&
+              MediaQuery.textScalerOf(context).scale(20) > 28) {
+            return Column(
+              key: const Key('home-offer-stacked'),
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  'SHOP YOUR WAY',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelMedium?.copyWith(color: AppColors.brandSoft),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Text(
-                  'Free pickup,\nevery day',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.headlineLarge?.copyWith(color: AppColors.surface),
-                ),
+                copy,
                 const SizedBox(height: AppSpacing.sm),
-                Text(
-                  'We will notify you when it is ready',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(color: AppColors.brandSoft),
-                ),
+                Align(alignment: Alignment.centerRight, child: illustration),
               ],
-            ),
-          ),
-          Container(
-            width: context.isCompact ? 100 : 150,
-            height: 126,
-            decoration: BoxDecoration(
-              color: AppColors.brandSoft,
-              borderRadius: BorderRadius.circular(AppRadii.xxl),
-            ),
-            child: const Icon(
-              Icons.shopping_basket_rounded,
-              size: 68,
-              color: AppColors.brand700,
-            ),
-          ),
-        ],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: copy),
+              const SizedBox(width: AppSpacing.sm),
+              Flexible(child: illustration),
+            ],
+          );
+        },
       ),
     );
   }

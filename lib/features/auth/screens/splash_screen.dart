@@ -1,3 +1,5 @@
+import '../../../core/services/network_status.dart';
+import '../../../core/widgets/four_dot_loader.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -20,17 +22,20 @@ class SplashScreen extends ConsumerStatefulWidget {
 
 class _SplashScreenState extends ConsumerState<SplashScreen> {
   String? _error;
+  bool _routing = false;
 
   @override
   void initState() {
     super.initState();
-    _route();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _route());
   }
 
   Future<void> _route() async {
-    if (mounted) setState(() => _error = null);
-    await Future<void>.delayed(const Duration(milliseconds: 700));
-    if (!mounted) return;
+    if (!mounted || _routing) return;
+    setState(() {
+      _error = null;
+      _routing = true;
+    });
     try {
       if (AppEnvironment.hasSupabaseConfig) {
         final user = Supabase.instance.client.auth.currentUser;
@@ -39,19 +44,28 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
           return;
         }
         final bundle = await SupabaseStoreRepository().loadStore();
+        if (!mounted ||
+            Supabase.instance.client.auth.currentUser?.id !=
+                bundle.profile.id) {
+          return;
+        }
         ref.read(storeProvider.notifier).hydrateRemoteBundle(bundle);
         if (mounted) context.go('/home');
         return;
       }
       final isAuthenticated = ref.read(storeProvider).isAuthenticated;
       context.go(isAuthenticated ? '/home' : '/login');
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
         setState(
-          () => _error =
-              'We could not connect to Koya Stores. Check your connection and try again.',
+          () => _error = connectionFailureMessage(
+            error,
+            'We could not connect to Koya Stores. Please try again.',
+          ),
         );
       }
+    } finally {
+      if (mounted) setState(() => _routing = false);
     }
   }
 
@@ -97,6 +111,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                   onPressed: _route,
                 ),
               ],
+              if (_routing)
+                const Padding(
+                  padding: EdgeInsets.all(AppSpacing.lg),
+                  child: FourDotLoader(color: AppColors.surface),
+                ),
             ],
           ),
         ),

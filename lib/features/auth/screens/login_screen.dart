@@ -1,3 +1,4 @@
+import '../../../core/services/network_status.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,10 +6,12 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/config/app_environment.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/koyas_button.dart';
 import '../../../core/widgets/koyas_logo.dart';
 import '../data/auth_repository.dart';
+import '../data/otp_send_limiter.dart';
 import '../../store/providers/store_provider.dart';
 import '../../store/data/supabase_store_repository.dart';
 
@@ -45,6 +48,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _continue() async {
+    if (_loading) return;
     if (!_formKey.currentState!.validate()) return;
     if (AppEnvironment.hasSupabaseConfig) {
       setState(() {
@@ -68,10 +72,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           );
           await _completeRemoteSignIn();
         }
-      } catch (_) {
+      } catch (error) {
         if (mounted) {
           setState(
-            () => _authMessage = _otpSent
+            () => _authMessage =
+                isNetworkFailure(error) || NetworkStatus.instance.value
+                ? noInternetMessage
+                : error is OtpCooldownException
+                ? error.message
+                : _otpSent
                 ? 'Could not verify that code. Check it and try again.'
                 : 'Could not send a code. Please try again shortly.',
           );
@@ -101,6 +110,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _openPlayReviewLogin() async {
     final credentials = await showDialog<_PasswordCredentials>(
       context: context,
+      animationStyle: AppMotion.dialogStyle(context),
       builder: (context) => const _PlayReviewLoginDialog(),
     );
     if (credentials == null || !mounted) return;
@@ -160,14 +170,37 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: KoyasLogo(),
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: KoyasLogo(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.md),
+                        ExcludeSemantics(
+                          child: Image.asset(
+                            'assets/category_images/fresh-produce.png',
+                            width: 96,
+                            height: 140,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: AppSpacing.page),
+                    const SizedBox(height: AppSpacing.xxl),
                     Text(
                       'Groceries made simple.',
-                      style: Theme.of(context).textTheme.displayLarge,
+                      style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                        fontSize: MediaQuery.sizeOf(context).width < 360
+                            ? 28
+                            : 32,
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.md),
                     Text(
@@ -180,6 +213,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     TextFormField(
                       key: const Key('login-email'),
                       controller: _emailController,
+                      readOnly: _otpSent || _loading,
                       keyboardType: TextInputType.emailAddress,
                       autofillHints: const [AutofillHints.email],
                       decoration: const InputDecoration(
@@ -213,6 +247,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               ? null
                               : 'Enter the 6-digit code';
                         },
+                      ),
+                      TextButton(
+                        onPressed: _loading
+                            ? null
+                            : () => setState(() {
+                                _otpSent = false;
+                                _otpController.clear();
+                                _authMessage =
+                                    'You can request a new code after the 60-second cooldown.';
+                              }),
+                        child: const Text('Change email or request a new code'),
                       ),
                     ],
                     if (_authMessage != null) ...[

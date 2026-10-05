@@ -1,8 +1,10 @@
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/app_environment.dart';
+import '../../../core/utils/transaction_request.dart';
 import '../../cart/models/cart_item.dart';
 import '../../checkout/models/checkout_models.dart';
 import '../../offers/models/store_offer.dart';
@@ -32,6 +34,7 @@ class StoreState {
     required this.deliverySlots,
     required this.serviceablePincodes,
     this.minimumOrderPaise = 0,
+    this.settingsRevision = 0,
     this.baseDeliveryChargePaise = 4900,
     this.freeDeliveryThresholdPaise = 79900,
     this.pickupEnabled = true,
@@ -68,6 +71,7 @@ class StoreState {
   final List<FulfilmentSlot> deliverySlots;
   final Set<String> serviceablePincodes;
   final int minimumOrderPaise;
+  final int settingsRevision;
   final int baseDeliveryChargePaise;
   final int freeDeliveryThresholdPaise;
   final bool pickupEnabled;
@@ -191,6 +195,7 @@ class StoreState {
     List<FulfilmentSlot>? deliverySlots,
     Set<String>? serviceablePincodes,
     int? minimumOrderPaise,
+    int? settingsRevision,
     int? baseDeliveryChargePaise,
     int? freeDeliveryThresholdPaise,
     bool? pickupEnabled,
@@ -224,6 +229,7 @@ class StoreState {
       deliverySlots: deliverySlots ?? this.deliverySlots,
       serviceablePincodes: serviceablePincodes ?? this.serviceablePincodes,
       minimumOrderPaise: minimumOrderPaise ?? this.minimumOrderPaise,
+      settingsRevision: settingsRevision ?? this.settingsRevision,
       baseDeliveryChargePaise:
           baseDeliveryChargePaise ?? this.baseDeliveryChargePaise,
       freeDeliveryThresholdPaise:
@@ -247,6 +253,9 @@ class StoreState {
 }
 
 class StoreController extends Notifier<StoreState> {
+  final remoteCheckout = CheckoutAttempt<StoreState>();
+  int _lastRemoteLoad = 0;
+
   StoreState _initialState() {
     final tomorrow = DateTime.now().add(const Duration(days: 1));
     return StoreState(
@@ -282,6 +291,8 @@ class StoreController extends Notifier<StoreState> {
   }
 
   void logout() {
+    remoteCheckout.reset();
+    _lastRemoteLoad = 0;
     // Replace the entire remote state so orders, addresses and staff-only
     // catalogue fields do not remain readable from a signed-out browser tab.
     state = _initialState();
@@ -317,8 +328,27 @@ class StoreController extends Notifier<StoreState> {
     required bool deliveryEnabled,
     required bool cashOnDeliveryEnabled,
     bool isAdmin = false,
+    int loadSequence = 0,
+    int settingsRevision = 0,
   }) {
-    final fulfilment = pickupEnabled
+    if (!ref.mounted || (loadSequence > 0 && loadSequence <= _lastRemoteLoad)) {
+      return;
+    }
+    if (loadSequence > 0) _lastRemoteLoad = loadSequence;
+    final sameCustomer = state.profile?.id == profile.id;
+    final unchangedProducts = listEquals(products, state.products);
+    final sameProductScope = sameCustomer && state.isAdminAccount == isAdmin;
+    final previousProducts = unchangedProducts
+        ? <String, Product>{}
+        : {for (final product in state.products) product.id: product};
+    final retainFulfilment =
+        sameCustomer &&
+        (state.fulfilmentType == FulfilmentType.pickup
+            ? pickupEnabled
+            : deliveryEnabled);
+    final fulfilment = retainFulfilment
+        ? state.fulfilmentType
+        : pickupEnabled
         ? FulfilmentType.pickup
         : FulfilmentType.delivery;
     final selectedSlots = fulfilment == FulfilmentType.pickup
@@ -330,7 +360,18 @@ class StoreController extends Notifier<StoreState> {
       isAdminView: isAdmin,
       isAdminAccount: isAdmin,
       categories: categories,
-      products: products,
+      products: unchangedProducts
+          ? state.products
+          : sameProductScope
+          ? products
+                .map((product) {
+                  final current = previousProducts[product.id];
+                  return current != null && current.revision > product.revision
+                      ? current
+                      : product;
+                })
+                .toList(growable: false)
+          : products,
       addresses: addresses,
       orders: orders,
       offers: offers,
@@ -338,6 +379,7 @@ class StoreController extends Notifier<StoreState> {
       deliverySlots: deliverySlots,
       serviceablePincodes: serviceablePincodes,
       minimumOrderPaise: minimumOrderPaise,
+      settingsRevision: settingsRevision,
       baseDeliveryChargePaise: baseDeliveryChargePaise,
       freeDeliveryThresholdPaise: freeDeliveryThresholdPaise,
       pickupEnabled: pickupEnabled,
@@ -351,7 +393,11 @@ class StoreController extends Notifier<StoreState> {
           : AppEnvironment.enableRazorpayPayments
           ? PaymentMethod.online
           : PaymentMethod.cashOnDelivery,
-      selectedAddressId: addresses.isEmpty
+      selectedAddressId:
+          sameCustomer &&
+              addresses.any((address) => address.id == state.selectedAddressId)
+          ? state.selectedAddressId
+          : addresses.isEmpty
           ? ''
           : addresses
                 .firstWhere(
@@ -359,13 +405,47 @@ class StoreController extends Notifier<StoreState> {
                   orElse: () => addresses.first,
                 )
                 .id,
-      selectedSlotLabel: selectedSlots.isEmpty ? '' : selectedSlots.first.label,
+      selectedSlotLabel:
+          sameCustomer &&
+              selectedSlots.any((slot) => slot.label == state.selectedSlotLabel)
+          ? state.selectedSlotLabel
+          : selectedSlots.isEmpty
+          ? ''
+          : selectedSlots.first.label,
     );
   }
 
-  void finishRemoteCheckout(String orderId) {
+  bool ownsConfirmedCheckout(String orderId, String? customerId) =>
+      ref.mounted &&
+      customerId != null &&
+      state.isAuthenticated &&
+      state.profile?.id == customerId &&
+      state.lastOrderId == orderId;
+
+  void finishRemoteCheckout(
+    String orderId, {
+    Map<String, int>? submittedCart,
+    String? customerId,
+  }) {
+    if (!ref.mounted ||
+        (customerId != null && state.profile?.id != customerId) ||
+        state.lastOrderId == orderId) {
+      return;
+    }
+    remoteCheckout.reset();
+    final remaining = Map<String, int>.from(state.cartQuantities);
+    if (submittedCart != null) {
+      for (final item in submittedCart.entries) {
+        final quantity = (remaining[item.key] ?? 0) - item.value;
+        if (quantity > 0) {
+          remaining[item.key] = quantity;
+        } else {
+          remaining.remove(item.key);
+        }
+      }
+    }
     state = state.copyWith(
-      cartQuantities: const {},
+      cartQuantities: submittedCart == null ? const {} : remaining,
       lastOrderId: orderId,
       deliveryInstructions: '',
       clearSelectedOffer: true,
@@ -642,6 +722,7 @@ class StoreController extends Notifier<StoreState> {
               ? product
               : product.copyWith(
                   stockQuantity: max(0, product.stockQuantity - quantity),
+                  revision: product.revision + 1,
                 );
         })
         .toList(growable: false);
@@ -686,7 +767,10 @@ class StoreController extends Notifier<StoreState> {
         }
         return restored == 0
             ? product
-            : product.copyWith(stockQuantity: product.stockQuantity + restored);
+            : product.copyWith(
+                stockQuantity: product.stockQuantity + restored,
+                revision: product.revision + 1,
+              );
       })
       .toList(growable: false);
 
@@ -800,12 +884,19 @@ class StoreController extends Notifier<StoreState> {
     if (!state.isAdminView) {
       throw const StoreValidationException('Administrator access required.');
     }
-    final exists = state.products.any((item) => item.id == product.id);
+    final previous = state.productById(product.id);
+    final exists = previous != null;
+    if (previous != null && previous.revision != product.revision) {
+      throw const StoreValidationException(
+        'This product changed while you were editing it. Refresh inventory and try again.',
+      );
+    }
+    final saved = product.copyWith(revision: (previous?.revision ?? -1) + 1);
     final products = exists
         ? state.products
-              .map((item) => item.id == product.id ? product : item)
+              .map((item) => item.id == product.id ? saved : item)
               .toList(growable: false)
-        : [product, ...state.products];
+        : [saved, ...state.products];
     state = state.copyWith(products: products);
   }
 
@@ -829,13 +920,22 @@ class StoreController extends Notifier<StoreState> {
     if (duplicateCode) {
       throw const StoreValidationException('That offer code already exists.');
     }
-    final exists = state.offers.any((item) => item.id == offer.id);
+    final previous = state.offers
+        .where((item) => item.id == offer.id)
+        .firstOrNull;
+    if (previous != null && previous.revision != offer.revision) {
+      throw const StoreValidationException(
+        'This offer changed while you were editing. Refresh and try again.',
+      );
+    }
+    final saved = offer.copyWith(revision: (previous?.revision ?? -1) + 1);
+    final exists = previous != null;
     state = state.copyWith(
       offers: exists
           ? state.offers
-                .map((item) => item.id == offer.id ? offer : item)
+                .map((item) => item.id == offer.id ? saved : item)
                 .toList(growable: false)
-          : [offer, ...state.offers],
+          : [saved, ...state.offers],
     );
   }
 
@@ -843,7 +943,14 @@ class StoreController extends Notifier<StoreState> {
     required int minimumOrderPaise,
     required int deliveryChargePaise,
     required int freeDeliveryThresholdPaise,
+    int? expectedRevision,
   }) {
+    if (expectedRevision != null &&
+        expectedRevision != state.settingsRevision) {
+      throw const StoreValidationException(
+        'Order pricing changed while you were editing. Refresh and try again.',
+      );
+    }
     if (!state.isAdminView) {
       throw const StoreValidationException('Administrator access required.');
     }
@@ -866,6 +973,7 @@ class StoreController extends Notifier<StoreState> {
     state = state.copyWith(
       minimumOrderPaise: minimumOrderPaise,
       baseDeliveryChargePaise: deliveryChargePaise,
+      settingsRevision: state.settingsRevision + 1,
       freeDeliveryThresholdPaise: freeDeliveryThresholdPaise,
     );
   }

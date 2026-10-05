@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/app_breakpoints.dart';
 import '../../../core/utils/price_format.dart';
@@ -127,10 +128,27 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   aspectRatio: context.isCompact ? 1.2 : 2.0,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(AppRadii.xxl),
-                    child: ProductVisual(
-                      product: product,
-                      radius: AppRadii.xxl,
-                      iconSize: 110,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [AppColors.mint, AppColors.brandSoft],
+                        ),
+                      ),
+                      padding: const EdgeInsets.all(AppSpacing.xl),
+                      child: AnimatedSwitcher(
+                        duration: AppMotion.duration(
+                          context,
+                          const Duration(milliseconds: 180),
+                        ),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeOutCubic,
+                        child: ProductVisual(
+                          key: ValueKey(product.id),
+                          product: product,
+                          radius: AppRadii.xl,
+                          iconSize: 110,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -192,7 +210,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   ),
                   const SizedBox(height: AppSpacing.md),
                   SizedBox(
-                    height: 126,
+                    height: _PackSizeCard.heightFor(context),
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemCount: family.variants.length,
@@ -212,14 +230,16 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   ),
                 ],
                 const SizedBox(height: AppSpacing.lg),
-                Row(
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
                       formatPrice(product.effectivePricePaise),
                       style: Theme.of(context).textTheme.headlineLarge,
                     ),
                     if (product.discountPricePaise != null) ...[
-                      const SizedBox(width: AppSpacing.sm),
                       Text(
                         formatPrice(product.pricePaise),
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -227,7 +247,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           decoration: TextDecoration.lineThrough,
                         ),
                       ),
-                      const SizedBox(width: AppSpacing.sm),
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
@@ -309,6 +328,14 @@ class _PackSizeCard extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
+  static double _extraScale(BuildContext context) =>
+      (MediaQuery.textScalerOf(context).scale(14) / 14 - 1).clamp(
+        0,
+        double.infinity,
+      );
+  static double heightFor(BuildContext context) =>
+      126 + _extraScale(context) * 90;
+
   @override
   Widget build(BuildContext context) {
     final size = ProductVariants.variantLabel(product) ?? product.unit;
@@ -322,15 +349,19 @@ class _PackSizeCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadii.lg),
         onTap: onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          width: 148,
+          duration:
+              MediaQuery.disableAnimationsOf(context) ||
+                  MediaQuery.accessibleNavigationOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 160),
+          width: 148 + _extraScale(context) * 76,
           padding: const EdgeInsets.all(AppSpacing.md),
           decoration: BoxDecoration(
             color: selected ? AppColors.brandSoft : AppColors.surface,
             borderRadius: BorderRadius.circular(AppRadii.lg),
             border: Border.all(
               color: selected ? AppColors.brand600 : AppColors.outline,
-              width: selected ? 2 : 1,
+              width: 2,
             ),
           ),
           child: Column(

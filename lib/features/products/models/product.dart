@@ -24,6 +24,8 @@ class Product {
     this.imageUrl,
     this.featured = false,
     this.active = true,
+    this.available = true,
+    this.revision = 0,
   });
 
   final String id;
@@ -48,9 +50,11 @@ class Product {
   final String? imageUrl;
   final bool featured;
   final bool active;
+  final bool available;
+  final int revision;
 
   int get effectivePricePaise => discountPricePaise ?? pricePaise;
-  bool get isAvailable => active && stockQuantity > 0;
+  bool get isAvailable => active && available && stockQuantity > 0;
   int get discountPercent => discountPricePaise == null
       ? 0
       : ((pricePaise - discountPricePaise!) * 100 / pricePaise).round();
@@ -63,6 +67,7 @@ class Product {
     int? pricePaise,
     int? discountPricePaise,
     int? stockQuantity,
+    int? revision,
     String? visualKey,
     String? subcategory,
     String? brand,
@@ -77,6 +82,7 @@ class Product {
     String? imageUrl,
     bool? featured,
     bool? active,
+    bool? available,
     bool clearDiscount = false,
     bool clearImage = false,
   }) {
@@ -91,6 +97,7 @@ class Product {
           ? null
           : discountPricePaise ?? this.discountPricePaise,
       stockQuantity: stockQuantity ?? this.stockQuantity,
+      revision: revision ?? this.revision,
       visualKey: visualKey ?? this.visualKey,
       subcategory: subcategory ?? this.subcategory,
       brand: brand ?? this.brand,
@@ -107,6 +114,7 @@ class Product {
       imageUrl: clearImage ? null : imageUrl ?? this.imageUrl,
       featured: featured ?? this.featured,
       active: active ?? this.active,
+      available: available ?? this.available,
     );
   }
 }

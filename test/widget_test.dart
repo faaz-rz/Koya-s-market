@@ -27,10 +27,7 @@ void main() {
     await tester.tap(find.byKey(const Key('customer-login')));
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('Your neighbourhood supermarket,\nnow at your fingertips.'),
-      findsOneWidget,
-    );
+    expect(find.byKey(const Key('home-store-title')), findsOneWidget);
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Categories'), findsOneWidget);
     expect(find.text('Orders'), findsOneWidget);
@@ -65,6 +62,36 @@ void main() {
       'DELETE',
     );
     await tester.pump();
+    expect(tester.widget<FilledButton>(finalDelete).onPressed, isNull);
+    final sendCode = find.byKey(const Key('delete-account-send-code'));
+    await tester.ensureVisible(sendCode);
+    await tester.tap(sendCode);
+    await tester.pumpAndSettle();
+    expect(
+      find.text(
+        'Complete or cancel your active orders before deleting your account.',
+      ),
+      findsOneWidget,
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(Scaffold).first),
+    );
+    expect(container.read(storeProvider).isAuthenticated, isTrue);
+    // Finish the demo's seeded orders, mirroring the production safety rule.
+    for (final order in container.read(storeProvider).orders) {
+      for (var step = 0; step < 6; step++) {
+        container.read(storeProvider.notifier).advanceOrder(order.id);
+      }
+    }
+    await tester.ensureVisible(sendCode);
+    await tester.tap(sendCode);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('delete-account-demo-code')), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const Key('delete-account-otp')),
+      '123456',
+    );
+    await tester.pump();
     expect(tester.widget<FilledButton>(finalDelete).onPressed, isNotNull);
 
     await tester.tap(finalDelete);
@@ -85,17 +112,11 @@ void main() {
     await tester.tap(find.byKey(const Key('customer-tab-orders')));
     await tester.pump();
     expect(find.text('Your orders'), findsOneWidget);
-    expect(
-      find.text('Your neighbourhood supermarket,\nnow at your fingertips.'),
-      findsNothing,
-    );
+    expect(find.byKey(const Key('home-store-title')), findsNothing);
 
     await tester.tap(find.byKey(const Key('customer-tab-home')));
     await tester.pump();
-    expect(
-      find.text('Your neighbourhood supermarket,\nnow at your fingertips.'),
-      findsOneWidget,
-    );
+    expect(find.byKey(const Key('home-store-title')), findsOneWidget);
     expect(find.text('Your orders'), findsNothing);
   });
 
@@ -145,10 +166,7 @@ void main() {
     await tester.tap(find.byKey(const Key('cart-add-more-items')));
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('Your neighbourhood supermarket,\nnow at your fingertips.'),
-      findsOneWidget,
-    );
+    expect(find.byKey(const Key('home-store-title')), findsOneWidget);
     expect(find.byKey(const Key('customer-tab-home')), findsOneWidget);
     expect(ribbon, findsOneWidget);
     expect(container.read(storeProvider).cartCount, 1);
@@ -411,114 +429,119 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('phone product grid always fits three complete product cards', (
-    tester,
-  ) async {
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    const widths = <double>[320, 360, 412, 480, 599];
-    const products = <Product>[
-      Product(
-        id: 'responsive-1',
-        categoryId: 'category-test',
-        name: 'Very Long Premium Basmati Rice Family Pack',
-        description: 'Responsive grid test',
-        unit: '5 kg family pack',
-        pricePaise: 125500,
-        stockQuantity: 5,
-        visualKey: 'staples',
-        brand: 'India Gate',
-        subcategory: 'Rice',
-      ),
-      Product(
-        id: 'responsive-2',
-        categoryId: 'category-test',
-        name: 'Medimix Ayurvedic Bathing Soap',
-        description: 'Responsive grid test',
-        unit: 'Pack of 4',
-        pricePaise: 5400,
-        stockQuantity: 5,
-        visualKey: 'personal',
-        brand: 'Medimix',
-        subcategory: 'Bathing Soap',
-      ),
-      Product(
-        id: 'responsive-3',
-        categoryId: 'category-test',
-        name: 'Stayfree Secure Sanitary Pads XL',
-        description: 'Responsive grid test',
-        unit: 'Pack of 37',
-        pricePaise: 3700,
-        stockQuantity: 5,
-        visualKey: 'health',
-        brand: 'Stayfree',
-        subcategory: 'Personal Care',
-      ),
-    ];
+  testWidgets(
+    'phone product grid fits readable cards and usable cart controls',
+    (tester) async {
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      const widths = <double>[320, 360, 412, 480, 599];
+      const products = <Product>[
+        Product(
+          id: 'responsive-1',
+          categoryId: 'category-test',
+          name: 'Very Long Premium Basmati Rice Family Pack',
+          description: 'Responsive grid test',
+          unit: '5 kg family pack',
+          pricePaise: 125500,
+          stockQuantity: 5,
+          visualKey: 'staples',
+          brand: 'India Gate',
+          subcategory: 'Rice',
+        ),
+        Product(
+          id: 'responsive-2',
+          categoryId: 'category-test',
+          name: 'Medimix Ayurvedic Bathing Soap',
+          description: 'Responsive grid test',
+          unit: 'Pack of 4',
+          pricePaise: 5400,
+          stockQuantity: 5,
+          visualKey: 'personal',
+          brand: 'Medimix',
+          subcategory: 'Bathing Soap',
+        ),
+        Product(
+          id: 'responsive-3',
+          categoryId: 'category-test',
+          name: 'Stayfree Secure Sanitary Pads XL',
+          description: 'Responsive grid test',
+          unit: 'Pack of 37',
+          pricePaise: 3700,
+          stockQuantity: 5,
+          visualKey: 'health',
+          brand: 'Stayfree',
+          subcategory: 'Personal Care',
+        ),
+      ];
 
-    for (final width in widths) {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-      final controller = container.read(storeProvider.notifier);
-      controller.loginDemo(isAdmin: true);
-      for (final product in products) {
-        controller.adminSaveProduct(product);
-      }
-      tester.view.physicalSize = Size(width, 900);
-      tester.view.devicePixelRatio = 1;
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp(
-            home: MediaQuery(
-              data: MediaQueryData(
-                size: Size(width, 900),
-                textScaler: const TextScaler.linear(1.3),
-              ),
-              child: Scaffold(
-                body: LayoutBuilder(
-                  builder: (context, constraints) => GridView.builder(
-                    padding: const EdgeInsets.all(20),
-                    itemCount: products.length,
-                    gridDelegate: ProductGridLayout.delegate(
-                      context,
-                      constraints.maxWidth - 40,
+      for (final width in widths) {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+        final controller = container.read(storeProvider.notifier);
+        controller.loginDemo(isAdmin: true);
+        for (final product in products) {
+          controller.adminSaveProduct(product);
+        }
+        tester.view.physicalSize = Size(width, 900);
+        tester.view.devicePixelRatio = 1;
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              home: MediaQuery(
+                data: MediaQueryData(
+                  size: Size(width, 900),
+                  textScaler: const TextScaler.linear(1.3),
+                ),
+                child: Scaffold(
+                  body: LayoutBuilder(
+                    builder: (context, constraints) => GridView.builder(
+                      padding: const EdgeInsets.all(20),
+                      itemCount: products.length,
+                      gridDelegate: ProductGridLayout.delegate(
+                        context,
+                        constraints.maxWidth - 40,
+                      ),
+                      itemBuilder: (context, index) =>
+                          ProductCard(product: products[index]),
                     ),
-                    itemBuilder: (context, index) =>
-                        ProductCard(product: products[index]),
                   ),
                 ),
               ),
             ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      final grid = tester.widget<GridView>(find.byType(GridView));
-      final delegate =
-          grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
-      expect(delegate.crossAxisCount, 3, reason: 'width $width');
-      expect(find.text('ADD'), findsNothing);
-      for (final product in products) {
-        final addButton = find.byKey(Key('add-product-${product.id}'));
-        expect(addButton, findsOneWidget, reason: 'width $width');
+        final grid = tester.widget<GridView>(find.byType(GridView));
+        final delegate =
+            grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
         expect(
-          tester.getSize(addButton),
-          const Size.square(44),
+          delegate.crossAxisCount,
+          width <= 360 ? 2 : 3,
           reason: 'width $width',
         );
+        expect(find.text('ADD'), findsNothing);
+        for (final product in products) {
+          final addButton = find.byKey(Key('add-product-${product.id}'));
+          expect(addButton, findsOneWidget, reason: 'width $width');
+          expect(
+            tester.getSize(addButton),
+            const Size.square(44),
+            reason: 'width $width',
+          );
+        }
+        await tester.tap(find.byKey(const Key('add-product-responsive-1')));
+        await tester.pump();
+        expect(
+          find.byKey(const Key('quantity-product-responsive-1')),
+          findsOneWidget,
+          reason: 'width $width',
+        );
+        expect(tester.takeException(), isNull, reason: 'width $width');
       }
-      await tester.tap(find.byKey(const Key('add-product-responsive-1')));
-      await tester.pump();
-      expect(
-        find.byKey(const Key('quantity-product-responsive-1')),
-        findsOneWidget,
-        reason: 'width $width',
-      );
-      expect(tester.takeException(), isNull, reason: 'width $width');
-    }
-  });
+    },
+  );
 
   testWidgets('order details omit tracking and provide a route home', (
     tester,
@@ -554,10 +577,7 @@ void main() {
 
     await tester.tap(find.text('Back to home'));
     await tester.pumpAndSettle();
-    expect(
-      find.text('Your neighbourhood supermarket,\nnow at your fingertips.'),
-      findsOneWidget,
-    );
+    expect(find.byKey(const Key('home-store-title')), findsOneWidget);
   });
 
   testWidgets('customer applies a minimum-buy offer from the cart', (

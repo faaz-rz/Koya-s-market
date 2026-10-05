@@ -1,4 +1,7 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:koyas_supermarket/core/theme/app_theme.dart';
@@ -8,6 +11,45 @@ import 'package:koyas_supermarket/features/store/data/customer_catalog_categorie
 import 'package:koyas_supermarket/features/store/data/generated_product_catalog.dart';
 
 void main() {
+  testWidgets('every client category has a bundled, decodable picture', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+      final assets = manifest.listAssets().toSet();
+      expect(CustomerCatalogCategories.all, hasLength(37));
+      for (final category in CustomerCatalogCategories.all) {
+        final asset = CategoryTile.imageAssetFor(category.visualKey);
+        expect(asset, isNotEmpty, reason: category.name);
+        expect(assets, contains(asset), reason: category.name);
+        final bytes = await rootBundle.load(asset);
+        final codec = await ui.instantiateImageCodec(
+          bytes.buffer.asUint8List(),
+        );
+        final frame = await codec.getNextFrame();
+        expect(frame.image.width, greaterThan(0), reason: category.name);
+        expect(frame.image.height, greaterThan(0), reason: category.name);
+        frame.image.dispose();
+        codec.dispose();
+      }
+    });
+  });
+
+  testWidgets('unknown categories have a safe icon instead of an empty asset', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: CategoryPicture(visualKey: 'future-department', width: 56),
+        ),
+      ),
+    );
+    expect(find.byType(Image), findsNothing);
+    expect(find.byIcon(Icons.shopping_basket_rounded), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   test('client departments contain the right products', () {
     final categories = {
       for (final c in CustomerCatalogCategories.all) c.id: c.name,
@@ -85,6 +127,20 @@ void main() {
             );
             await tester.pump();
             expect(tester.takeException(), isNull, reason: category.name);
+            final tile = find.widgetWithText(CategoryTile, category.name);
+            final picture = find.descendant(
+              of: tile,
+              matching: find.byType(CategoryPicture),
+            );
+            expect(picture, findsOneWidget, reason: category.name);
+            final image = tester.widget<Image>(
+              find.descendant(of: picture, matching: find.byType(Image)),
+            );
+            expect(
+              (image.image as AssetImage).assetName,
+              CategoryTile.imageAssetFor(category.visualKey),
+              reason: category.name,
+            );
           }
           expect(find.byType(CategoryTile), findsWidgets);
         },

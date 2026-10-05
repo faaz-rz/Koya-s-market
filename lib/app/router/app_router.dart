@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/widgets/customer_shell.dart';
+import '../../core/widgets/customer_backdrop.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
 import '../../features/cart/screens/cart_screen.dart';
@@ -33,26 +34,31 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: '/splash',
-        builder: (context, state) => const SplashScreen(),
+        builder: (context, state) =>
+            const CustomerBackdrop(child: SplashScreen()),
       ),
       GoRoute(
         path: '/login',
-        builder: (context, state) => LoginScreen(
-          initialMessage:
-              state.uri.queryParameters['reason'] == 'account-deleted'
-              ? 'Account deleted. Your personal data has been removed.'
-              : null,
+        builder: (context, state) => CustomerBackdrop(
+          child: LoginScreen(
+            initialMessage:
+                state.uri.queryParameters['reason'] == 'account-deleted'
+                ? 'Account deleted. Your personal data has been removed.'
+                : null,
+          ),
         ),
       ),
       StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) =>
-            CustomerShell(navigationShell: navigationShell),
+        builder: (context, state, navigationShell) => CustomerBackdrop(
+          child: CustomerShell(navigationShell: navigationShell),
+        ),
         branches: [
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: '/home',
-                builder: (context, state) => const HomeScreen(),
+                builder: (context, state) =>
+                    const CustomerBackdrop(child: HomeScreen()),
               ),
             ],
           ),
@@ -60,7 +66,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/categories',
-                builder: (context, state) => const CategoriesScreen(),
+                builder: (context, state) =>
+                    const CustomerBackdrop(child: CategoriesScreen()),
               ),
             ],
           ),
@@ -68,7 +75,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/orders',
-                builder: (context, state) => const OrderHistoryScreen(),
+                builder: (context, state) =>
+                    const CustomerBackdrop(child: OrderHistoryScreen()),
               ),
             ],
           ),
@@ -76,7 +84,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/profile',
-                builder: (context, state) => const ProfileScreen(),
+                builder: (context, state) =>
+                    const CustomerBackdrop(child: ProfileScreen()),
               ),
             ],
           ),
@@ -84,19 +93,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/products',
-        builder: (context, state) => ProductListingScreen(
-          categoryId: state.uri.queryParameters['category'],
+        builder: (context, state) => CustomerBackdrop(
+          child: ProductListingScreen(
+            categoryId: state.uri.queryParameters['category'],
+          ),
         ),
       ),
       GoRoute(
         path: '/product/:id',
-        builder: (context, state) =>
-            ProductDetailScreen(productId: state.pathParameters['id']!),
+        builder: (context, state) => CustomerBackdrop(
+          child: ProductDetailScreen(productId: state.pathParameters['id']!),
+        ),
       ),
-      GoRoute(path: '/cart', builder: (context, state) => const CartScreen()),
+      GoRoute(
+        path: '/cart',
+        builder: (context, state) =>
+            const CustomerBackdrop(child: CartScreen()),
+      ),
       GoRoute(
         path: '/checkout/fulfilment',
-        builder: (context, state) => const FulfilmentScreen(),
+        builder: (context, state) =>
+            const CustomerBackdrop(child: FulfilmentScreen()),
       ),
       GoRoute(
         path: '/checkout/pickup',
@@ -104,21 +121,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/checkout/delivery',
-        builder: (context, state) => const DeliveryCheckoutScreen(),
+        builder: (context, state) =>
+            const CustomerBackdrop(child: DeliveryCheckoutScreen()),
       ),
       GoRoute(
         path: '/checkout/payment',
-        builder: (context, state) => const PaymentScreen(),
+        builder: (context, state) =>
+            const CustomerBackdrop(child: PaymentScreen()),
       ),
       GoRoute(
         path: '/order/confirmation/:id',
-        builder: (context, state) =>
-            OrderConfirmationScreen(orderId: state.pathParameters['id']!),
+        builder: (context, state) => CustomerBackdrop(
+          child: OrderConfirmationScreen(orderId: state.pathParameters['id']!),
+        ),
       ),
       GoRoute(
         path: '/order/:id',
-        builder: (context, state) =>
-            OrderDetailsScreen(orderId: state.pathParameters['id']!),
+        builder: (context, state) => CustomerBackdrop(
+          child: OrderDetailsScreen(orderId: state.pathParameters['id']!),
+        ),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

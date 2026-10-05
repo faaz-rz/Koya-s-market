@@ -25,20 +25,17 @@ void main() {
     expect(find.text('Groceries made simple.'), findsOneWidget);
     await tester.tap(find.byKey(const Key('customer-login')));
     await _pumpUi(tester);
-    expect(find.text('Fresh groceries,\nwithout the rush.'), findsOneWidget);
+    expect(find.byKey(const Key('home-store-title')), findsOneWidget);
 
     await tester.tap(find.text('Categories'));
     await _pumpUi(tester);
     expect(find.text('Categories'), findsWidgets);
 
-    await tester.tap(find.text('Grocery & Staples').first);
+    await tester.tap(find.text('Atta').first);
     await _pumpUi(tester);
     expect(find.byKey(const Key('product-search')), findsOneWidget);
 
-    final selectedCategory = find.widgetWithText(
-      ChoiceChip,
-      'Grocery & Staples',
-    );
+    final selectedCategory = find.widgetWithText(ChoiceChip, 'Atta');
     final allCategory = find.widgetWithText(ChoiceChip, 'All');
     expect(selectedCategory, findsOneWidget);
     expect(allCategory, findsOneWidget);
@@ -46,7 +43,7 @@ void main() {
 
     final selectedLabel = find.descendant(
       of: selectedCategory,
-      matching: find.text('Grocery & Staples'),
+      matching: find.text('Atta'),
     );
     final allLabel = find.descendant(
       of: allCategory,
@@ -63,25 +60,20 @@ void main() {
 
     final firstProduct = find.byType(ProductCard).first;
     await tester.ensureVisible(firstProduct);
-    final chooseSize = find.descendant(
-      of: firstProduct,
-      matching: find.textContaining('Choose size'),
-    );
-    expect(chooseSize, findsOneWidget);
-    await tester.tap(chooseSize);
+    final card = tester.widget<ProductCard>(firstProduct);
+    if ((card.family?.variants.length ?? 1) > 1) {
+      await tester.tap(find.byKey(Key('choose-size-${card.product.id}')));
+      await _pumpUi(tester);
+      expect(find.text('Choose a pack size'), findsOneWidget);
+      final variant = card.family!.variants.firstWhere((p) => p.isAvailable);
+      await tester.tap(find.byKey(Key('variant-add-${variant.id}')));
+      await _pumpUi(tester);
+      await tester.tap(find.byKey(const Key('close-variant-sheet')));
+    } else {
+      await tester.tap(find.byKey(Key('add-product-${card.product.id}')));
+    }
     await _pumpUi(tester);
-
-    expect(find.text('Choose quantity'), findsOneWidget);
-    expect(
-      find.descendant(
-        of: find.byType(ChoiceChip),
-        matching: find.textContaining('kg'),
-      ),
-      findsWidgets,
-    );
-    await tester.tap(find.byKey(const Key('detail-add-to-cart')));
-    await _pumpUi(tester);
-    await tester.tap(find.text('View cart'));
+    await tester.tap(find.byKey(const Key('view-active-cart')));
     await _pumpUi(tester);
 
     expect(find.text('Your cart'), findsOneWidget);
@@ -91,9 +83,8 @@ void main() {
       'Choose fulfilment',
     );
     expect(fulfilmentButton, findsOneWidget);
-    // Invoke the public callback directly because macOS integration runners
-    // can report host-screen coordinates outside their smaller render window.
-    tester.widget<KoyasButton>(fulfilmentButton).onPressed!();
+    await tester.ensureVisible(fulfilmentButton);
+    await tester.tap(fulfilmentButton);
     await _pumpUi(tester);
     expect(find.text('Store pickup'), findsOneWidget);
     await tester.tap(find.text('Store pickup'));

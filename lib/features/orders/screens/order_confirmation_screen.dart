@@ -9,6 +9,7 @@ import '../../../core/utils/price_format.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/koyas_button.dart';
 import '../../../core/widgets/koyas_surface.dart';
+import '../../../core/widgets/koyas_value_row.dart';
 import '../../checkout/models/checkout_models.dart';
 import '../../store/providers/store_provider.dart';
 import '../models/order.dart';
@@ -29,11 +30,16 @@ class OrderConfirmationScreen extends ConsumerWidget {
       }
     }
     if (order == null) {
+      final confirmed = store.lastOrderId == orderId;
       return Scaffold(
         body: EmptyState(
-          icon: Icons.search_off_rounded,
-          title: 'Order not found',
-          message: 'We could not find that order.',
+          icon: confirmed
+              ? Icons.check_circle_outline
+              : Icons.search_off_rounded,
+          title: confirmed ? 'Order received' : 'Order not found',
+          message: confirmed
+              ? 'Your order was saved successfully. Its details are still syncing. Check Orders; you do not need to place it again.'
+              : 'We could not find that order.',
           action: KoyasButton(
             label: 'View orders',
             expand: false,
@@ -161,23 +167,13 @@ class _ConfirmationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: AppColors.inkSecondary),
-          ),
-        ),
-        Text(
-          value,
-          textAlign: TextAlign.right,
-          style: Theme.of(context).textTheme.titleSmall,
-        ),
-      ],
+    return KoyasValueRow(
+      label: label,
+      value: value,
+      labelStyle: Theme.of(
+        context,
+      ).textTheme.bodyMedium?.copyWith(color: AppColors.inkSecondary),
+      valueStyle: Theme.of(context).textTheme.titleSmall,
     );
   }
 }

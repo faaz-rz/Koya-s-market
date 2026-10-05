@@ -5,6 +5,7 @@ enum PaymentMethod { cashOnDelivery, payAtStore, online }
 class CustomerAddress {
   const CustomerAddress({
     required this.id,
+    this.revision = 0,
     required this.label,
     required this.recipientName,
     required this.phone,
@@ -16,6 +17,7 @@ class CustomerAddress {
   });
 
   final String id;
+  final int revision;
   final String label;
   final String recipientName;
   final String phone;
@@ -28,6 +30,7 @@ class CustomerAddress {
   String get formatted => '$line1, $city – $pincode';
 
   CustomerAddress copyWith({
+    int? revision,
     String? label,
     String? recipientName,
     String? phone,
@@ -39,6 +42,7 @@ class CustomerAddress {
   }) {
     return CustomerAddress(
       id: id,
+      revision: revision ?? this.revision,
       label: label ?? this.label,
       recipientName: recipientName ?? this.recipientName,
       phone: phone ?? this.phone,

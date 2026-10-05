@@ -27,7 +27,11 @@ class CheckoutProgress extends StatelessWidget {
               child: Column(
                 children: [
                   AnimatedContainer(
-                    duration: const Duration(milliseconds: 220),
+                    duration:
+                        MediaQuery.disableAnimationsOf(context) ||
+                            MediaQuery.accessibleNavigationOf(context)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 220),
                     height: 4,
                     decoration: BoxDecoration(
                       color: index <= currentStep
