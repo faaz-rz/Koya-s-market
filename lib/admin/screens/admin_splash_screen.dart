@@ -1,3 +1,5 @@
+import '../../core/services/network_status.dart';
+import '../../core/widgets/four_dot_loader.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -21,6 +23,7 @@ class AdminSplashScreen extends ConsumerStatefulWidget {
 
 class _AdminSplashScreenState extends ConsumerState<AdminSplashScreen> {
   String? _error;
+  bool _loading = false;
 
   @override
   void initState() {
@@ -29,7 +32,11 @@ class _AdminSplashScreenState extends ConsumerState<AdminSplashScreen> {
   }
 
   Future<void> _route() async {
-    if (mounted) setState(() => _error = null);
+    if (!mounted || _loading) return;
+    setState(() {
+      _error = null;
+      _loading = true;
+    });
     await Future<void>.delayed(const Duration(milliseconds: 450));
     if (!mounted) return;
     try {
@@ -52,6 +59,11 @@ class _AdminSplashScreenState extends ConsumerState<AdminSplashScreen> {
         return;
       }
       final bundle = await SupabaseStoreRepository().loadStore();
+      if (!mounted ||
+          auth.currentUser?.id != bundle.profile.id ||
+          !auth.hasAal2Session) {
+        return;
+      }
       if (!bundle.isAdmin) {
         await auth.signOut();
         if (mounted) context.go('/login?reason=unauthorized');
@@ -59,12 +71,17 @@ class _AdminSplashScreenState extends ConsumerState<AdminSplashScreen> {
       }
       ref.read(storeProvider.notifier).hydrateRemoteBundle(bundle);
       if (mounted) context.go('/dashboard');
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
         setState(() {
-          _error = 'The staff dashboard could not connect. Please try again.';
+          _error = connectionFailureMessage(
+            error,
+            'The staff dashboard could not connect. Please try again.',
+          );
         });
       }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -118,6 +135,11 @@ class _AdminSplashScreenState extends ConsumerState<AdminSplashScreen> {
                   onPressed: _route,
                 ),
               ],
+              if (_loading)
+                const Padding(
+                  padding: EdgeInsets.all(AppSpacing.lg),
+                  child: FourDotLoader(color: AppColors.surface),
+                ),
             ],
           ),
         ),

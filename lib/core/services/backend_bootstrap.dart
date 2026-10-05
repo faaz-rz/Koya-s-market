@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 
 import '../config/app_environment.dart';
 import 'secure_auth_storage.dart';
+import 'ephemeral_pkce_storage.dart';
 import 'network_status.dart';
 
 abstract final class BackendBootstrap {
@@ -17,7 +18,9 @@ abstract final class BackendBootstrap {
         localStorage: persistAuthSession
             ? const SecureAuthStorage()
             : const EmptyLocalStorage(),
-        pkceAsyncStorage: persistAuthSession ? const SecureAuthStorage() : null,
+        pkceAsyncStorage: persistAuthSession
+            ? const SecureAuthStorage()
+            : EphemeralPkceStorage(),
         detectSessionInUri: persistAuthSession,
       ),
     );

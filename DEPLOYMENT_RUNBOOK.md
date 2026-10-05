@@ -1,9 +1,14 @@
 # Koya Stores production deployment runbook
 
 This runbook is for the first public release: Supabase is the production
-backend, Vercel hosts the private staff dashboard and public legal pages, and
+backend, Cloudflare Pages or Vercel hosts the private staff dashboard and public legal pages, and
 customers pay by cash or UPI at pickup/delivery. Native Razorpay checkout and
 push notifications stay disabled until a later audited release.
+
+The live project is now deployed. See [Supabase operations](docs/SUPABASE_OPERATIONS.md)
+for its project details, verified-email staff provisioning, Cloudflare Pages setup,
+and the remaining hosted Auth/email and launch checks. The Vercel instructions
+below remain an alternative hosting path.
 
 Never put a Supabase secret/service-role key, database password, SMTP password,
 reviewer password, Android keystore, or Apple signing certificate in Git,
@@ -48,11 +53,13 @@ findings. The migrations already enable RLS, restricted RPC permissions,
 Realtime tables, the product-image bucket, order contact snapshots, manual
 payment collection, offer limits, audit logs, and account anonymization.
 
-The final request-protocol migration is
+The request-protocol migration is
 `supabase/migrations/202610050001_request_protocols.sql`. It adds replay
 receipts, stale-editor conflicts, atomic address/default changes, and the
 revised settings, offer, profile, and address fields. Deploy the matching
 client build after the migration has been applied.
+Apply the later production grants, verified staff provisioning and policy/index
+migrations as well; use the complete migration directory in version order.
 
 ### Configure customer and staff email OTP
 
@@ -69,7 +76,7 @@ client build after the migration has been applied.
    built-in Supabase mail service is limited and is not suitable for public
    production OTP. Email-only avoids SMS charges, but the SMTP provider's free
    allowance or pricing still applies.
-5. In **Authentication → Email Templates → Magic Link/OTP**, use
+5. In **Authentication → Email Templates → Confirm signup and Magic Link/OTP**, use
    `{{ .Token }}` in the subject/body so the app receives a six-digit code,
    not a magic-link-only email. Example body:
 
@@ -87,6 +94,10 @@ client build after the migration has been applied.
    the Supabase organization.
 
 ### Create the first administrator
+
+The deployed project uses private, one-time verified-email approvals; follow
+[the staff access steps](docs/SUPABASE_OPERATIONS.md#staff-access). The UUID method
+below is an alternative for an existing confirmed Auth user.
 
 1. In **Authentication → Users**, create or invite the real staff email and
    make sure it is confirmed.

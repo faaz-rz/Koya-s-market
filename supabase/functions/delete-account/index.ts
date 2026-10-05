@@ -1,4 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.117.2";
 import { requiredEnv } from "../_shared/http.ts";
 import { createDeletionHandler, DeletionFailure } from "./handler.ts";
 

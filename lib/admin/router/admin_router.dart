@@ -77,6 +77,13 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
       ),
     ),
   );
+  ref.listen(
+    storeProvider.select(
+      (store) =>
+          (store.isAuthenticated, store.isAdminAccount, store.isAdminView),
+    ),
+    (_, _) => router.refresh(),
+  );
   ref.onDispose(router.dispose);
   return router;
 });

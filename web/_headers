@@ -1,0 +1,19 @@
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+/
+  X-Robots-Tag: noindex, nofollow, noarchive
+  Cache-Control: no-cache
+
+/index.html
+  X-Robots-Tag: noindex, nofollow, noarchive
+  Cache-Control: no-cache
+
+/main.dart.js
+  Cache-Control: no-cache
+
+/flutter_bootstrap.js
+  Cache-Control: no-cache

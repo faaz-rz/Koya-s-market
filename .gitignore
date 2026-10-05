@@ -37,6 +37,7 @@ migrate_working_dir/
 /.codex_work/
 /dist/
 /outputs/
+/supabase/.temp/
 
 # Symbolication related
 app.*.symbols

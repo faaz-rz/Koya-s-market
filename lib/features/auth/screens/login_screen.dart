@@ -1,10 +1,14 @@
-import '../../../core/services/network_status.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/config/app_environment.dart';
+import '../../../core/services/network_status.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -16,9 +20,16 @@ import '../../store/providers/store_provider.dart';
 import '../../store/data/supabase_store_repository.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key, this.initialMessage});
+  const LoginScreen({
+    super.key,
+    this.initialMessage,
+    this.authRepository,
+    this.loadStore,
+  });
 
   final String? initialMessage;
+  final AuthRepository? authRepository;
+  final Future<RemoteStoreBundle> Function()? loadStore;
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -31,17 +42,33 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _otpController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _otpSent = false;
+  bool _verified = false;
   bool _loading = false;
+  bool _loadingStore = false;
+  bool _messageIsError = false;
   String? _authMessage;
+  AuthRepository? _auth;
+  Timer? _cooldownTimer;
+  int _resendSeconds = 0;
+
+  bool get _remote => _auth != null;
 
   @override
   void initState() {
     super.initState();
     _authMessage = widget.initialMessage;
+    _auth =
+        widget.authRepository ??
+        (AppEnvironment.hasSupabaseConfig ? AuthRepository() : null);
+    if (_remote) {
+      _emailController.text = _auth!.currentUser?.email ?? '';
+      _verified = _auth!.currentUser != null;
+    }
   }
 
   @override
   void dispose() {
+    _cooldownTimer?.cancel();
     _emailController.dispose();
     _otpController.dispose();
     super.dispose();
@@ -49,16 +76,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _continue() async {
     if (_loading) return;
-    if (!_formKey.currentState!.validate()) return;
-    if (AppEnvironment.hasSupabaseConfig) {
+    if (!_verified && !_formKey.currentState!.validate()) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    if (_remote) {
       setState(() {
         _loading = true;
         _authMessage = null;
+        _messageIsError = false;
       });
       try {
-        final repository = AuthRepository();
-        if (!_otpSent) {
-          await repository.sendEmailOtp(_emailController.text);
+        if (_verified) {
+          await _completeRemoteSignIn();
+        } else if (!_otpSent) {
+          await _auth!.sendEmailOtp(_emailController.text);
           if (mounted) {
             setState(() {
               _otpSent = true;
@@ -66,35 +96,33 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             });
           }
         } else {
-          await repository.verifyEmailOtp(
+          await _auth!.verifyEmailOtp(
             email: _emailController.text,
             token: _otpController.text,
           );
+          if (!mounted) return;
+          setState(() {
+            _verified = true;
+            _otpController.clear();
+          });
           await _completeRemoteSignIn();
         }
       } catch (error) {
-        if (mounted) {
-          setState(
-            () => _authMessage =
-                isNetworkFailure(error) || NetworkStatus.instance.value
-                ? noInternetMessage
-                : error is OtpCooldownException
-                ? error.message
-                : _otpSent
-                ? 'Could not verify that code. Check it and try again.'
-                : 'Could not send a code. Please try again shortly.',
-          );
-        }
+        _showError(error);
       } finally {
-        if (mounted) setState(() => _loading = false);
+        if (mounted) {
+          setState(() => _loading = false);
+          _updateCooldown();
+        }
       }
       return;
     }
     if (!AppEnvironment.allowCustomerDemo) {
-      setState(
-        () => _authMessage =
-            'This build is missing its secure service configuration.',
-      );
+      setState(() {
+        _authMessage =
+            'Koya Stores is temporarily unavailable. Please try again later.';
+        _messageIsError = true;
+      });
       return;
     }
     ref.read(storeProvider.notifier).loginDemo(email: _emailController.text);
@@ -102,12 +130,134 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _completeRemoteSignIn() async {
-    final bundle = await SupabaseStoreRepository().loadStore();
+    final userId = _auth!.currentUser?.id;
+    if (userId == null) {
+      if (mounted) {
+        setState(() {
+          _verified = false;
+          _otpSent = false;
+        });
+      }
+      throw const AuthException(
+        'Your session expired. Request a new email code.',
+      );
+    }
+    if (mounted) setState(() => _loadingStore = true);
+    final bundle =
+        await (widget.loadStore ?? SupabaseStoreRepository().loadStore)();
+    if (!mounted) return;
+    if (_auth!.currentUser?.id != userId || bundle.profile.id != userId) {
+      setState(() {
+        _verified = false;
+        _otpSent = false;
+      });
+      throw const AuthException('Your session changed. Sign in again.');
+    }
     ref.read(storeProvider.notifier).hydrateRemoteBundle(bundle);
-    if (mounted) context.go('/home');
+    context.go('/home');
+  }
+
+  void _showError(Object error) {
+    if (!mounted) return;
+    if (_loadingStore && _auth!.currentUser == null) {
+      _verified = false;
+      _otpSent = false;
+    }
+    final message = switch (error) {
+      OtpCooldownException() => error.message,
+      AuthException(statusCode: '429') =>
+        'Too many attempts. Please wait a few minutes and try again.',
+      _ when _loadingStore && _verified =>
+        'You are signed in, but the store could not load. Tap Retry opening store.',
+      AuthException() when !_verified && _loadingStore =>
+        'Your session expired. Request a new email code.',
+      TimeoutException() =>
+        'This is taking longer than expected. Please try again.',
+      _ when _otpSent =>
+        'That code was not accepted or has expired. Check it or request a new code.',
+      _ => 'Could not send a code. Please try again shortly.',
+    };
+    setState(() {
+      _authMessage = connectionFailureMessage(error, message);
+      _messageIsError = true;
+      _loadingStore = false;
+    });
+  }
+
+  void _updateCooldown() {
+    _cooldownTimer?.cancel();
+    if (!mounted || !_remote) return;
+    setState(
+      () => _resendSeconds = _auth!.otpResendSeconds(_emailController.text),
+    );
+    if (_resendSeconds == 0) return;
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(
+        () => _resendSeconds = _auth!.otpResendSeconds(_emailController.text),
+      );
+      if (_resendSeconds == 0) timer.cancel();
+    });
+  }
+
+  Future<void> _resendCode() async {
+    if (_loading || _resendSeconds > 0) return;
+    setState(() {
+      _loading = true;
+      _authMessage = null;
+      _messageIsError = false;
+    });
+    try {
+      await _auth!.sendEmailOtp(_emailController.text);
+      if (mounted) {
+        setState(
+          () => _authMessage =
+              'A new code was sent. Enter the latest code from your email.',
+        );
+      }
+    } catch (error) {
+      _showError(error);
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+        _updateCooldown();
+      }
+    }
+  }
+
+  Future<void> _changeEmail() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    try {
+      if (_auth?.currentUser != null) {
+        await _auth!.signOut();
+        if (!mounted) return;
+        ref.read(storeProvider.notifier).logout();
+      }
+      if (!mounted) return;
+      _cooldownTimer?.cancel();
+      setState(() {
+        _otpSent = false;
+        _verified = false;
+        _loadingStore = false;
+        _otpController.clear();
+        _emailController.clear();
+        _authMessage = null;
+        _messageIsError = false;
+        _resendSeconds = 0;
+      });
+    } catch (error) {
+      _showError(error);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   Future<void> _openPlayReviewLogin() async {
+    if (_loading) return;
     final credentials = await showDialog<_PasswordCredentials>(
       context: context,
       animationStyle: AppMotion.dialogStyle(context),
@@ -117,19 +267,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     setState(() {
       _loading = true;
       _authMessage = null;
+      _messageIsError = false;
     });
     try {
-      await AuthRepository().signInWithPassword(
+      await _auth!.signInWithPassword(
         email: credentials.email,
         password: credentials.password,
       );
+      if (!mounted) return;
+      setState(() {
+        _verified = true;
+        _emailController.text = _auth!.currentUser?.email ?? credentials.email;
+      });
       await _completeRemoteSignIn();
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
-        setState(
-          () => _authMessage =
+        if (_verified) {
+          _showError(error);
+        } else {
+          setState(() {
+            _authMessage = connectionFailureMessage(
+              error,
               'Reviewer credentials were not accepted. Check them and try again.',
-        );
+            );
+            _messageIsError = true;
+          });
+        }
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -148,11 +311,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
       return;
     }
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) &&
-        mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Privacy policy could not be opened.')),
-      );
+    try {
+      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        throw StateError('Could not open privacy policy');
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Privacy policy could not be opened. Please try again.',
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -213,8 +385,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     TextFormField(
                       key: const Key('login-email'),
                       controller: _emailController,
-                      readOnly: _otpSent || _loading,
+                      readOnly: _otpSent || _verified || _loading,
                       keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.done,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      onFieldSubmitted: (_) => _continue(),
                       autofillHints: const [AutofillHints.email],
                       decoration: const InputDecoration(
                         labelText: 'Email address',
@@ -222,18 +398,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       validator: (value) {
                         final email = value?.trim() ?? '';
-                        if (!email.contains('@') || !email.contains('.')) {
+                        if (email.length > 254 ||
+                            !RegExp(
+                              r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
+                            ).hasMatch(email)) {
                           return 'Enter a valid email address';
                         }
                         return null;
                       },
                     ),
-                    if (_otpSent) ...[
+                    if (_otpSent && !_verified) ...[
                       const SizedBox(height: AppSpacing.lg),
                       TextFormField(
+                        key: const Key('login-otp'),
                         controller: _otpController,
+                        enabled: !_loading,
                         maxLength: 6,
                         keyboardType: TextInputType.number,
+                        textInputAction: TextInputAction.done,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        onFieldSubmitted: (_) => _continue(),
                         autofillHints: const [AutofillHints.oneTimeCode],
                         decoration: const InputDecoration(
                           labelText: 'Verification code',
@@ -249,41 +435,61 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         },
                       ),
                       TextButton(
-                        onPressed: _loading
+                        key: const Key('login-resend-code'),
+                        onPressed: _loading || _resendSeconds > 0
                             ? null
-                            : () => setState(() {
-                                _otpSent = false;
-                                _otpController.clear();
-                                _authMessage =
-                                    'You can request a new code after the 60-second cooldown.';
-                              }),
-                        child: const Text('Change email or request a new code'),
+                            : _resendCode,
+                        child: Text(
+                          _resendSeconds > 0
+                              ? 'Resend code in ${_resendSeconds}s'
+                              : 'Resend email code',
+                        ),
                       ),
                     ],
+                    if (_otpSent || _verified)
+                      TextButton(
+                        key: const Key('login-change-email'),
+                        onPressed: _loading ? null : _changeEmail,
+                        child: const Text('Use another email'),
+                      ),
                     if (_authMessage != null) ...[
                       const SizedBox(height: AppSpacing.md),
-                      Text(
-                        _authMessage!,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: _authMessage!.startsWith('Could')
-                              ? AppColors.error
-                              : AppColors.success,
+                      Semantics(
+                        liveRegion: true,
+                        child: Text(
+                          _authMessage!,
+                          key: const Key('login-message'),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: _messageIsError
+                                    ? AppColors.error
+                                    : AppColors.success,
+                              ),
                         ),
                       ),
                     ],
                     const SizedBox(height: AppSpacing.lg),
                     KoyasButton(
                       key: const Key('customer-login'),
-                      label: AppEnvironment.hasSupabaseConfig
-                          ? (_otpSent
+                      label: _remote
+                          ? (_verified
+                                ? (_messageIsError
+                                      ? 'Retry opening store'
+                                      : 'Open store')
+                                : _otpSent
                                 ? 'Verify and continue'
+                                : _resendSeconds > 0
+                                ? 'Request code in ${_resendSeconds}s'
                                 : 'Send secure code')
                           : 'Continue to Koya Stores',
                       loading: _loading,
                       icon: Icons.arrow_forward_rounded,
-                      onPressed: _continue,
+                      onPressed: !_otpSent && !_verified && _resendSeconds > 0
+                          ? null
+                          : _continue,
                     ),
-                    if (AppEnvironment.hasSupabaseConfig &&
+                    if (_remote &&
+                        !_verified &&
                         AppEnvironment.enablePlayReviewLogin) ...[
                       const SizedBox(height: AppSpacing.sm),
                       TextButton.icon(
@@ -301,7 +507,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       label: const Text('Privacy policy'),
                     ),
                     const SizedBox(height: AppSpacing.xxl),
-                    if (AppEnvironment.allowCustomerDemo)
+                    if (!_remote && AppEnvironment.allowCustomerDemo)
                       Container(
                         padding: const EdgeInsets.all(AppSpacing.lg),
                         decoration: BoxDecoration(

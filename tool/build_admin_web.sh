@@ -20,11 +20,11 @@ require_https_url() {
 
 require_value SUPABASE_URL
 require_value SUPABASE_ANON_KEY
-require_value PRIVACY_POLICY_URL
-require_value ACCOUNT_DELETION_URL
 require_https_url SUPABASE_URL
-require_https_url PRIVACY_POLICY_URL
-require_https_url ACCOUNT_DELETION_URL
+# When omitted, the web app uses the privacy/deletion pages bundled at the
+# deployed HTTPS origin. Native release builds still require explicit URLs.
+[[ -z "${PRIVACY_POLICY_URL:-}" ]] || require_https_url PRIVACY_POLICY_URL
+[[ -z "${ACCOUNT_DELETION_URL:-}" ]] || require_https_url ACCOUNT_DELETION_URL
 
 case "$SUPABASE_ANON_KEY" in
   sb_secret_*|*service_role*)
@@ -51,6 +51,6 @@ fi
   -t lib/admin_main.dart \
   --dart-define="SUPABASE_URL=$SUPABASE_URL" \
   --dart-define="SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" \
-  --dart-define="PRIVACY_POLICY_URL=$PRIVACY_POLICY_URL" \
-  --dart-define="ACCOUNT_DELETION_URL=$ACCOUNT_DELETION_URL" \
+  --dart-define="PRIVACY_POLICY_URL=${PRIVACY_POLICY_URL:-}" \
+  --dart-define="ACCOUNT_DELETION_URL=${ACCOUNT_DELETION_URL:-}" \
   --dart-define="ADMIN_IDLE_TIMEOUT_MINUTES=${ADMIN_IDLE_TIMEOUT_MINUTES:-15}"

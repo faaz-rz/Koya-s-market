@@ -1,10 +1,12 @@
-import '../../core/services/network_status.dart';
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/config/app_environment.dart';
+import '../../core/services/network_status.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/koyas_button.dart';
@@ -21,12 +23,16 @@ class AdminLoginScreen extends ConsumerStatefulWidget {
     this.accessDenied = false,
     this.mfaRequired = false,
     this.sessionExpired = false,
+    this.authRepository,
+    this.loadStore,
     super.key,
   });
 
   final bool accessDenied;
   final bool mfaRequired;
   final bool sessionExpired;
+  final AuthRepository? authRepository;
+  final Future<RemoteStoreBundle> Function()? loadStore;
 
   @override
   ConsumerState<AdminLoginScreen> createState() => _AdminLoginScreenState();
@@ -42,6 +48,12 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
   String? _message;
   String? _mfaFactorId;
   String? _mfaSecret;
+  Timer? _resendTimer;
+  int _resendSeconds = 0;
+
+  bool get _remote =>
+      widget.authRepository != null || AppEnvironment.hasSupabaseConfig;
+  AuthRepository get _auth => widget.authRepository ?? AuthRepository();
 
   bool get _isMfaStep =>
       _step == _AdminLoginStep.authenticator ||
@@ -60,9 +72,8 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
       _message = 'Enter your authenticator code to finish signing in.';
     }
 
-    if (AppEnvironment.hasSupabaseConfig &&
-        !widget.accessDenied &&
-        AuthRepository().currentUser != null) {
+    if (_remote && !widget.accessDenied && _auth.currentUser != null) {
+      _emailController.text = _auth.currentUser!.email ?? '';
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => _resumeSignedInAdmin(),
       );
@@ -76,15 +87,16 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
 
   @override
   void dispose() {
+    _resendTimer?.cancel();
     _emailController.dispose();
     _otpController.dispose();
     super.dispose();
   }
 
   Future<void> _resumeSignedInAdmin() async {
-    if (!mounted) return;
+    if (!mounted || _loading) return;
     setState(() => _loading = true);
-    final auth = AuthRepository();
+    final auth = _auth;
     try {
       if (!await auth.isApprovedAdmin()) {
         await auth.signOut();
@@ -106,9 +118,17 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
 
   Future<void> _continue() async {
     if (_loading) return;
+    // A code may have succeeded before a later allowlist/MFA/store request
+    // failed. Resume that session instead of replaying a consumed email code.
+    if (_remote &&
+        _auth.currentUser != null &&
+        (!_isMfaStep || _auth.hasAal2Session)) {
+      await _resumeSignedInAdmin();
+      return;
+    }
     if (!_formKey.currentState!.validate()) return;
 
-    if (!AppEnvironment.hasSupabaseConfig) {
+    if (!_remote) {
       if (!AppEnvironment.allowAdminDemo) return;
       ref
           .read(storeProvider.notifier)
@@ -122,15 +142,18 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
       _message = null;
       _messageIsError = false;
     });
-    final auth = AuthRepository();
+    final auth = _auth;
     try {
       switch (_step) {
         case _AdminLoginStep.email:
           await auth.sendEmailOtp(
             _emailController.text,
-            shouldCreateUser: false,
+            // Email verification creates the account; the database alone
+            // decides whether a preapproved address receives staff access.
+            shouldCreateUser: true,
           );
           if (mounted) {
+            _startResendTimer();
             setState(() {
               _step = _AdminLoginStep.emailOtp;
               _message = 'A six-digit code was sent to your staff email.';
@@ -171,8 +194,12 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
   }
 
   Future<void> _prepareMfa(AuthRepository auth) async {
+    final userId = auth.currentUser?.id;
     final challenge = await auth.prepareAdminMfa();
     if (!mounted) return;
+    if (userId == null || auth.currentUser?.id != userId) {
+      throw const AuthException('Your session changed. Sign in again.');
+    }
     setState(() {
       _mfaFactorId = challenge.factorId;
       _mfaSecret = challenge.enrollmentSecret;
@@ -187,10 +214,19 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
   }
 
   Future<void> _openDashboard(AuthRepository auth) async {
+    final userId = auth.currentUser?.id;
     if (!auth.hasAal2Session) {
       throw const AuthException('Authenticator verification is required.');
     }
-    final bundle = await SupabaseStoreRepository().loadStore();
+    final bundle =
+        await (widget.loadStore ?? SupabaseStoreRepository().loadStore)();
+    if (!mounted) return;
+    if (userId == null ||
+        auth.currentUser?.id != userId ||
+        bundle.profile.id != userId ||
+        !auth.hasAal2Session) {
+      throw const AuthException('Your session changed. Sign in again.');
+    }
     if (!bundle.isAdmin) {
       await auth.signOut();
       throw const StoreValidationException(
@@ -217,19 +253,61 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
     setState(() {
       _message = connectionFailureMessage(error, message);
       _messageIsError = true;
+      if (_remote && _isMfaStep && _auth.currentUser == null) {
+        _step = _AdminLoginStep.email;
+        _mfaFactorId = null;
+        _mfaSecret = null;
+        _otpController.clear();
+        _message = 'Your session expired. Request a new email code to sign in.';
+      }
     });
+  }
+
+  void _startResendTimer() {
+    _resendTimer?.cancel();
+    _resendSeconds = _auth.otpResendSeconds(_emailController.text);
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(
+        () => _resendSeconds = _auth.otpResendSeconds(_emailController.text),
+      );
+      if (_resendSeconds == 0) timer.cancel();
+    });
+  }
+
+  Future<void> _resendCode() async {
+    if (_loading || _resendSeconds > 0) return;
+    setState(() => _loading = true);
+    try {
+      await _auth.sendEmailOtp(_emailController.text);
+      if (!mounted) return;
+      _startResendTimer();
+      setState(() {
+        _otpController.clear();
+        _message = 'A new code was sent to your staff email.';
+        _messageIsError = false;
+      });
+    } catch (error) {
+      _showError(error);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   Future<void> _useAnotherEmail() async {
     setState(() => _loading = true);
     try {
-      if (AppEnvironment.hasSupabaseConfig &&
-          AuthRepository().currentUser != null) {
-        await AuthRepository().signOut();
+      if (_remote && _auth.currentUser != null) {
+        await _auth.signOut();
       }
       ref.read(storeProvider.notifier).logout();
       _emailController.clear();
       _otpController.clear();
+      _resendTimer?.cancel();
+      _resendSeconds = 0;
       if (mounted) {
         setState(() {
           _step = _AdminLoginStep.email;
@@ -239,13 +317,15 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
           _messageIsError = false;
         });
       }
+    } catch (error) {
+      _showError(error);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
   String get _buttonLabel {
-    if (!AppEnvironment.hasSupabaseConfig) {
+    if (!_remote) {
       return AppEnvironment.allowAdminDemo
           ? 'Open staff dashboard demo'
           : 'Production configuration required';
@@ -260,7 +340,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final configured = AppEnvironment.hasSupabaseConfig;
+    final configured = _remote;
     return Scaffold(
       backgroundColor: AppColors.canvas,
       body: SafeArea(
@@ -299,8 +379,10 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                         TextFormField(
                           key: const Key('admin-email'),
                           controller: _emailController,
-                          enabled: _step == _AdminLoginStep.email,
+                          enabled: !_loading && _step == _AdminLoginStep.email,
                           keyboardType: TextInputType.emailAddress,
+                          autocorrect: false,
+                          enableSuggestions: false,
                           autofillHints: const [AutofillHints.email],
                           decoration: const InputDecoration(
                             labelText: 'Staff email address',
@@ -308,7 +390,10 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                           ),
                           validator: (value) {
                             final email = value?.trim() ?? '';
-                            if (!email.contains('@') || !email.contains('.')) {
+                            if (email.length > 254 ||
+                                !RegExp(
+                                  r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
+                                ).hasMatch(email)) {
                               return 'Enter a valid email address';
                             }
                             return null;
@@ -358,8 +443,12 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                               _isMfaStep ? 'admin-mfa-code' : 'admin-otp',
                             ),
                             controller: _otpController,
+                            enabled: !_loading,
                             maxLength: 6,
                             keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
                             autofillHints: const [AutofillHints.oneTimeCode],
                             decoration: InputDecoration(
                               labelText: _isMfaStep
@@ -375,15 +464,18 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                         ],
                         if (_message != null) ...[
                           const SizedBox(height: AppSpacing.md),
-                          Text(
-                            _message!,
-                            key: const Key('admin-login-message'),
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: _messageIsError
-                                      ? AppColors.error
-                                      : AppColors.success,
-                                ),
+                          Semantics(
+                            liveRegion: true,
+                            child: Text(
+                              _message!,
+                              key: const Key('admin-login-message'),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: _messageIsError
+                                        ? AppColors.error
+                                        : AppColors.success,
+                                  ),
+                            ),
                           ),
                         ],
                         const SizedBox(height: AppSpacing.lg),
@@ -396,6 +488,18 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                               ? _continue
                               : null,
                         ),
+                        if (_step == _AdminLoginStep.emailOtp)
+                          TextButton(
+                            key: const Key('admin-resend-code'),
+                            onPressed: _loading || _resendSeconds > 0
+                                ? null
+                                : _resendCode,
+                            child: Text(
+                              _resendSeconds > 0
+                                  ? 'Resend code in ${_resendSeconds}s'
+                                  : 'Resend email code',
+                            ),
+                          ),
                         if (_step != _AdminLoginStep.email) ...[
                           const SizedBox(height: AppSpacing.sm),
                           TextButton(

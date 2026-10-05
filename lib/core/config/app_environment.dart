@@ -1,12 +1,29 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 
 abstract final class AppEnvironment {
   static const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
   static const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
-  static const privacyPolicyUrl = String.fromEnvironment('PRIVACY_POLICY_URL');
-  static const accountDeletionUrl = String.fromEnvironment(
+  static const _privacyPolicyUrl = String.fromEnvironment('PRIVACY_POLICY_URL');
+  static const _accountDeletionUrl = String.fromEnvironment(
     'ACCOUNT_DELETION_URL',
   );
+
+  // The web bundle includes these pages. Resolving against its HTTPS origin
+  // lets Pages deployments use their assigned hostname without a placeholder.
+  // Native releases still require explicit, published legal URLs.
+  static String get privacyPolicyUrl =>
+      _legalUrl(_privacyPolicyUrl, '/privacy');
+  static String get accountDeletionUrl =>
+      _legalUrl(_accountDeletionUrl, '/delete-account');
+
+  static String _legalUrl(String configured, String path) =>
+      configured.isNotEmpty
+      ? configured
+      : kIsWeb && Uri.base.isScheme('https')
+      ? Uri.base.resolve(path).toString()
+      : '';
 
   /// Push notifications are deliberately excluded from the first store
   /// release. A later release must add audited SDKs, APNs/FCM credentials,
@@ -30,15 +47,43 @@ abstract final class AppEnvironment {
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
 
   static bool get hasLegalUrls =>
-      Uri.tryParse(privacyPolicyUrl)?.isScheme('https') == true &&
-      Uri.tryParse(accountDeletionUrl)?.isScheme('https') == true;
+      isHttpsUrl(privacyPolicyUrl) && isHttpsUrl(accountDeletionUrl);
+
+  static bool isHttpsUrl(String value) {
+    final uri = Uri.tryParse(value);
+    return value == value.trim() &&
+        uri != null &&
+        uri.isScheme('https') &&
+        uri.host.isNotEmpty &&
+        uri.userInfo.isEmpty &&
+        !uri.host.contains('_');
+  }
+
+  /// Frontend builds accept publishable keys or legacy JWTs with the anon
+  /// role. This is a configuration check; Supabase verifies the key itself.
+  static bool isPublicSupabaseKey(String key) {
+    if (RegExp(r'^sb_publishable_[A-Za-z0-9_-]+$').hasMatch(key)) return true;
+    try {
+      final parts = key.split('.');
+      if (parts.length != 3) return false;
+      final claims = jsonDecode(
+        utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+      );
+      return claims is Map && claims['role'] == 'anon';
+    } catch (_) {
+      return false;
+    }
+  }
 
   /// Sample customer data is a development convenience only. Unlike the
   /// separately opt-in admin preview, it can never be enabled in a release.
   static bool get allowCustomerDemo => !kReleaseMode && !hasSupabaseConfig;
 
   static bool get hasProductionCustomerConfig =>
-      hasSupabaseConfig && supabaseUrl.startsWith('https://');
+      hasSupabaseConfig &&
+      isHttpsUrl(supabaseUrl) &&
+      isPublicSupabaseKey(supabaseAnonKey) &&
+      hasLegalUrls;
 
   /// Release builds stay locked unless a client-evaluation build explicitly
   /// opts into sample data. Production deployments must never set this flag.

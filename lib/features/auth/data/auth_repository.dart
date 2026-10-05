@@ -50,10 +50,13 @@ class AdminMfaChallenge {
 class AuthRepository {
   AuthRepository({
     SupabaseClient? client,
+    OtpSendLimiter? sendLimiter,
     this.requestTimeout = const Duration(seconds: 20),
-  }) : _client = client ?? Supabase.instance.client;
+  }) : _client = client ?? Supabase.instance.client,
+       _sendLimiter = sendLimiter ?? otpLimiter;
 
   final SupabaseClient _client;
+  final OtpSendLimiter _sendLimiter;
   final Duration requestTimeout;
   static final otpLimiter = OtpSendLimiter();
   static final _deletedClients = Expando<bool>();
@@ -70,12 +73,14 @@ class AuthRepository {
       _client.auth.mfa.getAuthenticatorAssuranceLevel().currentLevel ==
       AuthenticatorAssuranceLevels.aal2;
 
+  int otpResendSeconds(String email) => _sendLimiter.remainingSeconds(email);
+
   Future<void> sendEmailOtp(String email, {bool shouldCreateUser = true}) =>
-      otpLimiter.send(
+      _sendLimiter.send(
         email,
         () => _client.auth
             .signInWithOtp(
-              email: email.trim(),
+              email: email.trim().toLowerCase(),
               shouldCreateUser: shouldCreateUser,
             )
             .timeout(requestTimeout),
@@ -87,7 +92,7 @@ class AuthRepository {
   }) async {
     final response = await _client.auth
         .verifyOTP(
-          email: email.trim(),
+          email: email.trim().toLowerCase(),
           token: token.trim(),
           type: OtpType.email,
         )
@@ -119,7 +124,7 @@ class AuthRepository {
         .eq('active', true)
         .maybeSingle()
         .timeout(requestTimeout);
-    return row != null;
+    return row != null && currentUser?.id == user.id;
   }
 
   Future<AdminMfaChallenge> prepareAdminMfa() async {

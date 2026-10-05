@@ -151,6 +151,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ),
   );
+  ref.listen(storeProvider.select((store) => store.isAuthenticated), (_, _) {
+    router.refresh();
+  });
   ref.onDispose(router.dispose);
   return router;
 });

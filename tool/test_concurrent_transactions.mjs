@@ -89,7 +89,7 @@ try {
   await owner.query(`
     create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
     create schema auth; create schema storage;
-    create table auth.users(id uuid primary key, raw_user_meta_data jsonb default '{}', phone text);
+    create table auth.users(id uuid primary key, raw_user_meta_data jsonb default '{}', phone text, email text, email_confirmed_at timestamptz);
     create function auth.jwt() returns jsonb language sql stable as
       $$ select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb $$;
     create function auth.uid() returns uuid language sql stable as $$ select (auth.jwt()->>'sub')::uuid $$;
@@ -283,8 +283,7 @@ try {
     await assert.rejects(transaction(admin, c => mutate(c, { action: 'adjust_stock', target_product_id: f.product, stock_delta: 1 }), 'authenticated', 'aal1'), { code: 'P0001', message: 'Admin access required' });
     await assert.rejects(transaction(admin, c => c.query('select public.admin_set_product_stock($1,50)', [f.product])), { code: '42501' });
     await assert.rejects(transaction(admin, c => c.query('select * from public.admin_inventory_requests')), { code: '42501' });
-    const directWrite = await transaction(admin, c => c.query('update public.products set stock_quantity=500 where id=$1', [f.product]));
-    assert.equal(directWrite.rowCount, 0);
+    await assert.rejects(transaction(admin, c => c.query('update public.products set stock_quantity=500 where id=$1', [f.product])), { code: '42501' });
     assert.equal(await stock(f.product), 10);
   });
   const { runSyncChecks } = await import('./store_sync_load_test.mjs');
