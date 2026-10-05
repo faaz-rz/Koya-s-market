@@ -82,10 +82,17 @@ In **Workers & Pages → koya-s-market → Settings → Build**, set:
 | Setting | Value |
 | --- | --- |
 | Root directory | Repository root (not `web`) |
-| Build command | `bash tool/build_admin_web.sh` |
-| Deploy command | `npx --yes wrangler@4.147.0 deploy` |
-| Non-production deploy command, if requested | `npx --yes wrangler@4.147.0 versions upload` |
+| Build command | Leave blank; the deploy script builds first |
+| Deploy command | `bash tool/deploy_cloudflare.sh` |
+| Non-production deploy command, if requested | `bash tool/build_admin_web.sh && npx --yes wrangler@4.147.0 versions upload` |
 | Production branch | `main` |
+
+The deploy script always runs the Flutter release build before Wrangler, so a
+fresh checkout does not need an existing `build/web` directory. If an earlier
+build command is still set to `bash tool/build_admin_web.sh`, deployment remains
+correct but compiles twice; clear that field to avoid the extra build. Do not
+rely on `build.command` inside Wrangler configuration for Workers Builds; that
+service does not honor Wrangler custom builds.
 
 Remove any existing `--assets ./web` argument from the deploy command: `web` is
 the uncompiled source and contains only the shell and legal files. Add
@@ -98,6 +105,13 @@ Save and retry the latest `main` build. After it succeeds, check the deployed
 HTTPS site, `/login`, `/dashboard`, `/privacy`, `/delete-account`, and
 `/flutter_bootstrap.js`. The dashboard route must show sign-in to a signed-out
 visitor. Set the Supabase Auth Site URL to the actual deployed HTTPS address.
+
+An error saying `/opt/buildhome/repo/build/web` does not exist means compilation
+was skipped. Confirm the deploy command is `bash tool/deploy_cloudflare.sh` and
+retry a deployment of the latest `main` commit. If the script instead reports
+`SUPABASE_URL is required` or `SUPABASE_ANON_KEY is required`, add the two build
+variables above before retrying.
+
 See [Workers build configuration](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/)
 and [native SPA routing](https://developers.cloudflare.com/workers/static-assets/routing/single-page-application/).
 
