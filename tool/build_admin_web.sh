@@ -54,3 +54,7 @@ fi
   --dart-define="PRIVACY_POLICY_URL=${PRIVACY_POLICY_URL:-}" \
   --dart-define="ACCOUNT_DELETION_URL=${ACCOUNT_DELETION_URL:-}" \
   --dart-define="ADMIN_IDLE_TIMEOUT_MINUTES=${ADMIN_IDLE_TIMEOUT_MINUTES:-15}"
+
+# Old local/cached Flutter bundles may retain the removed wildcard rewrite.
+# Cloudflare handles SPA navigation natively; the rewrite loops on index.html.
+rm -f build/web/_redirects

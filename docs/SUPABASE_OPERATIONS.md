@@ -68,7 +68,40 @@ Do not delete staff Auth accounts as a way to revoke access. Retain the audit
 history and disable the role. To restore an existing role after reviewing access,
 update its `active` field in the SQL Editor; reissuing OTP does not restore it.
 
-## Cloudflare Pages
+## Cloudflare Workers (the project already created)
+
+The `koya-s-market` project in the supplied Cloudflare build log is a Worker.
+Keep that project: it can serve the static Flutter dashboard with no Worker
+script. The repository's `wrangler.jsonc` points to the compiled `build/web`
+bundle and uses Cloudflare's native single-page application fallback. The old
+`/* /index.html 200` wildcard rewrite was removed because Workers rejects its
+redirect loop.
+
+In **Workers & Pages → koya-s-market → Settings → Build**, set:
+
+| Setting | Value |
+| --- | --- |
+| Root directory | Repository root (not `web`) |
+| Build command | `bash tool/build_admin_web.sh` |
+| Deploy command | `npx --yes wrangler@4.147.0 deploy` |
+| Non-production deploy command, if requested | `npx --yes wrangler@4.147.0 versions upload` |
+| Production branch | `main` |
+
+Remove any existing `--assets ./web` argument from the deploy command: `web` is
+the uncompiled source and contains only the shell and legal files. Add
+`SUPABASE_URL=https://vorhfltcohtwtehngzay.supabase.co` and the public publishable
+key as `SUPABASE_ANON_KEY` under **Build variables and secrets**. They must be
+available while Flutter compiles, rather than being Worker runtime variables.
+Keep secret/service-role/SMTP credentials out of this configuration.
+
+Save and retry the latest `main` build. After it succeeds, check the deployed
+HTTPS site, `/login`, `/dashboard`, `/privacy`, `/delete-account`, and
+`/flutter_bootstrap.js`. The dashboard route must show sign-in to a signed-out
+visitor. Set the Supabase Auth Site URL to the actual deployed HTTPS address.
+See [Workers build configuration](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/)
+and [native SPA routing](https://developers.cloudflare.com/workers/static-assets/routing/single-page-application/).
+
+## Cloudflare Pages (alternative)
 
 Cloudflare Pages suits this static Flutter dashboard. Its free plan includes
 unlimited static requests and bandwidth; [build/file limits](https://developers.cloudflare.com/pages/platform/limits/)

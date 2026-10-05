@@ -38,6 +38,7 @@ migrate_working_dir/
 /dist/
 /outputs/
 /supabase/.temp/
+/.wrangler/
 
 # Symbolication related
 app.*.symbols
