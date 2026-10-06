@@ -59,7 +59,8 @@ void main() {
     final state = container.read(storeProvider);
     final category = state.categories.first;
     final selectedProduct = state.products.firstWhere(
-      (product) => product.categoryId == category.id && product.brand.isNotEmpty,
+      (product) =>
+          product.categoryId == category.id && product.brand.isNotEmpty,
     );
     final otherBrandProduct = state.products.firstWhere(
       (product) =>
@@ -108,6 +109,16 @@ void main() {
     );
     await tester.ensureVisible(increase);
     await tester.tap(increase);
+    await tester.pump();
+    // The draft changes immediately; only Save writes inventory.
+    expect(
+      container
+          .read(storeProvider)
+          .productById(selectedProduct.id)
+          ?.stockQuantity,
+      originalStock,
+    );
+    await tester.tap(find.byKey(Key('admin-stock-save-${selectedProduct.id}')));
     await tester.pumpAndSettle();
 
     expect(

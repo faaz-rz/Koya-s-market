@@ -3,6 +3,7 @@ abstract final class UsagePolicy {
   static const customerPoll = Duration(seconds: 120);
   static const activeOrderPoll = Duration(seconds: 30);
   static const adminFallbackPoll = Duration(seconds: 30);
+  static const customerFallbackPoll = Duration(seconds: 30);
   static const realtimeDebounce = Duration(seconds: 2);
   static const minimumRefreshGap = Duration(seconds: 3);
   static const maximumBackoff = Duration(minutes: 10);
@@ -16,10 +17,13 @@ abstract final class UsagePolicy {
     required bool admin,
     required bool activeOrder,
     required int failures,
+    bool live = true,
     int jitterSeconds = 0,
   }) {
     final base = admin
         ? adminFallbackPoll
+        : !live
+        ? customerFallbackPoll
         : activeOrder
         ? activeOrderPoll
         : customerPoll;

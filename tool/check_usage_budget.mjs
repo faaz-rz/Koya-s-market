@@ -8,15 +8,19 @@ const nonnegative = (n, name) => {
 export function estimateBudget(config, measured) {
   const t = config.traffic, l = config.limits;
   for (const [key, value] of Object.entries(t)) nonnegative(value, key);
+  for (const key of ['peak_foreground_customer_sessions','average_foreground_customer_sessions','average_realtime_event_bytes']) nonnegative(t[key], key);
   for (const [key, value] of Object.entries(t).filter(([key]) => key.endsWith('_fraction'))) {
     if (value > 1) throw new Error(`Fraction exceeds 1: ${key}`);
   }
   for (const key of ['cold_response_bytes', 'unchanged_response_bytes', 'single_stock_change_bytes']) nonnegative(measured[key], key);
   const sessions = t.daily_active_users * t.sessions_per_active_day * 30;
   const polls = sessions * t.session_minutes * ((1-t.active_order_session_fraction)/2 + t.active_order_session_fraction*2);
+  const liveCustomerRefreshes = 30*t.realtime_events_per_day*t.average_foreground_customer_sessions;
+  const realtimeMessages = 30*t.realtime_events_per_day*(t.average_foreground_customer_sessions+t.peak_staff_sessions);
   const imageBytes = sessions * t.images_per_session * (1-t.device_image_cache_hit_fraction) * t.average_image_bytes;
   const apiBytes = t.monthly_active_users * t.cold_catalogues_per_user_month * measured.cold_response_bytes
     + polls * ((1-t.changed_poll_fraction) * measured.unchanged_response_bytes + t.changed_poll_fraction * measured.single_stock_change_bytes)
+    + liveCustomerRefreshes * measured.single_stock_change_bytes
     + sessions*t.other_api_bytes_per_session + t.admin_hours_per_day*120*30*t.admin_average_sync_bytes;
   const usage = {
     monthly_active_users: t.monthly_active_users,
@@ -24,10 +28,10 @@ export function estimateBudget(config, measured) {
     database_bytes: t.database_baseline_bytes + 365*(t.orders_per_day*t.database_bytes_per_order_including_indexes + t.inventory_changes_per_day*t.database_bytes_per_inventory_change),
     storage_bytes: t.storage_current_and_old_image_versions_bytes + 12*t.storage_monthly_growth_bytes,
     // 15% contingency for payload variation, metadata and protocol overhead.
-    uncached_egress_bytes: 1.15*(apiBytes+imageBytes*(1-t.cdn_image_cache_hit_fraction)),
+    uncached_egress_bytes: 1.15*(apiBytes+imageBytes*(1-t.cdn_image_cache_hit_fraction)+realtimeMessages*t.average_realtime_event_bytes),
     cached_egress_bytes: 1.15*imageBytes*t.cdn_image_cache_hit_fraction,
-    realtime_peak_connections: t.peak_staff_sessions,
-    realtime_monthly_messages: 30*t.realtime_events_per_day*t.peak_staff_sessions,
+    realtime_peak_connections: t.peak_staff_sessions+t.peak_foreground_customer_sessions,
+    realtime_monthly_messages: realtimeMessages,
     smtp_daily_emails: t.login_emails_per_day,
     smtp_hourly_emails: t.peak_login_emails_per_hour,
     smtp_monthly_emails: 30*t.login_emails_per_day,

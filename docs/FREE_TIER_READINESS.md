@@ -22,13 +22,16 @@ measurement or a guarantee of free hosting.
 - Concurrent reads coalesce. A write during an in-flight read forces another
   snapshot before returning it as the post-write refresh. Unchanged responses
   reuse the previous bundle and do not rebuild the whole store state.
-- Customer sessions use no permanent Realtime connections: foreground catalogue
-  polling is 120 seconds, or 30 seconds with an active order, plus 0–7 seconds
-  jitter. Staff use one debounced channel, a 3-second minimum refresh gap, and
-  a 30-second fallback. Hidden/background sessions stop polling and unsubscribe.
-  Failures back off up to 10 minutes. Consequently customer stock/order updates
-  are **near-live, not instantaneous**; checkout always rechecks authoritative
-  prices, stock and offers transactionally.
+- Customer and staff sessions use one Realtime channel while foregrounded.
+  Customer orders are filtered to the signed-in user and RLS remains enforced.
+  Product/order events trigger a conditional snapshot after 2 seconds with a
+  3-second minimum gap. Safety polling is 120 seconds while browsing, 30 seconds
+  with an active order or a failed live connection, plus 0–7 seconds jitter.
+  Staff also retain a 30-second fallback. Hidden/background sessions stop
+  polling and unsubscribe; failures back off up to 10 minutes. Live updates
+  consume Realtime connections/messages and event-triggered snapshot traffic;
+  include foreground customers in usage planning. Checkout always rechecks
+  authoritative prices, stock and offers transactionally.
 - Home initially builds at most 24 featured product families; the full listing
   and local search retain the complete catalogue.
 - New staff web picture uploads accept up to 5 MiB input, validate the file,
@@ -126,7 +129,7 @@ These results do not certify physical phones, hosted capacity or email delivery.
    zero errors and p95 below 2 seconds per stage. Output contains timings and
    counts, not tokens, emails or customer response data.
 4. Separately repeat checkout/last-item/two-admin/refresh races through hosted
-   PostgREST with staging fixtures, and observe real staff Realtime. Verify
+   PostgREST with staging fixtures, and observe real customer and staff Realtime. Verify
    small Android/iPhone devices, weak networks, background/resume, app restart,
    browser cache, image replacement, MFA expiry and email delivery. The HTTP
    runner is not a checkout or visual device test. Check CPU/DB metrics and

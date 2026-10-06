@@ -19,6 +19,7 @@ import '../../auth/data/auth_repository.dart';
 import '../../checkout/models/checkout_models.dart';
 import '../../offers/models/store_offer.dart';
 import '../analytics/admin_sales_analytics.dart';
+import '../widgets/stock_quantity_editor.dart';
 import '../printing/order_bill_printer.dart';
 import '../widgets/resource_usage_button.dart';
 import '../../orders/models/order.dart';
@@ -876,21 +877,21 @@ class _DashboardContent extends ConsumerWidget {
     }
   }
 
-  Future<void> _updateStock(
+  Future<bool> _updateStock(
     BuildContext context,
     WidgetRef ref,
     Product product,
     int quantity,
   ) => _persistStock(context, ref, product, requestedQuantity: quantity);
 
-  Future<void> _adjustStock(
+  Future<bool> _adjustStock(
     BuildContext context,
     WidgetRef ref,
     Product product,
     int delta,
   ) => _persistStock(context, ref, product, adjustment: delta);
 
-  Future<void> _persistStock(
+  Future<bool> _persistStock(
     BuildContext context,
     WidgetRef ref,
     Product product, {
@@ -910,9 +911,7 @@ class _DashboardContent extends ConsumerWidget {
               )
             : await repository.adjustProductStock(product.id, adjustment!);
         if (context.mounted) {
-          if (context.mounted) {
-            await _refreshSavedInventory(context, ref, repository);
-          }
+          await _refreshSavedInventory(context, ref, repository);
         }
       } else {
         final current =
@@ -933,6 +932,7 @@ class _DashboardContent extends ConsumerWidget {
           ),
         );
       }
+      return true;
     } catch (error) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -946,6 +946,7 @@ class _DashboardContent extends ConsumerWidget {
           ),
         );
       }
+      return false;
     }
   }
 
@@ -1460,8 +1461,8 @@ class _CategoryInventory extends StatefulWidget {
   final ValueChanged<Product> onEditProduct;
   final Future<void> Function(Product product, bool active)
   onProductActiveChanged;
-  final Future<void> Function(Product product, int quantity) onStockChanged;
-  final Future<void> Function(Product product, int delta) onStockAdjusted;
+  final Future<bool> Function(Product product, int quantity) onStockChanged;
+  final Future<bool> Function(Product product, int delta) onStockAdjusted;
 
   @override
   State<_CategoryInventory> createState() => _CategoryInventoryState();
@@ -1493,22 +1494,22 @@ class _CategoryInventoryState extends State<_CategoryInventory> {
     });
   }
 
-  Future<void> _setStock(Product product, int quantity) async {
-    if (_busyProductIds.contains(product.id)) return;
+  Future<bool> _setStock(Product product, int quantity) async {
+    if (_busyProductIds.contains(product.id)) return false;
     final safeQuantity = quantity.clamp(0, 999999);
     setState(() => _busyProductIds.add(product.id));
     try {
-      await widget.onStockChanged(product, safeQuantity);
+      return await widget.onStockChanged(product, safeQuantity);
     } finally {
       if (mounted) setState(() => _busyProductIds.remove(product.id));
     }
   }
 
-  Future<void> _adjustStock(Product product, int delta) async {
-    if (_busyProductIds.contains(product.id)) return;
+  Future<bool> _adjustStock(Product product, int delta) async {
+    if (_busyProductIds.contains(product.id)) return false;
     setState(() => _busyProductIds.add(product.id));
     try {
-      await widget.onStockAdjusted(product, delta);
+      return await widget.onStockAdjusted(product, delta);
     } finally {
       if (mounted) setState(() => _busyProductIds.remove(product.id));
     }
@@ -1525,6 +1526,7 @@ class _CategoryInventoryState extends State<_CategoryInventory> {
   }
 
   Future<void> _showStockEditor(Product product) async {
+    if (_busyProductIds.contains(product.id)) return;
     final quantity = await showDialog<int>(
       context: context,
       builder: (_) => _StockEditorDialog(product: product),
@@ -1948,6 +1950,15 @@ class _CategoryInventoryState extends State<_CategoryInventory> {
           KoyasSurface(
             child: Column(
               children: [
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: EdgeInsets.only(bottom: AppSpacing.lg),
+                    child: Text(
+                      'Type the total stock or use +/−, then tap Save.',
+                    ),
+                  ),
+                ),
                 for (
                   var index = 0;
                   index < displayedProducts.length;
@@ -1957,9 +1968,8 @@ class _CategoryInventoryState extends State<_CategoryInventory> {
                     key: Key('admin-product-${displayedProducts[index].id}'),
                     product: displayedProducts[index],
                     busy: _busyProductIds.contains(displayedProducts[index].id),
-                    onDecrease: () =>
-                        _adjustStock(displayedProducts[index], -1),
-                    onIncrease: () => _adjustStock(displayedProducts[index], 1),
+                    onStockChanged: _setStock,
+                    onStockAdjusted: _adjustStock,
                     onSetStock: () =>
                         _showStockEditor(displayedProducts[index]),
                     onEdit: () =>
@@ -2038,8 +2048,8 @@ class _StockEditorDialogState extends State<_StockEditorDialog> {
                 ),
                 validator: (value) {
                   final parsed = int.tryParse(value?.trim() ?? '');
-                  return parsed == null || parsed < 0
-                      ? 'Enter zero or a positive whole number'
+                  return parsed == null || parsed < 0 || parsed > 999999
+                      ? 'Enter a whole number from 0 to 999999'
                       : null;
                 },
               ),
@@ -2089,8 +2099,8 @@ class _InventoryProductRow extends StatelessWidget {
   const _InventoryProductRow({
     required this.product,
     required this.busy,
-    required this.onDecrease,
-    required this.onIncrease,
+    required this.onStockChanged,
+    required this.onStockAdjusted,
     required this.onSetStock,
     required this.onEdit,
     required this.onActiveChanged,
@@ -2099,8 +2109,8 @@ class _InventoryProductRow extends StatelessWidget {
 
   final Product product;
   final bool busy;
-  final VoidCallback onDecrease;
-  final VoidCallback onIncrease;
+  final Future<bool> Function(Product product, int quantity) onStockChanged;
+  final Future<bool> Function(Product product, int delta) onStockAdjusted;
   final VoidCallback onSetStock;
   final VoidCallback onEdit;
   final ValueChanged<bool> onActiveChanged;
@@ -2204,44 +2214,20 @@ class _InventoryProductRow extends StatelessWidget {
         ),
       ),
     );
-    final controls = Wrap(
-      crossAxisAlignment: WrapCrossAlignment.center,
-      runSpacing: AppSpacing.xs,
+    final controls = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        IconButton.outlined(
-          key: Key('admin-stock-decrease-${product.id}'),
-          tooltip: 'Decrease ${product.name} stock',
-          onPressed: busy || !product.active || product.stockQuantity == 0
-              ? null
-              : onDecrease,
-          icon: const Icon(Icons.remove_rounded),
+        StockQuantityEditor(
+          product: product,
+          busy: busy,
+          onSetStock: onStockChanged,
+          onAdjustStock: onStockAdjusted,
         ),
-        SizedBox(
-          width: 42,
-          child: busy
-              ? const Center(
-                  child: SizedBox.square(
-                    dimension: 18,
-                    child: FourDotLoader(size: 22),
-                  ),
-                )
-              : Text(
-                  '${product.stockQuantity}',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
-        ),
-        IconButton.filledTonal(
-          key: Key('admin-stock-increase-${product.id}'),
-          tooltip: 'Increase ${product.name} stock',
-          onPressed: busy || !product.active ? null : onIncrease,
-          icon: const Icon(Icons.add_rounded),
-        ),
-        const SizedBox(width: AppSpacing.sm),
         TextButton(
           key: Key('admin-stock-set-${product.id}'),
           onPressed: busy || !product.active ? null : onSetStock,
-          child: const Text('Set'),
+          child: const Text('Set total…'),
         ),
       ],
     );

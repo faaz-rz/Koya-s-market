@@ -76,15 +76,19 @@ void main() {
         bool active = false,
         int failures = 0,
         int jitter = 0,
+        bool live = true,
       }) => UsagePolicy.pollDelay(
         admin: admin,
         activeOrder: active,
         failures: failures,
         jitterSeconds: jitter,
+        live: live,
       );
       expect(delay(), const Duration(seconds: 120));
       expect(delay(admin: true), const Duration(seconds: 30));
       expect(delay(active: true), const Duration(seconds: 30));
+      expect(delay(live: false), const Duration(seconds: 30));
+      expect(delay(live: false, failures: 1), const Duration(seconds: 60));
       expect(delay(failures: 1), const Duration(seconds: 240));
       expect(delay(jitter: 7), const Duration(seconds: 127));
       expect(delay(failures: 1000, jitter: 999), const Duration(minutes: 10));

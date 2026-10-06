@@ -24,6 +24,15 @@ test('invalid fractions and missing measurements cannot pass a budget', () => {
   const invalid=structuredClone(example); invalid.traffic.device_image_cache_hit_fraction=2;
   assert.throws(()=>estimateBudget(invalid,measured));
 });
+test('foreground customer live subscriptions count toward connections, messages and bandwidth', () => {
+  const estimate=estimateBudget(example,measured);
+  assert.equal(estimate.checks.find(c=>c.metric==='realtime_peak_connections').estimate, 102);
+  const busier=structuredClone(example);
+  busier.traffic.average_foreground_customer_sessions=100;
+  const busy=estimateBudget(busier,measured);
+  assert.ok(busy.checks.find(c=>c.metric==='realtime_monthly_messages').estimate>estimate.checks.find(c=>c.metric==='realtime_monthly_messages').estimate);
+  assert.ok(busy.checks.find(c=>c.metric==='uncached_egress_bytes').estimate>estimate.checks.find(c=>c.metric==='uncached_egress_bytes').estimate);
+});
 const ref='abcdefghijklmnopqrst', now=Date.now();
 const token=data=>`test.${Buffer.from(JSON.stringify(data)).toString('base64url')}.test`;
 const config=()=>({environment:'staging',project_ref:ref,url:`https://${ref}.supabase.co`,

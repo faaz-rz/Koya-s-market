@@ -1,5 +1,5 @@
 {
-  "reviewed_at": "2026-09-19",
+  "reviewed_at": "2026-10-06",
   "assumptions_not_measured": true,
   "headroom_fraction": 0.75,
   "limits": {
@@ -30,6 +30,9 @@
     "admin_hours_per_day": 8,
     "admin_average_sync_bytes": 25000,
     "peak_staff_sessions": 2,
+    "peak_foreground_customer_sessions": 100,
+    "average_foreground_customer_sessions": 1,
+    "average_realtime_event_bytes": 2000,
     "realtime_events_per_day": 250,
     "login_emails_per_day": 60,
     "peak_login_emails_per_hour": 20,

@@ -216,3 +216,19 @@ Only apply newly reviewed migrations. Deploy function updates with `functions
 deploy delete-account`. Keep all secret/service-role keys in Supabase, never in
 GitHub, Cloudflare client configuration or the customer app. Use a separate
 staging project for load tests and changes that create synthetic users/orders.
+
+## Inventory updates (6 October 2026)
+
+Staff can type **Total stock** or make several +/− changes, then press **Save**
+once. A typed count is a total, not a delivery increment: if 20 units remain and
+500 arrive, enter 520. Button-only drafts save as an atomic delta; typed totals
+are protected by a revision check. If a customer order changes stock while a
+count is being typed, use Reset to review the latest stock before editing again.
+
+The `complete_store_realtime_publication` migration was deployed on 6 October.
+Products, orders, offers and store settings are published, with authenticated
+RLS still enabled. Updated customer builds subscribe while foregrounded and
+refresh after live events; the old installed builds continue polling until
+updated. A connected live update normally triggers refresh within a few seconds,
+but the elapsed time also depends on network and server response. Verify one
+staff save on a separate customer device before treating latency as measured.

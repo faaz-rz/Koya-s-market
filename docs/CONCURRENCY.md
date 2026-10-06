@@ -111,7 +111,9 @@ Pending client request identities are **in memory**, not crash-persistent. After
 a reload/restart with an uncertain result, inspect Orders/inventory before
 starting another operation. Different devices using different keys intentionally
 create separate orders. The new `sync_store` refresh is one database snapshot;
-conditional foreground polling is still eventually fresh between refreshes.
+foreground Realtime events trigger debounced conditional refreshes, with polling
+as a fallback. Stock button drafts save as one atomic delta; typed physical
+counts retain their revision check.
 Checkout RPCs revalidate authoritative prices/stock. See
 [FREE_TIER_READINESS.md](FREE_TIER_READINESS.md) for sync/load tests and limits.
 Offer/pricing form edits still use their existing last-writer behaviour; product

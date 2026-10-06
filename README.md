@@ -113,13 +113,20 @@ be printed on A4. Choose the matching paper size and turn off browser headers
 and footers. If pop-ups are blocked, allow them for the staff website and try
 again. Printing does not change the order or record a payment.
 
-For a physical stock count, find the exact product and pack size and select
-**Set**. Enter `0` to remove it from sale, or enter the counted shelf/store-room
-quantity to make it orderable. Use `+` and `-` only for quick corrections. In a
-configured Supabase build, these changes are saved immediately, audit logged,
-and returned on the next conditional customer refresh. Customers poll every
-120 seconds while browsing, or 30 seconds with an active order; staff retain
-debounced live updates. Checkout always rechecks stock on the server.
+For a physical stock count, find the exact product and pack size, type its
+**Total stock**, then select **Save**. Enter `0` to remove it from sale, or enter
+the counted shelf/store-room quantity to make it orderable. Multiple `+`/`−`
+taps edit a local draft and Save submits one atomic adjustment; typing a total
+uses a revision check to protect concurrent orders/edits. **Set total…** also
+opens the physical-count dialog. Live changes cannot silently replace a typed
+draft; Reset accepts the latest count before editing again.
+
+While open, customer and staff apps keep one debounced Realtime channel for
+catalogue changes and authorized orders. Changes trigger a conditional snapshot
+after 2 seconds, with a 3-second minimum gap between completed refreshes. Polling
+remains a safety check (120 seconds browsing, 30 seconds with an active order,
+and 30 seconds if the live connection fails, plus jitter/backoff). Hidden apps
+unsubscribe and pause polling. Checkout always rechecks stock on the server.
 
 To create a catalogue item, select **Add product** in the staff inventory,
 choose an optional picture, complete the product details, and save. Pictures

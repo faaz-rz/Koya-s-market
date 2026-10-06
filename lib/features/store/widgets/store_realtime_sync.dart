@@ -11,12 +11,13 @@ import '../../orders/models/order.dart';
 import '../data/supabase_store_repository.dart';
 import '../providers/store_provider.dart';
 
-/// Staff keep one debounced live channel. Customers use conditional snapshots
-/// instead of permanent connections. Reads pause when hidden and back off on
-/// failures. Checkout still validates prices/stock in its own transaction.
+/// One foreground channel delivers catalogue changes and authorized orders.
+/// Conditional snapshots remain the source of truth, with polling if the live
+/// connection fails. Hidden apps unsubscribe; checkout validates stock again.
 class StoreRealtimeSync extends ConsumerStatefulWidget {
-  const StoreRealtimeSync({required this.child, super.key});
+  const StoreRealtimeSync({required this.child, this.client, super.key});
   final Widget child;
+  final SupabaseClient? client;
   @override
   ConsumerState<StoreRealtimeSync> createState() => _StoreRealtimeSyncState();
 }
@@ -24,6 +25,9 @@ class StoreRealtimeSync extends ConsumerStatefulWidget {
 class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
     with WidgetsBindingObserver {
   RealtimeChannel? _channel;
+  String? _channelUserId;
+  bool? _channelAdmin;
+  bool _live = false;
   Timer? _debounce;
   Timer? _poll;
   bool _refreshing = false;
@@ -32,6 +36,7 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
   int _failures = 0;
   DateTime? _lastRefresh;
   final _random = Random();
+  SupabaseClient get _client => widget.client ?? Supabase.instance.client;
 
   @override
   void initState() {
@@ -45,8 +50,8 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
   bool get _connected =>
       mounted &&
       _foreground &&
-      AppEnvironment.hasSupabaseConfig &&
-      Supabase.instance.client.auth.currentUser != null;
+      (widget.client != null || AppEnvironment.hasSupabaseConfig) &&
+      _client.auth.currentUser != null;
 
   void _start() {
     if (!_connected) {
@@ -55,11 +60,12 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
       _closeChannel();
       return;
     }
-    if (ref.read(storeProvider).isAdminAccount) {
-      _subscribe();
-    } else {
+    final admin = ref.read(storeProvider).isAdminAccount;
+    if (_channelUserId != _client.auth.currentUser!.id ||
+        _channelAdmin != admin) {
       _closeChannel();
     }
+    _subscribe();
     _schedulePoll();
   }
 
@@ -73,13 +79,14 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
   );
 
   void _subscribe() {
-    if (!_connected ||
-        _channel != null ||
-        !ref.read(storeProvider).isAdminAccount) {
-      return;
-    }
-    final client = Supabase.instance.client;
+    if (!_connected || _channel != null) return;
+    final client = _client;
+    final userId = client.auth.currentUser!.id;
+    final admin = ref.read(storeProvider).isAdminAccount;
     final channel = client.channel('store-live-${identityHashCode(this)}');
+    _channel = channel;
+    _channelUserId = userId;
+    _channelAdmin = admin;
     channel
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
@@ -91,6 +98,13 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'orders',
+          filter: admin
+              ? null
+              : PostgresChangeFilter(
+                  type: PostgresChangeFilterType.eq,
+                  column: 'user_id',
+                  value: userId,
+                ),
           callback: (_) => _scheduleRefresh(),
         )
         .onPostgresChanges(
@@ -105,8 +119,13 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
           table: 'offers',
           callback: (_) => _scheduleRefresh(),
         )
-        .subscribe();
-    _channel = channel;
+        .subscribe((status, error) {
+          if (!_connected || !identical(_channel, channel)) return;
+          _live = status == RealtimeSubscribeStatus.subscribed;
+          _schedulePoll();
+          // Refresh after joining/rejoining to cover the subscription gap.
+          if (_live) _scheduleRefresh();
+        });
   }
 
   void _schedulePoll() {
@@ -119,6 +138,7 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
         admin: store.isAdminAccount,
         activeOrder: activeOrder,
         failures: _failures,
+        live: _live,
         jitterSeconds: _random.nextInt(8),
       ),
       _refresh,
@@ -144,20 +164,15 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
       return;
     }
     _refreshing = true;
-    final userId = Supabase.instance.client.auth.currentUser!.id;
+    final userId = _client.auth.currentUser!.id;
     try {
-      final bundle = await SupabaseStoreRepository().loadStore().timeout(
-        const Duration(seconds: 20),
-      );
-      if (_connected &&
-          Supabase.instance.client.auth.currentUser?.id == userId) {
+      final bundle = await SupabaseStoreRepository(
+        client: _client,
+      ).loadStore().timeout(const Duration(seconds: 20));
+      if (_connected && _client.auth.currentUser?.id == userId) {
         ref.read(storeProvider.notifier).hydrateRemoteBundle(bundle);
         _failures = 0;
-        if (!bundle.isAdmin) {
-          _closeChannel();
-        } else {
-          _subscribe();
-        }
+        _start();
       }
     } catch (_) {
       _failures++;
@@ -175,8 +190,11 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
   void _closeChannel() {
     final channel = _channel;
     _channel = null;
+    _channelUserId = null;
+    _channelAdmin = null;
+    _live = false;
     if (channel != null) {
-      unawaited(Supabase.instance.client.removeChannel(channel));
+      unawaited(_client.removeChannel(channel));
     }
   }
 
