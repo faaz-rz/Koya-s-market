@@ -30,11 +30,16 @@ flow or third-party SDK changes. Google Play Console remains the source of truth
 | Personal info → Address | Yes | Required only when delivery is selected | App functionality; account management | Saved addresses and delivery snapshot |
 | Financial info → Purchase history | Yes | Required when an order is placed | App functionality; fraud prevention/security; legal compliance | Order items, totals, discounts, status and fulfilment history |
 
-Do **not** declare precise or approximate device location merely because a user
-types a postal address; this app does not request Android location permission or
-read device location. Do not declare contacts, photos, audio, files, health,
-messages, browsing history, diagnostics or advertising IDs unless the final
-bundle adds a flow that collects them.
+| Location → Precise location | Yes | Optional; only after tapping Use current location and granting permission | App functionality (accurate delivery) | Coordinates, accuracy and capture time saved with the address and immutable order snapshot; removed on account deletion |
+| Location → Approximate location | Yes | Optional; when the device provides an approximate fix | App functionality (delivery) | Labelled with its estimated accuracy; manual address remains available |
+
+Location is read once in the foreground; no background tracking is requested.
+Customers can remove the pin from saved addresses. Existing orders keep the
+original delivery snapshot until account deletion. Opening Maps is an explicit
+external navigation action and shares the selected coordinates with the map
+provider; review Google's user-initiated sharing exception in the final Data
+Safety submission. Do not declare contacts, photos, audio recordings, files,
+health, advertising IDs or other uncollected categories.
 
 ## Retention and deletion answer
 
@@ -44,7 +49,7 @@ records. Active pickup or delivery orders must first be completed or cancelled.
 Completed transaction records may be retained for accounting, fraud prevention
 or legal obligations, but the deletion transaction disconnects them from the
 user and removes customer/recipient names, phone numbers, address text and
-delivery instructions.
+delivery instructions and delivery pins.
 
 The public deletion page must identify Koya Stores, explain the in-app steps,
 list deleted and retained data, and remain reachable without signing in. Those

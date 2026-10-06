@@ -1,3 +1,5 @@
+import '../widgets/address_editor_dialog.dart';
+import '../widgets/delivery_pin_summary.dart';
 import '../../../core/utils/transaction_request.dart';
 import '../../../core/services/network_status.dart';
 import 'package:flutter/material.dart';
@@ -50,22 +52,28 @@ class _DeliveryCheckoutScreenState
     });
   }
 
-  Future<void> _addAddress() async {
+  Future<void> _addAddress([CustomerAddress? current]) async {
     final address = await showDialog<CustomerAddress>(
       context: context,
       animationStyle: AppMotion.dialogStyle(context),
-      builder: (context) => const _AddAddressDialog(),
+      builder: (context) => AddressEditorDialog(address: current),
     );
     if (address != null && mounted) {
       final customerId = ref.read(storeProvider).profile?.id;
       try {
         final saved = AppEnvironment.hasSupabaseConfig
-            ? await SupabaseStoreRepository().addAddress(address)
+            ? await (current == null
+                  ? SupabaseStoreRepository().addAddress(address)
+                  : SupabaseStoreRepository().updateAddress(address))
             : address;
         if (!mounted || ref.read(storeProvider).profile?.id != customerId) {
           return;
         }
-        ref.read(storeProvider.notifier).addAddress(saved);
+        if (current == null) {
+          ref.read(storeProvider.notifier).addAddress(saved);
+        } else {
+          ref.read(storeProvider.notifier).updateAddress(saved);
+        }
       } catch (error) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -179,6 +187,15 @@ class _DeliveryCheckoutScreenState
                       ),
                     );
                   }),
+                  if (selectedAddress?.deliveryPin != null)
+                    DeliveryPinSummary(pin: selectedAddress!.deliveryPin!),
+                  if (selectedAddress != null &&
+                      selectedAddress.deliveryPin == null)
+                    TextButton.icon(
+                      onPressed: () => _addAddress(selectedAddress),
+                      icon: const Icon(Icons.edit_location_alt_outlined),
+                      label: const Text('Add a delivery pin'),
+                    ),
                   if (selectedAddress != null && !serviceable)
                     Container(
                       width: double.infinity,
@@ -282,129 +299,6 @@ class _DeliveryCheckoutScreenState
           ),
         ),
       ),
-    );
-  }
-}
-
-class _AddAddressDialog extends StatefulWidget {
-  const _AddAddressDialog();
-
-  @override
-  State<_AddAddressDialog> createState() => _AddAddressDialogState();
-}
-
-class _AddAddressDialogState extends State<_AddAddressDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final _label = TextEditingController(text: 'Home');
-  final _name = TextEditingController();
-  final _phone = TextEditingController();
-  final _line = TextEditingController();
-  final _city = TextEditingController(text: 'Hyderabad');
-  final _pincode = TextEditingController();
-
-  @override
-  void dispose() {
-    _label.dispose();
-    _name.dispose();
-    _phone.dispose();
-    _line.dispose();
-    _city.dispose();
-    _pincode.dispose();
-    super.dispose();
-  }
-
-  String? _required(String? value) =>
-      value == null || value.trim().isEmpty ? 'This field is required' : null;
-
-  void _save() {
-    if (!_formKey.currentState!.validate()) return;
-    Navigator.of(context).pop(
-      CustomerAddress(
-        id: 'address-${DateTime.now().millisecondsSinceEpoch}',
-        label: _label.text.trim(),
-        recipientName: _name.text.trim(),
-        phone: _phone.text.trim(),
-        line1: _line.text.trim(),
-        city: _city.text.trim(),
-        pincode: _pincode.text.trim(),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Add delivery address'),
-      content: SizedBox(
-        width: 460,
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: _label,
-                  validator: _required,
-                  decoration: const InputDecoration(labelText: 'Label'),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                TextFormField(
-                  controller: _name,
-                  validator: _required,
-                  decoration: const InputDecoration(
-                    labelText: 'Recipient name',
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                TextFormField(
-                  controller: _phone,
-                  validator: (value) {
-                    if (_required(value) != null) return _required(value);
-                    return value!.replaceAll(RegExp(r'\D'), '').length < 10
-                        ? 'Enter a valid phone number'
-                        : null;
-                  },
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(labelText: 'Phone'),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                TextFormField(
-                  controller: _line,
-                  validator: _required,
-                  decoration: const InputDecoration(labelText: 'Address'),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                TextFormField(
-                  controller: _city,
-                  validator: _required,
-                  decoration: const InputDecoration(labelText: 'City'),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                TextFormField(
-                  controller: _pincode,
-                  validator: (value) {
-                    if (_required(value) != null) return _required(value);
-                    return RegExp(r'^\d{6}$').hasMatch(value!.trim())
-                        ? null
-                        : 'Enter a valid 6-digit PIN';
-                  },
-                  maxLength: 6,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'PIN code'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(onPressed: _save, child: const Text('Save address')),
-      ],
     );
   }
 }

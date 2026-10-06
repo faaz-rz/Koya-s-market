@@ -1,3 +1,5 @@
+import '../../notifications/widgets/customer_order_alerts.dart';
+import '../../checkout/widgets/address_editor_dialog.dart';
 import '../../../core/services/network_status.dart';
 import '../../../core/utils/transaction_request.dart';
 import 'package:flutter/material.dart';
@@ -94,7 +96,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final edited = await showDialog<CustomerAddress>(
       context: context,
       animationStyle: AppMotion.dialogStyle(context),
-      builder: (context) => _AddressEditorDialog(address: current),
+      builder: (context) => AddressEditorDialog(address: current),
     );
     if (edited == null) return;
     final customerId = ref.read(storeProvider).profile?.id;
@@ -508,6 +510,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   padding: EdgeInsets.zero,
                   child: Column(
                     children: [
+                      const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: CustomerAlertSettings(),
+                      ),
                       ListTile(
                         leading: const Icon(Icons.help_outline_rounded),
                         title: const Text('Help and support'),
@@ -713,157 +719,6 @@ class _ProfileEditorDialogState extends State<_ProfileEditorDialog> {
           },
           child: const Text('Save'),
         ),
-      ],
-    );
-  }
-}
-
-class _AddressEditorDialog extends StatefulWidget {
-  const _AddressEditorDialog({this.address});
-
-  final CustomerAddress? address;
-
-  @override
-  State<_AddressEditorDialog> createState() => _AddressEditorDialogState();
-}
-
-class _AddressEditorDialogState extends State<_AddressEditorDialog> {
-  final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _label;
-  late final TextEditingController _name;
-  late final TextEditingController _phone;
-  late final TextEditingController _line;
-  late final TextEditingController _city;
-  late final TextEditingController _pincode;
-  late final TextEditingController _instructions;
-
-  @override
-  void initState() {
-    super.initState();
-    final address = widget.address;
-    _label = TextEditingController(text: address?.label ?? 'Home');
-    _name = TextEditingController(text: address?.recipientName ?? '');
-    _phone = TextEditingController(text: address?.phone ?? '');
-    _line = TextEditingController(text: address?.line1 ?? '');
-    _city = TextEditingController(text: address?.city ?? 'Hyderabad');
-    _pincode = TextEditingController(text: address?.pincode ?? '');
-    _instructions = TextEditingController(text: address?.instructions ?? '');
-  }
-
-  @override
-  void dispose() {
-    _label.dispose();
-    _name.dispose();
-    _phone.dispose();
-    _line.dispose();
-    _city.dispose();
-    _pincode.dispose();
-    _instructions.dispose();
-    super.dispose();
-  }
-
-  String? _required(String? value) =>
-      value == null || value.trim().isEmpty ? 'This field is required' : null;
-
-  void _save() {
-    if (!_formKey.currentState!.validate()) return;
-    Navigator.of(context).pop(
-      CustomerAddress(
-        id:
-            widget.address?.id ??
-            'address-${DateTime.now().millisecondsSinceEpoch}',
-        label: _label.text.trim(),
-        recipientName: _name.text.trim(),
-        phone: _phone.text.trim(),
-        line1: _line.text.trim(),
-        city: _city.text.trim(),
-        pincode: _pincode.text.trim(),
-        instructions: _instructions.text.trim(),
-        isDefault: widget.address?.isDefault ?? false,
-        revision: widget.address?.revision ?? 0,
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.address == null ? 'Add address' : 'Edit address'),
-      content: SizedBox(
-        width: 480,
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: _label,
-                  validator: _required,
-                  decoration: const InputDecoration(labelText: 'Label'),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                TextFormField(
-                  controller: _name,
-                  validator: _required,
-                  decoration: const InputDecoration(
-                    labelText: 'Recipient name',
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                TextFormField(
-                  controller: _phone,
-                  validator: (value) {
-                    if (_required(value) != null) return _required(value);
-                    return value!.replaceAll(RegExp(r'\D'), '').length < 10
-                        ? 'Enter a valid phone number'
-                        : null;
-                  },
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(labelText: 'Phone'),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                TextFormField(
-                  controller: _line,
-                  validator: _required,
-                  decoration: const InputDecoration(labelText: 'Address'),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                TextFormField(
-                  controller: _city,
-                  validator: _required,
-                  decoration: const InputDecoration(labelText: 'City'),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                TextFormField(
-                  controller: _pincode,
-                  maxLength: 6,
-                  keyboardType: TextInputType.number,
-                  validator: (value) =>
-                      RegExp(r'^\d{6}$').hasMatch(value?.trim() ?? '')
-                      ? null
-                      : 'Enter a valid 6-digit PIN',
-                  decoration: const InputDecoration(labelText: 'PIN code'),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                TextFormField(
-                  controller: _instructions,
-                  maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: 'Delivery instructions (optional)',
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(onPressed: _save, child: const Text('Save')),
       ],
     );
   }

@@ -29,6 +29,8 @@ extension OrderStatusUi on OrderStatus {
 extension CustomerOrderStatusUi on CustomerOrder {
   String get customerStatusLabel => switch (status) {
     OrderStatus.readyForPickup => 'Ready for pickup',
+    OrderStatus.outForDelivery => 'Out for delivery',
+    OrderStatus.readyForDispatch => 'Ready for dispatch',
     OrderStatus.collected => 'Collected',
     OrderStatus.delivered => 'Delivered',
     OrderStatus.cancelled => 'Cancelled',
@@ -39,13 +41,17 @@ extension CustomerOrderStatusUi on CustomerOrder {
   Color get customerStatusColor => switch (status) {
     OrderStatus.cancelled || OrderStatus.rejected => AppColors.error,
     OrderStatus.delivered || OrderStatus.collected => AppColors.success,
-    OrderStatus.readyForPickup => AppColors.offer,
+    OrderStatus.readyForPickup || OrderStatus.outForDelivery => AppColors.offer,
     _ => AppColors.brand600,
   };
 
   String get customerStatusMessage => switch (status) {
     OrderStatus.readyForPickup =>
       'Your order is packed and waiting for you at the store.',
+    OrderStatus.outForDelivery =>
+      'Your order is on its way to your delivery address.',
+    OrderStatus.readyForDispatch =>
+      'Your order is packed and ready to leave the store.',
     OrderStatus.collected => 'This order was collected successfully.',
     OrderStatus.delivered => 'This order was delivered successfully.',
     OrderStatus.cancelled => 'This order was cancelled.',

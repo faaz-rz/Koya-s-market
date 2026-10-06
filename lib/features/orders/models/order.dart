@@ -1,3 +1,4 @@
+import '../../checkout/models/delivery_pin.dart';
 import '../../checkout/models/checkout_models.dart';
 
 enum PaymentStatus { pending, paid, failed, cancelled }
@@ -54,6 +55,7 @@ class CustomerOrder {
     required this.createdAt,
     this.reference,
     this.addressText,
+    this.deliveryPin,
     this.deliveryInstructions = '',
     this.customerName = '',
     this.customerPhone = '',
@@ -71,6 +73,7 @@ class CustomerOrder {
   final DateTime fulfilmentDate;
   final String slotLabel;
   final String? addressText;
+  final DeliveryPin? deliveryPin;
   final int subtotalPaise;
   final int deliveryChargePaise;
   final int discountPaise;
@@ -104,6 +107,7 @@ class CustomerOrder {
       fulfilmentDate: fulfilmentDate,
       slotLabel: slotLabel,
       addressText: addressText,
+      deliveryPin: deliveryPin,
       subtotalPaise: subtotalPaise,
       deliveryChargePaise: deliveryChargePaise,
       discountPaise: discountPaise,

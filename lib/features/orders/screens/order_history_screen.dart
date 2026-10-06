@@ -1,3 +1,4 @@
+import '../../notifications/widgets/customer_order_alerts.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -62,6 +63,7 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      const CustomerAlertSettings(),
                       Text(
                         'View your order details or quickly reorder your essentials.',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(

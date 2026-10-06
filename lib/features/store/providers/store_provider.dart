@@ -685,6 +685,9 @@ class StoreController extends Notifier<StoreState> {
       addressText: state.fulfilmentType == FulfilmentType.delivery
           ? address?.formatted
           : null,
+      deliveryPin: state.fulfilmentType == FulfilmentType.delivery
+          ? address?.deliveryPin
+          : null,
       subtotalPaise: state.subtotalPaise,
       deliveryChargePaise: state.deliveryChargePaise,
       discountPaise: state.savingsPaise + state.offerDiscountPaise,

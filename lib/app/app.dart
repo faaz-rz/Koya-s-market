@@ -1,3 +1,5 @@
+import '../features/store/widgets/store_realtime_sync.dart';
+import '../features/notifications/widgets/customer_order_alerts.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -59,7 +61,11 @@ class _KoyasAppState extends ConsumerState<KoyasApp> {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.customer,
       builder: (context, child) => NetworkStatusBanner(
-        child: CustomerBackdrop(child: child ?? const SizedBox.shrink()),
+        child: CustomerOrderAlerts(
+          child: StoreRealtimeSync(
+            child: CustomerBackdrop(child: child ?? const SizedBox.shrink()),
+          ),
+        ),
       ),
       routerConfig: router,
     );

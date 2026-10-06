@@ -1,3 +1,5 @@
+import 'delivery_pin.dart';
+
 enum FulfilmentType { pickup, delivery }
 
 enum PaymentMethod { cashOnDelivery, payAtStore, online }
@@ -14,6 +16,7 @@ class CustomerAddress {
     required this.pincode,
     this.instructions = '',
     this.isDefault = false,
+    this.deliveryPin,
   });
 
   final String id;
@@ -26,6 +29,7 @@ class CustomerAddress {
   final String pincode;
   final String instructions;
   final bool isDefault;
+  final DeliveryPin? deliveryPin;
 
   String get formatted => '$line1, $city – $pincode';
 
@@ -39,6 +43,8 @@ class CustomerAddress {
     String? pincode,
     String? instructions,
     bool? isDefault,
+    DeliveryPin? deliveryPin,
+    bool clearDeliveryPin = false,
   }) {
     return CustomerAddress(
       id: id,
@@ -51,6 +57,7 @@ class CustomerAddress {
       pincode: pincode ?? this.pincode,
       instructions: instructions ?? this.instructions,
       isDefault: isDefault ?? this.isDefault,
+      deliveryPin: clearDeliveryPin ? null : deliveryPin ?? this.deliveryPin,
     );
   }
 }

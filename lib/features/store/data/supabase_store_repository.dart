@@ -1,3 +1,4 @@
+import '../../checkout/models/delivery_pin.dart';
 import 'dart:convert';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -299,6 +300,7 @@ class SupabaseStoreRepository {
             pincode: row['pincode'] as String,
             instructions: row['instructions'] as String? ?? '',
             isDefault: row['is_default'] as bool? ?? false,
+            deliveryPin: DeliveryPin.fromJson(row['delivery_pin']),
             revision: (row['revision'] as num?)?.toInt() ?? 0,
           ),
         )
@@ -504,6 +506,7 @@ class SupabaseStoreRepository {
     'pincode': address.pincode,
     'instructions': address.instructions,
     'is_default': address.isDefault,
+    'delivery_pin': address.deliveryPin?.toJson(),
   };
 
   CustomerAddress _addressFromRow(Map<String, dynamic> row) => CustomerAddress(
@@ -517,6 +520,7 @@ class SupabaseStoreRepository {
     pincode: row['pincode'] as String,
     instructions: row['instructions'] as String? ?? '',
     isDefault: row['is_default'] as bool? ?? false,
+    deliveryPin: DeliveryPin.fromJson(row['delivery_pin']),
   );
 
   Future<CustomerAddress> addAddress(CustomerAddress address) async =>
@@ -841,6 +845,7 @@ class SupabaseStoreRepository {
       fulfilmentDate: DateTime.parse(row['fulfilment_date'] as String),
       slotLabel: row['slot_label'] as String,
       addressText: row['delivery_address_text'] as String?,
+      deliveryPin: DeliveryPin.fromJson(row['delivery_pin']),
       subtotalPaise: row['subtotal_paise'] as int,
       deliveryChargePaise: row['delivery_charge_paise'] as int,
       discountPaise: row['discount_paise'] as int,

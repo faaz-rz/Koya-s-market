@@ -22,7 +22,9 @@ Customer screens:
 - Pickup or home-delivery selection
 - Pickup goes directly to payment, followed by a ready-for-pickup notification
 - Delivery address add/edit/delete/default, PIN serviceability, instructions,
-  dates, and slots
+  dates, and slots; optional foreground GPS delivery pin with reported accuracy
+- In-app pickup, out-for-delivery, delivered and cancelled status alerts;
+  optional sound/device notification while the app is open
 - Cash or UPI at pickup and cash or UPI on delivery in the first production
   release; no payment is collected inside the app
 - Order confirmation, simple order details, eligible cancellation, reorder,
@@ -66,7 +68,8 @@ Production backend:
   20-minute stock reservation for unfinished online payments
 - Separate payment and order statuses
 - Razorpay order creation, signature verification, and signed webhook handling
-- FCM device-token registration, notification queue, and HTTP v1 dispatcher
+- Durable order-status notification queue for future server push; the current
+  release shows customer alerts while open and does not claim closed-app push
 - Keychain/Keystore-backed customer sessions, session-expiry data clearing,
   RPC-only device-token ownership, and automatic stale-token removal
 - Product-image bucket limited to JPEG/PNG/WebP and 5 MB

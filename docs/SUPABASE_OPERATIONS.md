@@ -261,3 +261,27 @@ order, check its arrival/banner/chime, navigate to Inventory, place another,
 then test blocked notification permission and disconnect/reconnect. The browser
 probe tests Web Audio and graceful permission fallback in an isolated headless
 browser; it does not certify the store computer's speakers or OS alert settings.
+
+## Customer status alerts and delivery pins (build 15)
+
+Customer order history and profile include **Enable device alerts**. Customers
+must explicitly grant notification permission; sound is optional and is only
+used after that action. The app also shows an in-app live banner without this
+permission. Initial order history is silent, status changes are deduplicated,
+and logout clears pending customer alerts. Pickup readiness, out-for-delivery,
+delivered, collected, cancelled and rejected states each have their own message.
+The current release supports foreground and open-browser alerts. It does not
+deliver a notification when the customer app or browser is fully closed.
+Closed-app push requires a later APNs/FCM credentialed release, an Edge Function
+dispatcher, platform entitlements and a physical-device test; do not describe
+the current build as background push enabled.
+
+When adding or editing a delivery address, a customer may tap **Use current
+location**. Location is requested only for that foreground action and the user
+can continue with a typed address. The saved record contains latitude,
+longitude, estimated accuracy and capture time. The checkout order copies this
+pin into an immutable snapshot, so later address edits cannot move an existing
+delivery. Staff with MFA see a **Directions to delivery pin** link in order
+details. Confirm the written address and landmark when the accuracy is
+approximate; GPS is never an exact guarantee. Account deletion removes saved
+and order pins.

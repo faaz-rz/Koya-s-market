@@ -1,3 +1,4 @@
+import '../../checkout/widgets/delivery_pin_summary.dart';
 import '../../../core/widgets/four_dot_loader.dart';
 import 'dart:async';
 
@@ -2738,6 +2739,11 @@ class _AdminOrderDetailsDialogState
                             label: 'Delivery address',
                             value: _value(order.addressText ?? ''),
                           ),
+                          if (order.deliveryPin != null)
+                            DeliveryPinSummary(
+                              pin: order.deliveryPin!,
+                              staff: true,
+                            ),
                           _AdminOrderDetailField(
                             label: 'Delivery instructions',
                             value: order.deliveryInstructions.trim().isEmpty

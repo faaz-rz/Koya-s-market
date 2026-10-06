@@ -1,3 +1,4 @@
+import '../../checkout/widgets/delivery_pin_summary.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -155,6 +156,8 @@ class OrderDetailsScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: AppSpacing.xxl),
                   _OrderDetails(order: order),
+                  if (order.deliveryPin != null)
+                    DeliveryPinSummary(pin: order.deliveryPin!),
                   const SizedBox(height: AppSpacing.xxl),
                   Row(
                     children: [
