@@ -11,6 +11,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:koyas_supermarket/features/store/providers/store_provider.dart';
 import 'package:koyas_supermarket/features/store/data/supabase_store_repository.dart';
 import 'package:koyas_supermarket/features/store/widgets/store_realtime_sync.dart';
+import 'package:koyas_supermarket/features/store/providers/store_sync_health.dart';
 
 import 'store_repository_sync_test.dart' as fixtures;
 import 'store_sync_cache_test.dart' as cache;
@@ -206,6 +207,23 @@ Future<SupabaseClient> _client(
   return client;
 }
 
+Future<void> _settleUntil(WidgetTester tester, bool Function() complete) async {
+  // HTTP response streams run in a real async zone. Observe their completion
+  // instead of assuming a busy CI runner finishes within twenty milliseconds.
+  // Pumping with no duration keeps the tested poll deadline unchanged.
+  for (var attempt = 0; attempt < 200 && !complete(); attempt++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 10)),
+    );
+    await tester.pump();
+  }
+  expect(
+    complete(),
+    isTrue,
+    reason: 'The mocked sync did not finish at the existing polling deadline.',
+  );
+}
+
 void main() {
   testWidgets(
     'repeated rejected live joins cannot postpone staff backup reads',
@@ -238,27 +256,31 @@ void main() {
       await tester.pump();
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      await _settleUntil(
+        tester,
+        () => container.read(storeSyncHealthProvider).lastSync != null,
       );
-      await tester.pump();
       socket.rejectJoins = true;
       socket.failReplication();
       await tester.pump();
       final before = reads;
+      final beforeSync = container.read(storeSyncHealthProvider).lastSync;
       await tester.pump(const Duration(seconds: 7));
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      await _settleUntil(
+        tester,
+        () =>
+            reads > before &&
+            container.read(storeSyncHealthProvider).lastSync != beforeSync,
       );
-      await tester.pump();
       expect(socket.totalJoins, greaterThan(1));
       expect(reads, before + 1);
       socket.rejectJoins = false;
       await tester.pump(const Duration(seconds: 10));
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      await _settleUntil(
+        tester,
+        () =>
+            reads > before + 1 && container.read(storeSyncHealthProvider).live,
       );
-      await tester.pump();
       expect(client.getChannels(), hasLength(1));
       expect(reads, greaterThan(before + 1));
       await tester.pumpWidget(const SizedBox());

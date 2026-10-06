@@ -26,9 +26,8 @@ abstract final class AppEnvironment {
       ? Uri.base.resolve(path).toString()
       : '';
 
-  /// Push notifications are deliberately excluded from the first store
-  /// release. A later release must add audited SDKs, APNs/FCM credentials,
-  /// platform capabilities, privacy declarations and physical-device tests.
+  /// Native push is activated only with public Firebase build configuration,
+  /// a configured server dispatcher and the required APNs provisioning.
   static const enablePushNotifications = PushConfiguration.enabled;
 
   /// Native online checkout is deliberately excluded from the first store
