@@ -123,10 +123,23 @@ draft; Reset accepts the latest count before editing again.
 
 While open, customer and staff apps keep one debounced Realtime channel for
 catalogue changes and authorized orders. Changes trigger a conditional snapshot
-after 2 seconds, with a 3-second minimum gap between completed refreshes. Polling
-remains a safety check (120 seconds browsing, 30 seconds with an active order,
-and 30 seconds if the live connection fails, plus jitter/backoff). Hidden apps
-unsubscribe and pause polling. Checkout always rechecks stock on the server.
+after 2 seconds for catalogue edits. Order events take priority, with a 100 ms
+debounce and 500 ms minimum refresh gap. The staff connection survives section
+navigation and stays connected while its signed-in tab is hidden. Customer
+apps pause/unsubscribe when backgrounded. Staff use a 5-second backup (0–1 second
+jitter, bounded backoff) if live sync is unavailable and a 60-second safety check
+when healthy. Customer safety checks remain 120 seconds browsing or 30 seconds
+with an active order/disconnected channel. Checkout rechecks stock on the server.
+
+Select **Enable order alerts** once per staff browser session to unlock the
+chime and request desktop notification permission. New orders show a persistent
+banner and unread count in the browser title; **View orders** opens the queue.
+**Test sound** and mute controls are included. Initial historical orders and
+repeated snapshots do not sound again. Reconnect catches newly missed orders.
+If notifications or audio are blocked, in-app alerts and ordering still work.
+Keep the staff tab open and signed in; these are open-dashboard alerts, not
+closed-browser push. OS/browser sleep can suspend delivery until reconnect.
+The existing MFA, idle lock and sign-out guards remain enforced.
 
 To create a catalogue item, select **Add product** in the staff inventory,
 choose an optional picture, complete the product details, and save. Pictures

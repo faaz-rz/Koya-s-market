@@ -96,6 +96,30 @@ class _Socket extends Fake implements WebSocketChannel {
     );
   }
 
+  void orderPlaced() {
+    final frame = _joinFrame!;
+    incoming.add(
+      jsonEncode([
+        frame[0],
+        null,
+        frame[2],
+        'postgres_changes',
+        {
+          'ids': [2],
+          'data': {
+            'schema': 'public',
+            'table': 'orders',
+            'type': 'INSERT',
+            'commit_timestamp': '2026-10-06T00:00:00Z',
+            'columns': [],
+            'record': {'id': 'new-order'},
+            'old_record': {},
+          },
+        },
+      ]),
+    );
+  }
+
   void failReplication() {
     final frame = _joinFrame!;
     incoming.add(
@@ -166,6 +190,93 @@ Future<SupabaseClient> _client(
 }
 
 void main() {
+  testWidgets(
+    'staff order events preempt catalogue debounce, remain live while hidden, and use a five-second backup',
+    (tester) async {
+      final socket = _Socket();
+      var reads = 0;
+      final client = (await tester.runAsync(
+        () => _client(socket, () async {
+          reads++;
+          return {...fixtures.cold(), 'is_admin': true};
+        }),
+      ))!;
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      addTearDown(() async {
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump();
+        await tester.runAsync(client.dispose);
+      });
+      final initial = await tester.runAsync(
+        () => SupabaseStoreRepository(client: client).loadStore(),
+      );
+      container.read(storeProvider.notifier).hydrateRemoteBundle(initial!);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: StoreRealtimeSync(client: client, child: const SizedBox()),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      final changes =
+          (socket.join!['config'] as Map)['postgres_changes'] as List;
+      expect(
+        changes
+            .firstWhere((dynamic c) => c['table'] == 'orders')
+            .containsKey('filter'),
+        false,
+      );
+      await tester.pump(const Duration(seconds: 1));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+      await tester.pump();
+      final before = reads;
+      socket.stockChanged();
+      await tester.pump();
+      socket.orderPlaced();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+      await tester.pump();
+      expect(
+        reads,
+        before + 1,
+      ); // Does not wait for the 2-second inventory timer.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      expect(socket.leaves, 0);
+      final hidden = reads;
+      socket.orderPlaced();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+      await tester.pump();
+      expect(reads, hidden + 1);
+      socket.failReplication();
+      await tester.pump();
+      final disconnected = reads;
+      await tester.pump(const Duration(seconds: 7));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+      await tester.pump();
+      expect(reads, disconnected + 1);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+    },
+  );
+
   testWidgets(
     'customer stock events coalesce into a fresh snapshot and hidden apps unsubscribe',
     (tester) async {

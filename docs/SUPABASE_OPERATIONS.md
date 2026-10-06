@@ -232,3 +232,30 @@ refresh after live events; the old installed builds continue polling until
 updated. A connected live update normally triggers refresh within a few seconds,
 but the elapsed time also depends on network and server response. Verify one
 staff save on a separate customer device before treating latency as measured.
+
+## Staff order alerts (build 13)
+
+Deploy the latest `main` commit to Cloudflare, then reload the staff dashboard.
+Each staff device must select **Enable order alerts** and grant browser
+notification permission. Audio requires this click, even if notifications were
+allowed previously. Use **Test sound** to check volume; mute is available.
+
+New orders trigger a prioritized refresh, a persistent banner, a browser-title
+count and, when enabled, a chime and desktop notification. Historical orders do
+not ring on login. Notifications contain no customer contact/address details.
+View orders acknowledges the alert but does not accept, charge or advance an
+order. Confirmed/cancelled orders remove their pending alert automatically.
+
+Live sync shows its actual connection/failure state. A disconnected staff tab
+checks every 5 seconds (with jitter/backoff), rather than every 30 seconds.
+Healthy live sync retains a 60-second safety check. The signed-in staff tab can
+receive live events while hidden, but a closed/suspended browser, computer sleep,
+network loss or session expiry cannot deliver these open-dashboard notifications.
+MFA, the configured idle lock, authorization checks and atomic checkout are
+unchanged. No SMS, paid audio service or notification vendor is added.
+
+Verify on two devices: keep the enabled staff dashboard open, place a customer
+order, check its arrival/banner/chime, navigate to Inventory, place another,
+then test blocked notification permission and disconnect/reconnect. The browser
+probe tests Web Audio and graceful permission fallback in an isolated headless
+browser; it does not certify the store computer's speakers or OS alert settings.

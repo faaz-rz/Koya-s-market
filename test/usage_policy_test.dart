@@ -85,7 +85,17 @@ void main() {
         live: live,
       );
       expect(delay(), const Duration(seconds: 120));
-      expect(delay(admin: true), const Duration(seconds: 30));
+      expect(delay(admin: true), const Duration(seconds: 60));
+      expect(delay(admin: true, live: false), const Duration(seconds: 5));
+      expect(delay(admin: true, failures: 1), const Duration(seconds: 10));
+      expect(
+        delay(admin: true, live: false, jitter: 7),
+        const Duration(seconds: 6),
+      );
+      expect(
+        delay(admin: true, live: false, failures: 100),
+        const Duration(seconds: 30),
+      );
       expect(delay(active: true), const Duration(seconds: 30));
       expect(delay(live: false), const Duration(seconds: 30));
       expect(delay(live: false, failures: 1), const Duration(seconds: 60));

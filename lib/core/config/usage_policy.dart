@@ -2,10 +2,14 @@
 abstract final class UsagePolicy {
   static const customerPoll = Duration(seconds: 120);
   static const activeOrderPoll = Duration(seconds: 30);
-  static const adminFallbackPoll = Duration(seconds: 30);
+  static const adminFallbackPoll = Duration(seconds: 5);
+  static const adminSafetyPoll = Duration(seconds: 60);
+  static const adminMaximumBackoff = Duration(seconds: 30);
   static const customerFallbackPoll = Duration(seconds: 30);
   static const realtimeDebounce = Duration(seconds: 2);
   static const minimumRefreshGap = Duration(seconds: 3);
+  static const orderDebounce = Duration(milliseconds: 100);
+  static const orderRefreshGap = Duration(milliseconds: 500);
   static const maximumBackoff = Duration(minutes: 10);
   static const otpCooldown = Duration(seconds: 60);
   static const otpAttemptsPerDeviceHour = 8;
@@ -21,20 +25,23 @@ abstract final class UsagePolicy {
     int jitterSeconds = 0,
   }) {
     final base = admin
-        ? adminFallbackPoll
+        ? (live && failures == 0 ? adminSafetyPoll : adminFallbackPoll)
         : !live
         ? customerFallbackPoll
         : activeOrder
         ? activeOrderPoll
         : customerPoll;
+    final maximum = admin && failures > 0
+        ? adminMaximumBackoff
+        : maximumBackoff;
     final seconds = (base.inSeconds * (1 << failures.clamp(0, 5))).clamp(
       0,
-      maximumBackoff.inSeconds,
+      maximum.inSeconds,
     );
     return Duration(
-      seconds: (seconds + jitterSeconds.clamp(0, 7)).clamp(
+      seconds: (seconds + jitterSeconds.clamp(0, admin ? 1 : 7)).clamp(
         0,
-        maximumBackoff.inSeconds,
+        maximum.inSeconds,
       ),
     );
   }

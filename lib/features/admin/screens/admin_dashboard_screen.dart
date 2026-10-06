@@ -20,6 +20,7 @@ import '../../checkout/models/checkout_models.dart';
 import '../../offers/models/store_offer.dart';
 import '../analytics/admin_sales_analytics.dart';
 import '../widgets/stock_quantity_editor.dart';
+import '../widgets/staff_order_alert_bar.dart';
 import '../printing/order_bill_printer.dart';
 import '../widgets/resource_usage_button.dart';
 import '../../orders/models/order.dart';
@@ -118,9 +119,16 @@ extension AdminSectionUi on AdminSection {
 }
 
 class AdminDashboardScreen extends ConsumerStatefulWidget {
-  const AdminDashboardScreen({this.section = AdminSection.overview, super.key});
+  const AdminDashboardScreen({
+    this.section = AdminSection.overview,
+    this.manageLiveSync = true,
+    this.orderFocusKey,
+    super.key,
+  });
 
   final AdminSection section;
+  final bool manageLiveSync;
+  final String? orderFocusKey;
 
   @override
   ConsumerState<AdminDashboardScreen> createState() =>
@@ -131,6 +139,15 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   String _filter = 'Active';
   AdminAnalyticsPeriod _analyticsPeriod = AdminAnalyticsPeriod.daily;
   bool _refreshing = false;
+
+  @override
+  void didUpdateWidget(covariant AdminDashboardScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.orderFocusKey != null &&
+        widget.orderFocusKey != oldWidget.orderFocusKey) {
+      _filter = 'Active';
+    }
+  }
 
   bool _terminal(OrderStatus status) => {
     OrderStatus.delivered,
@@ -248,56 +265,57 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       if (section != widget.section) context.go(section.path);
     }
 
-    return StoreRealtimeSync(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final desktop = constraints.maxWidth >= 980;
-          final content = _DashboardContent(
-            section: widget.section,
-            store: store,
-            activeCount: activeCount,
-            todayRevenue: todayRevenue,
-            lowStockCount: lowStock.length,
-            outOfStockCount: outOfStockCount,
-            visibleOrders: visibleOrders,
-            filter: _filter,
-            onFilterChanged: (value) => setState(() => _filter = value),
-            analyticsPeriod: _analyticsPeriod,
-            onAnalyticsPeriodChanged: (value) =>
-                setState(() => _analyticsPeriod = value),
-            terminal: _terminal,
-            onSignOut: _signOut,
-            onRefresh: AppEnvironment.hasSupabaseConfig
-                ? _refreshDashboard
-                : null,
-            refreshing: _refreshing,
-          );
-          return Scaffold(
-            backgroundColor: AppColors.canvas,
-            body: SafeArea(
-              child: desktop
-                  ? Row(
-                      children: [
-                        _AdminSidebar(
-                          selected: widget.section,
-                          onSelected: selectSection,
-                        ),
-                        const VerticalDivider(width: 1),
-                        Expanded(child: content),
-                      ],
-                    )
-                  : content,
-            ),
-            bottomNavigationBar: desktop
-                ? null
-                : _AdminBottomNavigation(
-                    selected: widget.section,
-                    onSelected: selectSection,
-                  ),
-          );
-        },
-      ),
+    final dashboard = LayoutBuilder(
+      builder: (context, constraints) {
+        final desktop = constraints.maxWidth >= 980;
+        final content = _DashboardContent(
+          section: widget.section,
+          store: store,
+          activeCount: activeCount,
+          todayRevenue: todayRevenue,
+          lowStockCount: lowStock.length,
+          outOfStockCount: outOfStockCount,
+          visibleOrders: visibleOrders,
+          filter: _filter,
+          onFilterChanged: (value) => setState(() => _filter = value),
+          analyticsPeriod: _analyticsPeriod,
+          onAnalyticsPeriodChanged: (value) =>
+              setState(() => _analyticsPeriod = value),
+          terminal: _terminal,
+          onSignOut: _signOut,
+          onRefresh: AppEnvironment.hasSupabaseConfig
+              ? _refreshDashboard
+              : null,
+          refreshing: _refreshing,
+        );
+        return Scaffold(
+          backgroundColor: AppColors.canvas,
+          body: SafeArea(
+            child: desktop
+                ? Row(
+                    children: [
+                      _AdminSidebar(
+                        selected: widget.section,
+                        onSelected: selectSection,
+                      ),
+                      const VerticalDivider(width: 1),
+                      Expanded(child: content),
+                    ],
+                  )
+                : content,
+          ),
+          bottomNavigationBar: desktop
+              ? null
+              : _AdminBottomNavigation(
+                  selected: widget.section,
+                  onSelected: selectSection,
+                ),
+        );
+      },
     );
+    return widget.manageLiveSync
+        ? StoreRealtimeSync(child: dashboard)
+        : dashboard;
   }
 }
 
@@ -350,10 +368,15 @@ class _AdminBottomNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compactLabels =
+        MediaQuery.sizeOf(context).width < 360 &&
+        MediaQuery.textScalerOf(context).scale(12) > 14;
     return NavigationBar(
       key: const Key('admin-bottom-navigation'),
       selectedIndex: selected.index,
-      labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+      labelBehavior: compactLabels
+          ? NavigationDestinationLabelBehavior.alwaysHide
+          : NavigationDestinationLabelBehavior.onlyShowSelected,
       onDestinationSelected: (index) => onSelected(AdminSection.values[index]),
       destinations: [
         for (final section in AdminSection.values)
@@ -516,17 +539,6 @@ class _DashboardContent extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  if (AppEnvironment.hasSupabaseConfig) ...[
-                    const Tooltip(
-                      message: 'Live updates with a 30-second fallback',
-                      child: Icon(
-                        Icons.sensors_rounded,
-                        size: 18,
-                        color: AppColors.success,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                  ],
                   if (onRefresh != null) ...[
                     IconButton(
                       tooltip: 'Refresh orders and inventory',
@@ -552,6 +564,12 @@ class _DashboardContent extends ConsumerWidget {
                   alignment: Alignment.centerLeft,
                   child: ResourceUsageButton(),
                 ),
+              const SizedBox(height: AppSpacing.md),
+              StaffOrderAlertBar(
+                onOpenOrders: () => context.go(
+                  '/orders?focus=${DateTime.now().microsecondsSinceEpoch}',
+                ),
+              ),
               const SizedBox(height: AppSpacing.xxxl),
               KeyedSubtree(
                 key: ValueKey<AdminSection>(section),

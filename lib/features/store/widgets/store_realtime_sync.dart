@@ -10,6 +10,7 @@ import '../../../core/config/usage_policy.dart';
 import '../../orders/models/order.dart';
 import '../data/supabase_store_repository.dart';
 import '../providers/store_provider.dart';
+import '../providers/store_sync_health.dart';
 
 /// One foreground channel delivers catalogue changes and authorized orders.
 /// Conditional snapshots remain the source of truth, with polling if the live
@@ -33,6 +34,7 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
   bool _refreshing = false;
   bool _foreground = true;
   bool _refreshAgain = false;
+  bool _refreshAgainUrgent = false;
   int _failures = 0;
   DateTime? _lastRefresh;
   final _random = Random();
@@ -49,9 +51,9 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
 
   bool get _connected =>
       mounted &&
-      _foreground &&
       (widget.client != null || AppEnvironment.hasSupabaseConfig) &&
-      _client.auth.currentUser != null;
+      _client.auth.currentUser != null &&
+      (_foreground || ref.read(storeProvider).isAdminAccount);
 
   void _start() {
     if (!_connected) {
@@ -87,6 +89,7 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
     _channel = channel;
     _channelUserId = userId;
     _channelAdmin = admin;
+    ref.read(storeSyncHealthProvider.notifier).connection(false);
     channel
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
@@ -105,7 +108,7 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
                   column: 'user_id',
                   value: userId,
                 ),
-          callback: (_) => _scheduleRefresh(),
+          callback: (_) => _scheduleRefresh(urgent: true),
         )
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
@@ -122,9 +125,11 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
         .subscribe((status, error) {
           if (!_connected || !identical(_channel, channel)) return;
           _live = status == RealtimeSubscribeStatus.subscribed;
+          ref.read(storeSyncHealthProvider.notifier).connection(_live);
+          if (_live) _failures = 0;
           _schedulePoll();
           // Refresh after joining/rejoining to cover the subscription gap.
-          if (_live) _scheduleRefresh();
+          if (_live) _scheduleRefresh(urgent: admin);
         });
   }
 
@@ -145,14 +150,27 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
     );
   }
 
-  void _scheduleRefresh() {
-    if (!_connected || _debounce?.isActive == true || _failures > 0) return;
+  void _scheduleRefresh({bool urgent = false}) {
+    if (!_connected) return;
+    if (_refreshing) {
+      _refreshAgain = true;
+      _refreshAgainUrgent = _refreshAgainUrgent || urgent;
+      return;
+    }
+    if (_debounce?.isActive == true && !urgent) return;
+    _debounce?.cancel();
+    final gap = urgent
+        ? UsagePolicy.orderRefreshGap
+        : UsagePolicy.minimumRefreshGap;
+    final debounce = urgent
+        ? UsagePolicy.orderDebounce
+        : UsagePolicy.realtimeDebounce;
     final elapsed = _lastRefresh == null
-        ? UsagePolicy.minimumRefreshGap
+        ? gap
         : DateTime.now().difference(_lastRefresh!);
     final delay = max(
-      UsagePolicy.realtimeDebounce.inMilliseconds,
-      UsagePolicy.minimumRefreshGap.inMilliseconds - elapsed.inMilliseconds,
+      debounce.inMilliseconds,
+      gap.inMilliseconds - elapsed.inMilliseconds,
     );
     _debounce = Timer(Duration(milliseconds: delay), _refresh);
   }
@@ -172,17 +190,21 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
       if (_connected && _client.auth.currentUser?.id == userId) {
         ref.read(storeProvider.notifier).hydrateRemoteBundle(bundle);
         _failures = 0;
+        ref.read(storeSyncHealthProvider.notifier).synced();
         _start();
       }
     } catch (_) {
       _failures++;
+      if (mounted) ref.read(storeSyncHealthProvider.notifier).failed(_failures);
     } finally {
       _refreshing = false;
       _lastRefresh = DateTime.now();
       _schedulePoll();
       if (_refreshAgain) {
         _refreshAgain = false;
-        _scheduleRefresh();
+        final urgent = _refreshAgainUrgent;
+        _refreshAgainUrgent = false;
+        _scheduleRefresh(urgent: urgent);
       }
     }
   }
@@ -194,7 +216,7 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
     _channelAdmin = null;
     _live = false;
     if (channel != null) {
-      unawaited(_client.removeChannel(channel));
+      unawaited(_client.removeChannel(channel).catchError((_) => 'error'));
     }
   }
 
@@ -203,7 +225,11 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
     _foreground = state == AppLifecycleState.resumed;
     if (_foreground) {
       _start();
-      _scheduleRefresh();
+      _scheduleRefresh(urgent: ref.read(storeProvider).isAdminAccount);
+    } else if (ref.read(storeProvider).isAdminAccount) {
+      // An open staff tab remains an order terminal even when another tab has
+      // focus. Browsers may suspend a tab; reconnect/resume closes that gap.
+      _start();
     } else {
       _poll?.cancel();
       _debounce?.cancel();

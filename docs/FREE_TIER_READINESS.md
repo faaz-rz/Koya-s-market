@@ -24,11 +24,14 @@ measurement or a guarantee of free hosting.
   reuse the previous bundle and do not rebuild the whole store state.
 - Customer and staff sessions use one Realtime channel while foregrounded.
   Customer orders are filtered to the signed-in user and RLS remains enforced.
-  Product/order events trigger a conditional snapshot after 2 seconds with a
-  3-second minimum gap. Safety polling is 120 seconds while browsing, 30 seconds
-  with an active order or a failed live connection, plus 0–7 seconds jitter.
-  Staff also retain a 30-second fallback. Hidden/background sessions stop
-  polling and unsubscribe; failures back off up to 10 minutes. Live updates
+  Product events trigger a conditional snapshot after 2 seconds; order events
+  preempt that timer (100 ms debounce, 500 ms gap). Customer safety polling is
+  120 seconds browsing or 30 seconds with an active order/failed live connection,
+  plus 0–7 seconds jitter. Staff poll every 60 seconds when healthy or 5 seconds
+  when disconnected, with 0–1 second jitter and at most 30 seconds of backoff.
+  Hidden customer apps pause/unsubscribe. A signed-in staff tab retains its live
+  channel while hidden to receive order alerts, subject to browser suspension
+  and the existing idle lock. Customer failures back off up to 10 minutes. Live updates
   consume Realtime connections/messages and event-triggered snapshot traffic;
   include foreground customers in usage planning. Checkout always rechecks
   authoritative prices, stock and offers transactionally.

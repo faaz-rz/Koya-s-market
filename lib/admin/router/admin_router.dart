@@ -7,6 +7,7 @@ import '../../features/store/providers/store_provider.dart';
 import '../screens/admin_login_screen.dart';
 import '../screens/admin_splash_screen.dart';
 import '../widgets/admin_session_guard.dart';
+import '../../features/store/widgets/store_realtime_sync.dart';
 
 final adminRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
@@ -37,35 +38,47 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
-      GoRoute(
-        path: '/dashboard',
-        builder: (context, state) => const AdminSessionGuard(
-          child: AdminDashboardScreen(section: AdminSection.overview),
-        ),
-      ),
-      GoRoute(
-        path: '/analytics',
-        builder: (context, state) => const AdminSessionGuard(
-          child: AdminDashboardScreen(section: AdminSection.analytics),
-        ),
-      ),
-      GoRoute(
-        path: '/pricing',
-        builder: (context, state) => const AdminSessionGuard(
-          child: AdminDashboardScreen(section: AdminSection.pricing),
-        ),
-      ),
-      GoRoute(
-        path: '/orders',
-        builder: (context, state) => const AdminSessionGuard(
-          child: AdminDashboardScreen(section: AdminSection.orders),
-        ),
-      ),
-      GoRoute(
-        path: '/inventory',
-        builder: (context, state) => const AdminSessionGuard(
-          child: AdminDashboardScreen(section: AdminSection.inventory),
-        ),
+      ShellRoute(
+        builder: (context, state, child) =>
+            AdminSessionGuard(child: StoreRealtimeSync(child: child)),
+        routes: [
+          GoRoute(
+            path: '/dashboard',
+            builder: (context, state) => const AdminDashboardScreen(
+              section: AdminSection.overview,
+              manageLiveSync: false,
+            ),
+          ),
+          GoRoute(
+            path: '/analytics',
+            builder: (context, state) => const AdminDashboardScreen(
+              section: AdminSection.analytics,
+              manageLiveSync: false,
+            ),
+          ),
+          GoRoute(
+            path: '/pricing',
+            builder: (context, state) => const AdminDashboardScreen(
+              section: AdminSection.pricing,
+              manageLiveSync: false,
+            ),
+          ),
+          GoRoute(
+            path: '/orders',
+            builder: (context, state) => AdminDashboardScreen(
+              section: AdminSection.orders,
+              manageLiveSync: false,
+              orderFocusKey: state.uri.queryParameters['focus'],
+            ),
+          ),
+          GoRoute(
+            path: '/inventory',
+            builder: (context, state) => const AdminDashboardScreen(
+              section: AdminSection.inventory,
+              manageLiveSync: false,
+            ),
+          ),
+        ],
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

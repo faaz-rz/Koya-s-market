@@ -8,7 +8,7 @@ const nonnegative = (n, name) => {
 export function estimateBudget(config, measured) {
   const t = config.traffic, l = config.limits;
   for (const [key, value] of Object.entries(t)) nonnegative(value, key);
-  for (const key of ['peak_foreground_customer_sessions','average_foreground_customer_sessions','average_realtime_event_bytes']) nonnegative(t[key], key);
+  for (const key of ['peak_foreground_customer_sessions','average_foreground_customer_sessions','average_realtime_event_bytes','staff_fallback_fraction']) nonnegative(t[key], key);
   for (const [key, value] of Object.entries(t).filter(([key]) => key.endsWith('_fraction'))) {
     if (value > 1) throw new Error(`Fraction exceeds 1: ${key}`);
   }
@@ -17,11 +17,12 @@ export function estimateBudget(config, measured) {
   const polls = sessions * t.session_minutes * ((1-t.active_order_session_fraction)/2 + t.active_order_session_fraction*2);
   const liveCustomerRefreshes = 30*t.realtime_events_per_day*t.average_foreground_customer_sessions;
   const realtimeMessages = 30*t.realtime_events_per_day*(t.average_foreground_customer_sessions+t.peak_staff_sessions);
+  const staffPollsPerHour = 60*(1-t.staff_fallback_fraction)+720*t.staff_fallback_fraction;
   const imageBytes = sessions * t.images_per_session * (1-t.device_image_cache_hit_fraction) * t.average_image_bytes;
   const apiBytes = t.monthly_active_users * t.cold_catalogues_per_user_month * measured.cold_response_bytes
     + polls * ((1-t.changed_poll_fraction) * measured.unchanged_response_bytes + t.changed_poll_fraction * measured.single_stock_change_bytes)
     + liveCustomerRefreshes * measured.single_stock_change_bytes
-    + sessions*t.other_api_bytes_per_session + t.admin_hours_per_day*120*30*t.admin_average_sync_bytes;
+    + sessions*t.other_api_bytes_per_session + t.admin_hours_per_day*staffPollsPerHour*30*t.admin_average_sync_bytes;
   const usage = {
     monthly_active_users: t.monthly_active_users,
     // One-year planning horizon, not a claim that historical data stays flat.

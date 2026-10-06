@@ -28,6 +28,7 @@
     "average_image_bytes": 40000,
     "other_api_bytes_per_session": 20000,
     "admin_hours_per_day": 8,
+    "staff_fallback_fraction": 0.1,
     "admin_average_sync_bytes": 25000,
     "peak_staff_sessions": 2,
     "peak_foreground_customer_sessions": 100,
