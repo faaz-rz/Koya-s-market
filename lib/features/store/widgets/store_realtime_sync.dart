@@ -31,6 +31,10 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
   bool _live = false;
   Timer? _debounce;
   Timer? _poll;
+  Timer? _channelRetry;
+  DateTime? _nextPoll;
+  int _channelFailures = 0;
+  int _channelGeneration = 0;
   bool _refreshing = false;
   bool _foreground = true;
   bool _refreshAgain = false;
@@ -85,7 +89,9 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
     final client = _client;
     final userId = client.auth.currentUser!.id;
     final admin = ref.read(storeProvider).isAdminAccount;
-    final channel = client.channel('store-live-${identityHashCode(this)}');
+    final channel = client.channel(
+      'store-live-${identityHashCode(this)}-${++_channelGeneration}',
+    );
     _channel = channel;
     _channelUserId = userId;
     _channelAdmin = admin;
@@ -95,7 +101,7 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'products',
-          callback: (_) => _scheduleRefresh(),
+          callback: (_) => _liveChange(),
         )
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
@@ -108,46 +114,74 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
                   column: 'user_id',
                   value: userId,
                 ),
-          callback: (_) => _scheduleRefresh(urgent: true),
+          callback: (_) => _liveChange(urgent: true),
         )
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'store_settings',
-          callback: (_) => _scheduleRefresh(),
+          callback: (_) => _liveChange(),
         )
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'offers',
-          callback: (_) => _scheduleRefresh(),
+          callback: (_) => _liveChange(),
         )
         .subscribe((status, error) {
           if (!_connected || !identical(_channel, channel)) return;
           _live = status == RealtimeSubscribeStatus.subscribed;
           ref.read(storeSyncHealthProvider.notifier).connection(_live);
-          if (_live) _failures = 0;
+          if (_live) {
+            _failures = 0;
+            _channelRetry?.cancel();
+          } else {
+            _retryChannel(channel);
+          }
           _schedulePoll();
           // Refresh after joining/rejoining to cover the subscription gap.
           if (_live) _scheduleRefresh(urgent: admin);
         });
   }
 
-  void _schedulePoll() {
-    _poll?.cancel();
+  void _liveChange({bool urgent = false}) {
+    _channelFailures = 0;
+    _scheduleRefresh(urgent: urgent);
+  }
+
+  void _retryChannel(RealtimeChannel failedChannel) {
+    if (!_connected || _channelRetry?.isActive == true) return;
+    final seconds = min(30, 1 << _channelFailures.clamp(0, 5));
+    _channelFailures++;
+    _channelRetry = Timer(Duration(seconds: seconds), () {
+      if (!_connected || _live || !identical(_channel, failedChannel)) return;
+      _closeChannel();
+      _subscribe();
+    });
+  }
+
+  void _schedulePoll({bool reset = false}) {
     if (!_connected) return;
     final store = ref.read(storeProvider);
     final activeOrder = _hasActiveOrder(store);
-    _poll = Timer(
-      UsagePolicy.pollDelay(
-        admin: store.isAdminAccount,
-        activeOrder: activeOrder,
-        failures: _failures,
-        live: _live,
-        jitterSeconds: _random.nextInt(8),
-      ),
-      _refresh,
+    final delay = UsagePolicy.pollDelay(
+      admin: store.isAdminAccount,
+      activeOrder: activeOrder,
+      failures: _failures,
+      live: _live,
+      jitterSeconds: _random.nextInt(8),
     );
+    final next = DateTime.now().add(delay);
+    // Repeated failed joins must not keep postponing the backup read.
+    if (!reset &&
+        _poll?.isActive == true &&
+        _nextPoll != null &&
+        !_nextPoll!.isAfter(next)) {
+      return;
+    }
+    _poll?.cancel();
+    _nextPoll = next;
+    _poll = Timer(delay, _refresh);
   }
 
   void _scheduleRefresh({bool urgent = false}) {
@@ -199,7 +233,7 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
     } finally {
       _refreshing = false;
       _lastRefresh = DateTime.now();
-      _schedulePoll();
+      _schedulePoll(reset: true);
       if (_refreshAgain) {
         _refreshAgain = false;
         final urgent = _refreshAgainUrgent;
@@ -210,6 +244,7 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
   }
 
   void _closeChannel() {
+    _channelRetry?.cancel();
     final channel = _channel;
     _channel = null;
     _channelUserId = null;
@@ -242,6 +277,7 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
     WidgetsBinding.instance.removeObserver(this);
     _debounce?.cancel();
     _poll?.cancel();
+    _channelRetry?.cancel();
     _closeChannel();
     super.dispose();
   }

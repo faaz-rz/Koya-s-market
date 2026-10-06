@@ -233,7 +233,7 @@ updated. A connected live update normally triggers refresh within a few seconds,
 but the elapsed time also depends on network and server response. Verify one
 staff save on a separate customer device before treating latency as measured.
 
-## Staff order alerts (build 13)
+## Staff order alerts (build 14)
 
 Deploy the latest `main` commit to Cloudflare, then reload the staff dashboard.
 Each staff device must select **Enable order alerts** and grant browser
@@ -248,6 +248,8 @@ order. Confirmed/cancelled orders remove their pending alert automatically.
 
 Live sync shows its actual connection/failure state. A disconnected staff tab
 checks every 5 seconds (with jitter/backoff), rather than every 30 seconds.
+Failed live subscriptions also rebuild automatically with bounded backoff;
+rejected join attempts do not postpone the backup read.
 Healthy live sync retains a 60-second safety check. The signed-in staff tab can
 receive live events while hidden, but a closed/suspended browser, computer sleep,
 network loss or session expiry cannot deliver these open-dashboard notifications.

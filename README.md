@@ -130,6 +130,8 @@ apps pause/unsubscribe when backgrounded. Staff use a 5-second backup (0–1 sec
 jitter, bounded backoff) if live sync is unavailable and a 60-second safety check
 when healthy. Customer safety checks remain 120 seconds browsing or 30 seconds
 with an active order/disconnected channel. Checkout rechecks stock on the server.
+Failed live subscriptions rebuild with bounded backoff; failed join attempts
+cannot postpone the backup snapshot timer.
 
 Select **Enable order alerts** once per staff browser session to unlock the
 chime and request desktop notification permission. New orders show a persistent

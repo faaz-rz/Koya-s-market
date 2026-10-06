@@ -17,11 +17,21 @@ import 'store_sync_cache_test.dart' as cache;
 
 // Exercise the real Supabase channel protocol without a hosted account/token.
 class _Socket extends Fake implements WebSocketChannel {
+  _Socket({this.root});
+  final _Socket? root;
+  final replacements = <_Socket>[];
   final incoming = StreamController<dynamic>();
   late final _Sink output = _Sink(this);
   Map<String, dynamic>? join;
   List<dynamic>? _joinFrame;
   int leaves = 0;
+  bool _rejectJoins = false;
+  bool get rejectJoins => root?.rejectJoins ?? _rejectJoins;
+  set rejectJoins(bool value) => _rejectJoins = value;
+  int joins = 0;
+  int get totalJoins =>
+      joins +
+      replacements.fold<int>(0, (total, socket) => total + socket.joins);
 
   @override
   Stream<dynamic> get stream => incoming.stream;
@@ -38,6 +48,7 @@ class _Socket extends Fake implements WebSocketChannel {
     final frame = jsonDecode(raw as String) as List;
     final payload = frame[4] as Map;
     if (frame[3] == 'phx_join') {
+      joins++;
       _joinFrame = frame;
       join = Map<String, dynamic>.from(payload);
       final changes = (payload['config'] as Map)['postgres_changes'] as List;
@@ -48,8 +59,9 @@ class _Socket extends Fake implements WebSocketChannel {
           frame[2],
           'phx_reply',
           {
-            'status': 'ok',
+            'status': rejectJoins ? 'error' : 'ok',
             'response': {
+              if (rejectJoins) 'reason': 'test join rejected',
               'postgres_changes': [
                 for (var i = 0; i < changes.length; i++)
                   {...changes[i] as Map, 'id': i + 1},
@@ -154,8 +166,13 @@ Future<SupabaseClient> _client(
     'test-public',
     authOptions: const AuthClientOptions(autoRefreshToken: false),
     realtimeClientOptions: RealtimeClientOptions(
-      transport: (_, _) => socket.incoming.isClosed ? _Socket() : socket,
-      disconnectOnEmptyChannelsAfter: Duration.zero,
+      transport: (_, _) {
+        if (!socket.incoming.isClosed) return socket;
+        final replacement = _Socket(root: socket);
+        socket.replacements.add(replacement);
+        return replacement;
+      },
+      disconnectOnEmptyChannelsAfter: const Duration(seconds: 60),
     ),
     httpClient: MockClient((request) async {
       final response = fixtures.response(
@@ -190,6 +207,65 @@ Future<SupabaseClient> _client(
 }
 
 void main() {
+  testWidgets(
+    'repeated rejected live joins cannot postpone staff backup reads',
+    (tester) async {
+      final socket = _Socket();
+      var reads = 0;
+      final client = (await tester.runAsync(
+        () => _client(socket, () async {
+          reads++;
+          return {...fixtures.cold(), 'is_admin': true};
+        }),
+      ))!;
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump();
+        await tester.runAsync(client.dispose);
+      });
+      final initial = await tester.runAsync(
+        () => SupabaseStoreRepository(client: client).loadStore(),
+      );
+      container.read(storeProvider.notifier).hydrateRemoteBundle(initial!);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: StoreRealtimeSync(client: client, child: const SizedBox()),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+      await tester.pump();
+      socket.rejectJoins = true;
+      socket.failReplication();
+      await tester.pump();
+      final before = reads;
+      await tester.pump(const Duration(seconds: 7));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+      await tester.pump();
+      expect(socket.totalJoins, greaterThan(1));
+      expect(reads, before + 1);
+      socket.rejectJoins = false;
+      await tester.pump(const Duration(seconds: 10));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+      await tester.pump();
+      expect(client.getChannels(), hasLength(1));
+      expect(reads, greaterThan(before + 1));
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+      await tester.runAsync(() => client.realtime.disconnect());
+    },
+  );
   testWidgets(
     'staff order events preempt catalogue debounce, remain live while hidden, and use a five-second backup',
     (tester) async {
@@ -274,6 +350,7 @@ void main() {
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pumpWidget(const SizedBox());
       await tester.pump();
+      await tester.runAsync(() => client.realtime.disconnect());
     },
   );
 
@@ -364,6 +441,7 @@ void main() {
       await tester.pump();
       await tester.pumpWidget(const SizedBox());
       await tester.pump();
+      await tester.runAsync(() => client.realtime.disconnect());
     },
   );
 
@@ -409,6 +487,7 @@ void main() {
       expect(reads, before + 1);
       await tester.pumpWidget(const SizedBox());
       await tester.pump();
+      await tester.runAsync(() => client.realtime.disconnect());
     },
   );
 }
