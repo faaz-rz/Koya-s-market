@@ -8,6 +8,15 @@ CLI deployments do not replay the schema. The 3,380-row billing catalogue was
 uploaded in eight bounded, idempotent batches because of the tool request limit.
 No customer accounts or orders were created during deployment.
 
+Production website: [koya-s-market.faazlance.workers.dev](https://koya-s-market.faazlance.workers.dev).
+The native app's privacy and deletion URLs are recorded in
+`config/production.json`. That file contains only public frontend configuration;
+pass it to customer release builds with
+`--dart-define-from-file=config/production.json`. Confirm both legal pages are
+publicly accessible before shipping a native release. Cloudflare's dashboard
+build still receives its two Supabase values through **Build variables and
+secrets**.
+
 ## Finish email delivery before launch
 
 In **Authentication**, keep Email sign-up and email confirmation enabled.
@@ -26,9 +35,22 @@ Enter SMTP credentials directly in the dashboard, never in a Flutter build.
 Set **both Confirm signup and Magic Link** email templates to the contents of
 `supabase/templates/email-code.html`, with subject **Your Koya Stores verification
 code**. The `{{ .Token }}` field provides a typed code for new customers, returning
-customers, staff and account-deletion verification. Set the Auth Site URL and
-allowed redirect origin to your final dashboard HTTPS address. See
+customers, staff and account-deletion verification. See
 [email templates](https://supabase.com/docs/guides/auth/auth-email-templates).
+
+Open [Authentication → URL Configuration](https://supabase.com/dashboard/project/vorhfltcohtwtehngzay/auth/url-configuration)
+and save these hosted settings:
+
+| Setting | Value |
+| --- | --- |
+| Site URL | `https://koya-s-market.faazlance.workers.dev` |
+| Additional Redirect URL | `https://koya-s-market.faazlance.workers.dev/` |
+| Additional Redirect URL | `https://koya-s-market.faazlance.workers.dev/login` |
+
+These exact production paths are also recorded in `supabase/config.toml`.
+Editing that file or deploying SQL does not change the hosted Auth URL settings.
+Typed email codes remain the app's sign-in method; no browser callback route is
+required for code verification. See [Supabase redirect URLs](https://supabase.com/docs/guides/auth/redirect-urls).
 
 Test a first signup, returning login, resend and expired code using an address
 outside your Supabase team. Complete one disposable customer's deletion with no
@@ -104,7 +126,9 @@ Keep secret/service-role/SMTP credentials out of this configuration.
 Save and retry the latest `main` build. After it succeeds, check the deployed
 HTTPS site, `/login`, `/dashboard`, `/privacy`, `/delete-account`, and
 `/flutter_bootstrap.js`. The dashboard route must show sign-in to a signed-out
-visitor. Set the Supabase Auth Site URL to the actual deployed HTTPS address.
+visitor. The expected production address is
+`https://koya-s-market.faazlance.workers.dev`; set the hosted Supabase Auth URL
+settings above after Cloudflare succeeds.
 
 An error saying `/opt/buildhome/repo/build/web` does not exist means compilation
 was skipped. Confirm the deploy command is `bash tool/deploy_cloudflare.sh` and

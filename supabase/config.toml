@@ -2,6 +2,13 @@ project_id = "koyas-supermarket"
 
 # Customer verification uses email only. Mirror these Auth settings in the
 # hosted project before launch; migrations do not change hosted Auth settings.
+[auth]
+site_url = "https://koya-s-market.faazlance.workers.dev"
+additional_redirect_urls = [
+  "https://koya-s-market.faazlance.workers.dev/",
+  "https://koya-s-market.faazlance.workers.dev/login"
+]
+
 [auth.email]
 enable_signup = true
 enable_confirmations = true

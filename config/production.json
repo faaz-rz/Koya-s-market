@@ -1,0 +1,7 @@
+{
+  "SUPABASE_URL": "https://vorhfltcohtwtehngzay.supabase.co",
+  "SUPABASE_ANON_KEY": "sb_publishable_cdxwG7d4ARsvAOSOlGx3hA_5g1J03g7",
+  "PRIVACY_POLICY_URL": "https://koya-s-market.faazlance.workers.dev/privacy",
+  "ACCOUNT_DELETION_URL": "https://koya-s-market.faazlance.workers.dev/delete-account",
+  "ADMIN_IDLE_TIMEOUT_MINUTES": "15"
+}
