@@ -16,9 +16,17 @@ import '../providers/store_sync_health.dart';
 /// Conditional snapshots remain the source of truth, with polling if the live
 /// connection fails. Hidden apps unsubscribe; checkout validates stock again.
 class StoreRealtimeSync extends ConsumerStatefulWidget {
-  const StoreRealtimeSync({required this.child, this.client, super.key});
+  const StoreRealtimeSync({
+    required this.child,
+    this.client,
+    this.now,
+    super.key,
+  });
   final Widget child;
   final SupabaseClient? client;
+
+  /// Lets protocol tests advance timers and deadlines using the same clock.
+  final DateTime Function()? now;
   @override
   ConsumerState<StoreRealtimeSync> createState() => _StoreRealtimeSyncState();
 }
@@ -43,6 +51,7 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
   DateTime? _lastRefresh;
   final _random = Random();
   SupabaseClient get _client => widget.client ?? Supabase.instance.client;
+  DateTime get _now => widget.now?.call() ?? DateTime.now();
 
   @override
   void initState() {
@@ -171,7 +180,7 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
       live: _live,
       jitterSeconds: _random.nextInt(8),
     );
-    final next = DateTime.now().add(delay);
+    final next = _now.add(delay);
     // Repeated failed joins must not keep postponing the backup read.
     if (!reset &&
         _poll?.isActive == true &&
@@ -199,9 +208,7 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
     final debounce = urgent
         ? UsagePolicy.orderDebounce
         : UsagePolicy.realtimeDebounce;
-    final elapsed = _lastRefresh == null
-        ? gap
-        : DateTime.now().difference(_lastRefresh!);
+    final elapsed = _lastRefresh == null ? gap : _now.difference(_lastRefresh!);
     final delay = max(
       debounce.inMilliseconds,
       gap.inMilliseconds - elapsed.inMilliseconds,
@@ -232,7 +239,7 @@ class _StoreRealtimeSyncState extends ConsumerState<StoreRealtimeSync>
       if (mounted) ref.read(storeSyncHealthProvider.notifier).failed(_failures);
     } finally {
       _refreshing = false;
-      _lastRefresh = DateTime.now();
+      _lastRefresh = _now;
       _schedulePoll(reset: true);
       if (_refreshAgain) {
         _refreshAgain = false;

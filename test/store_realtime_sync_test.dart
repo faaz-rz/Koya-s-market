@@ -250,7 +250,11 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: StoreRealtimeSync(client: client, child: const SizedBox()),
+          child: StoreRealtimeSync(
+            client: client,
+            now: tester.binding.clock.now,
+            child: const SizedBox(),
+          ),
         ),
       );
       await tester.pump();
@@ -316,7 +320,11 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: StoreRealtimeSync(client: client, child: const SizedBox()),
+          child: StoreRealtimeSync(
+            client: client,
+            now: tester.binding.clock.now,
+            child: const SizedBox(),
+          ),
         ),
       );
       await tester.pump();
@@ -408,7 +416,11 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: StoreRealtimeSync(client: client, child: const SizedBox()),
+          child: StoreRealtimeSync(
+            client: client,
+            now: tester.binding.clock.now,
+            child: const SizedBox(),
+          ),
         ),
       );
       await tester.pump();
@@ -488,7 +500,11 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: StoreRealtimeSync(client: client, child: const SizedBox()),
+          child: StoreRealtimeSync(
+            client: client,
+            now: tester.binding.clock.now,
+            child: const SizedBox(),
+          ),
         ),
       );
       await tester.pump();
