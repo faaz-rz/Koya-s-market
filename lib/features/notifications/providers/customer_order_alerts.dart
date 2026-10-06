@@ -4,6 +4,7 @@ import '../../orders/models/order.dart';
 import '../../orders/widgets/order_status_ui.dart';
 import '../../store/providers/store_provider.dart';
 import '../services/customer_alert_platform.dart';
+import 'push_session.dart';
 
 /// Initial history is silent; a status is announced once per signed-in session.
 class CustomerStatusTracker {
@@ -168,24 +169,33 @@ class CustomerOrderAlerts extends Notifier<CustomerAlertState> {
       sound: state.sound,
     );
     final enabled = await platform.enable().catchError((Object _) => false);
+    final background = enabled
+        ? await ref.read(pushSessionProvider).enable()
+        : false;
     if (!ref.mounted || generation != _generation) return;
     state = CustomerAlertState(
       updates: state.updates,
       enabled: enabled,
       sound: state.sound,
       note: enabled
-          ? 'Device alerts enabled while the app is open.'
+          ? background
+                ? 'Order alerts enabled.'
+                : 'Device alerts enabled while the app is open.'
           : 'Device alerts are blocked or unavailable. Order updates remain visible here.',
     );
   }
 
-  void mute(bool muted) => state = CustomerAlertState(
-    updates: state.updates,
-    enabled: state.enabled,
-    enabling: state.enabling,
-    sound: !muted,
-    note: state.note,
-  );
+  void mute(bool muted) {
+    unawaited(ref.read(pushSessionProvider).sound(!muted));
+    state = CustomerAlertState(
+      updates: state.updates,
+      enabled: state.enabled,
+      enabling: state.enabling,
+      sound: !muted,
+      note: state.note,
+    );
+  }
+
   void dismiss() => state = CustomerAlertState(
     enabled: state.enabled,
     enabling: state.enabling,

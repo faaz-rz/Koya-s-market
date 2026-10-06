@@ -276,6 +276,27 @@ Closed-app push requires a later APNs/FCM credentialed release, an Edge Function
 dispatcher, platform entitlements and a physical-device test; do not describe
 the current build as background push enabled.
 
+Build 16 adds the native push client and deploys the dispatch function, private
+Vault authorization, queue leases, per-device acknowledgements, status-change
+wakeup and retry schedule. The dispatcher stays disabled because Firebase/APNs
+credentials are missing. Follow [PUSH_NOTIFICATIONS.md](PUSH_NOTIFICATIONS.md)
+for activation and physical-device verification.
+
+## Saved customer carts (build 16)
+
+Customer carts are saved as product IDs and quantities in encrypted device
+storage, separately by authenticated user ID. Normal logout clears the visible
+cart and retains the saved copy for that account's next sign-in on the same
+device. App reopening restores it after the account/catalogue loads. Confirmed
+checkout removes only the submitted quantities; edits made during the request
+remain. No prices, stock, profile, address, or payment data is trusted from this
+cache. Account deletion removes its saved cart. Storage failures show a recovery
+message and never block ordinary ordering or disclose a different user's cart.
+
+This is device persistence, not cross-device synchronization. Clearing app data
+or browser storage can remove it. The client/server still validate prices,
+offers, stock, basket bounds and account ownership when ordering.
+
 When adding or editing a delivery address, a customer may tap **Use current
 location**. Location is requested only for that foreground action and the user
 can continue with a typed address. The saved record contains latitude,

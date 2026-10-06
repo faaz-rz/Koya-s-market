@@ -1,5 +1,6 @@
 import '../../notifications/widgets/customer_order_alerts.dart';
 import '../../checkout/widgets/address_editor_dialog.dart';
+import '../../cart/providers/cart_persistence.dart';
 import '../../../core/services/network_status.dart';
 import '../../../core/utils/transaction_request.dart';
 import 'package:flutter/material.dart';
@@ -196,7 +197,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       animationStyle: AppMotion.dialogStyle(context),
       builder: (context) => AlertDialog(
         title: const Text('Log out?'),
-        content: const Text('Your cart on this device will be cleared.'),
+        content: const Text(
+          'Your cart will be saved on this device and will return when you sign in to this account again.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -210,6 +213,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
     );
     if (confirmed == true) {
+      await ref.read(cartPersistenceProvider).restored;
+      await ref.read(cartPersistenceProvider).flushed;
       if (AppEnvironment.hasSupabaseConfig) {
         await AuthRepository().signOut();
       }

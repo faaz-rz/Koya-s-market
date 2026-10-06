@@ -31,6 +31,10 @@ account_deletion_url=""
 review_login=""
 push_notifications=""
 razorpay_payments=""
+firebase_project=""
+firebase_sender=""
+firebase_ios_key=""
+firebase_ios_app=""
 
 if [[ -n "${DART_DEFINES:-}" ]]; then
   IFS=',' read -r -a encoded_defines <<<"${DART_DEFINES}"
@@ -45,6 +49,10 @@ if [[ -n "${DART_DEFINES:-}" ]]; then
       ENABLE_PLAY_REVIEW_LOGIN=*) review_login="${decoded_define#ENABLE_PLAY_REVIEW_LOGIN=}" ;;
       ENABLE_PUSH_NOTIFICATIONS=*) push_notifications="${decoded_define#ENABLE_PUSH_NOTIFICATIONS=}" ;;
       ENABLE_RAZORPAY_PAYMENTS=*) razorpay_payments="${decoded_define#ENABLE_RAZORPAY_PAYMENTS=}" ;;
+      FIREBASE_PROJECT_ID=*) firebase_project="${decoded_define#FIREBASE_PROJECT_ID=}" ;;
+      FIREBASE_MESSAGING_SENDER_ID=*) firebase_sender="${decoded_define#FIREBASE_MESSAGING_SENDER_ID=}" ;;
+      FIREBASE_IOS_API_KEY=*) firebase_ios_key="${decoded_define#FIREBASE_IOS_API_KEY=}" ;;
+      FIREBASE_IOS_APP_ID=*) firebase_ios_app="${decoded_define#FIREBASE_IOS_APP_ID=}" ;;
     esac
   done
 fi
@@ -81,8 +89,15 @@ if (( ${#missing[@]} > 0 )); then
 fi
 
 if [[ "$(lowercase "$push_notifications")" == "true" ]]; then
-  printf 'error: Push notifications are excluded from the first iOS release. Reintroduce an audited SDK, the production Firebase plist, APNs capability, entitlements and privacy declarations before enabling them.\n' >&2
-  exit 1
+  if [[ -z "$firebase_project" || -z "$firebase_sender" || -z "$firebase_ios_key" || -z "$firebase_ios_app" ]]; then
+    printf 'error: Push configuration is incomplete. Supply the Firebase iOS public app configuration.\n' >&2
+    exit 1
+  fi
+  entitlements_file="${SRCROOT:-$(pwd)/ios}/${CODE_SIGN_ENTITLEMENTS:-}"
+  if [[ ! -f "$entitlements_file" ]] || [[ "$(/usr/libexec/PlistBuddy -c 'Print :aps-environment' "$entitlements_file" 2>/dev/null || true)" != "production" ]]; then
+    printf 'error: Production push requires an APNs entitlement and matching Apple provisioning.\n' >&2
+    exit 1
+  fi
 fi
 
 if [[ "$(lowercase "$razorpay_payments")" == "true" ]]; then

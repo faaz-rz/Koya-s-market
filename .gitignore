@@ -58,3 +58,6 @@ app.*.map.json
 android/key.properties
 *.jks
 *.keystore
+*.p8
+*service-account*.json
+config/push-production.json

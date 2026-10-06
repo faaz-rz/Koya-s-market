@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'push_configuration.dart';
 
 abstract final class AppEnvironment {
   static const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
@@ -28,7 +29,7 @@ abstract final class AppEnvironment {
   /// Push notifications are deliberately excluded from the first store
   /// release. A later release must add audited SDKs, APNs/FCM credentials,
   /// platform capabilities, privacy declarations and physical-device tests.
-  static const enablePushNotifications = false;
+  static const enablePushNotifications = PushConfiguration.enabled;
 
   /// Native online checkout is deliberately excluded from the first store
   /// release. Reintroducing it requires a separately audited payment SDK,

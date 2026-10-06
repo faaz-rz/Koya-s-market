@@ -36,7 +36,8 @@ Future uploads for version `1.1.5` must use a build number greater than `9`.
 - The first Release is iPhone-only and portrait-only, matching its tested UI and
   screenshot set.
 - The launch screen uses Koya Stores branding instead of a blank image.
-- Firebase and Razorpay mobile SDKs are excluded from the first store binary.
+- Razorpay remains excluded. Firebase Core/Messaging are included in build 16;
+  background delivery requires credentials, APNs signing and device verification.
 - iOS native dependencies use Swift Package Manager without CocoaPods.
 - App Store metadata, privacy answers and reviewer instructions are prepared in
   `app_store/`.

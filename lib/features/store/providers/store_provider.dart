@@ -359,6 +359,7 @@ class StoreController extends Notifier<StoreState> {
       isAuthenticated: true,
       isAdminView: isAdmin,
       isAdminAccount: isAdmin,
+      cartQuantities: sameCustomer ? state.cartQuantities : const {},
       categories: categories,
       products: unchangedProducts
           ? state.products
@@ -450,6 +451,15 @@ class StoreController extends Notifier<StoreState> {
       deliveryInstructions: '',
       clearSelectedOffer: true,
     );
+  }
+
+  void restoreSavedCart(String userId, Map<String, int> quantities) {
+    if (!state.isAuthenticated ||
+        state.profile?.id != userId ||
+        state.isAdminAccount) {
+      return;
+    }
+    state = state.copyWith(cartQuantities: Map.unmodifiable(quantities));
   }
 
   void addToCart(String productId) {

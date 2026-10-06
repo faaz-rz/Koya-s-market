@@ -57,6 +57,7 @@ read_plist() {
 [[ -f "$info_plist" ]] || fail 'Info.plist is missing from the app bundle.'
 [[ -f "$privacy_manifest" ]] || fail 'PrivacyInfo.xcprivacy is missing from the app bundle.'
 /usr/bin/plutil -lint "$info_plist" "$privacy_manifest" >/dev/null
+app_privacy_xml="$(/usr/bin/plutil -convert xml1 -o - "$privacy_manifest")"
 
 while IFS= read -r embedded_privacy_manifest; do
   /usr/bin/plutil -lint "$embedded_privacy_manifest" >/dev/null ||
@@ -67,10 +68,10 @@ while IFS= read -r embedded_privacy_manifest; do
     fail "An embedded SDK declares tracking: $embedded_privacy_manifest."
   [[ "$embedded_privacy_xml" != *'<string>Email address</string>'* ]] ||
     fail "An embedded privacy manifest contains a nonstandard collected-data value: $embedded_privacy_manifest."
-  if [[ "$embedded_privacy_manifest" != "$privacy_manifest" &&
-        "$embedded_privacy_xml" == *'<key>NSPrivacyCollectedDataType</key>'* ]]; then
-    fail "An embedded SDK declares collected data that is not covered by the first-release worksheet: $embedded_privacy_manifest."
-  fi
+  while IFS= read -r declared_type; do
+    [[ "$app_privacy_xml" == *"$declared_type"* ]] ||
+      fail "An SDK data type is not covered by the app privacy manifest: $declared_type."
+  done < <(printf '%s' "$embedded_privacy_xml" | sed -n 's/.*<string>\(NSPrivacyCollectedDataType[A-Za-z]*\)<\/string>.*/\1/p' | grep -v 'Purpose' || true)
 done < <(find "$app_path" -name PrivacyInfo.xcprivacy -type f -print)
 
 [[ "$(read_plist CFBundleIdentifier)" == "$expected_bundle_id" ]] ||
@@ -106,9 +107,9 @@ fi
 if "$plist_buddy" -c 'Print :NSLocalNetworkUsageDescription' "$info_plist" >/dev/null 2>&1; then
   fail 'Release Info.plist contains the debug-only local-network description.'
 fi
-if "$plist_buddy" -c 'Print :UIBackgroundModes' "$info_plist" >/dev/null 2>&1; then
-  fail 'Unexpected background modes are enabled in the first iOS release.'
-fi
+background_modes="$(read_plist UIBackgroundModes 2>/dev/null || true)"
+[[ "$background_modes" != *'location'* && "$background_modes" != *'audio'* ]] ||
+  fail 'Unexpected background location or audio mode is enabled.'
 
 privacy_xml="$(/usr/bin/plutil -convert xml1 -o - "$privacy_manifest")"
 for required_data_type in \
@@ -129,9 +130,8 @@ done
 if find "$app_path" -iname '*razorpay*' -print -quit | grep -q .; then
   fail 'The disabled Razorpay SDK is still present in the iOS bundle.'
 fi
-if find "$app_path" \( -iname '*firebase*' -o -iname 'GoogleService-Info.plist' \) -print -quit | grep -q .; then
-  fail 'The disabled Firebase SDK or configuration is still present in the iOS bundle.'
-fi
+[[ "$(read_plist FirebaseMessagingAutoInitEnabled)" == "false" ]] ||
+  fail 'Push registration must require customer opt-in.'
 if find "$app_path" -iname '*file_picker*' -print -quit | grep -q .; then
   fail 'The web-admin-only file picker is unexpectedly present in the customer iOS bundle.'
 fi
@@ -148,7 +148,11 @@ if /usr/bin/codesign --verify --deep --strict "$app_path" >/dev/null 2>&1; then
   get_task_allow="$(printf '%s' "$entitlements" | /usr/bin/plutil -extract get-task-allow raw -o - - 2>/dev/null || true)"
   aps_environment="$(printf '%s' "$entitlements" | /usr/bin/plutil -extract aps-environment raw -o - - 2>/dev/null || true)"
   [[ "$get_task_allow" != "true" ]] || fail 'Release signing contains get-task-allow=true.'
-  [[ -z "$aps_environment" ]] || fail 'Push entitlement is unexpectedly enabled in the first release.'
+  if [[ "${KOYAS_EXPECT_PUSH:-false}" == "true" ]]; then
+    [[ "$aps_environment" == "production" ]] || fail 'The push release lacks a production APNs entitlement.'
+  else
+    [[ -z "$aps_environment" ]] || fail 'Unexpected push entitlement; verify this as an intentional push release.'
+  fi
 else
   [[ "${ALLOW_UNSIGNED_IOS_VERIFY:-false}" == "true" ]] ||
     fail 'Code signature verification failed. Use a signed archive/IPA for final verification.'

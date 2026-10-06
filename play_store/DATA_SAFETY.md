@@ -32,6 +32,12 @@ flow or third-party SDK changes. Google Play Console remains the source of truth
 
 | Location → Precise location | Yes | Optional; only after tapping Use current location and granting permission | App functionality (accurate delivery) | Coordinates, accuracy and capture time saved with the address and immutable order snapshot; removed on account deletion |
 | Location → Approximate location | Yes | Optional; when the device provides an approximate fix | App functionality (delivery) | Labelled with its estimated accuracy; manual address remains available |
+| Device or other IDs | Yes when native push is configured/enabled | Optional for messaging | App functionality | FCM installation/device registration, linked to account for delivery; unregisters at logout |
+| Diagnostics → Other diagnostics | Messaging SDK declaration; reconcile actual final bundle/flow | Optional messaging service | App functionality; service analytics | Firebase SDK privacy manifests declare limited messaging diagnostics |
+
+Cart product IDs/quantities are kept in encrypted on-device storage and are not
+uploaded as a saved cart by this build. Logout retains that account's local cart;
+account deletion removes it. This does not synchronize carts between devices.
 
 Location is read once in the foreground; no background tracking is requested.
 Customers can remove the pin from saved addresses. Existing orders keep the

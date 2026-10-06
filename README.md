@@ -2,9 +2,9 @@
 
 A professional Flutter ordering application for one small Indian supermarket,
 with store pickup, manually arranged home delivery, payment at handover and a
-responsive staff dashboard. The first store release excludes native online
-payment and push notifications until their production credentials, platform
-capabilities and privacy declarations are configured.
+responsive staff dashboard. Native online payment remains excluded. Native push
+is implemented and awaits Firebase/APNs configuration and physical-device
+verification; encrypted customer carts survive reopening and logout/login.
 
 The app is deliberately small and feature-first. It uses Riverpod, GoRouter,
 Supabase without unnecessary domain
@@ -17,7 +17,7 @@ Customer screens:
 - Splash and email OTP login
 - Home, promotional banner, categories, search, offers, and product listing
 - Product detail with availability and stock-safe quantity controls
-- Cart with list price, product savings, admin-controlled minimum order, and
+- Cart saved separately for each customer on the device, with list price, product savings, admin-controlled minimum order, and
   totals; the default is no minimum
 - Pickup or home-delivery selection
 - Pickup goes directly to payment, followed by a ready-for-pickup notification
@@ -297,17 +297,15 @@ node tool/import_product_images.mjs --input /path/to/product-images --apply
 Never place the service-role key in Flutter, Vercel, source control, or a
 customer-facing build. Only JPEG, PNG, and WebP files up to 5 MB are accepted.
 
-## Reserved push-notification backend
+## Native push notifications
 
-The first Android and iOS store binaries exclude Firebase/FCM and do not show a
-nonfunctional notification preference. Supabase notification tables and the
-server-side notification function remain reserved for a later release.
-
-Before enabling push later, reintroduce current audited SDKs, add the production
-platform files, enable the required APNs/Android capabilities, configure the
-Firebase service account and APNs key, update both stores' privacy answers,
-extend the release verifiers and test opt-in, refresh, logout and deletion on
-physical devices.
+The native Firebase client, owned token registration, leased dispatcher,
+status-change trigger and conditional retry schedule are implemented. Delivery
+is disabled until the Firebase service-account secret and public app values are
+provided. iPhone additionally requires APNs capability and Apple Developer
+Program signing. Follow [PUSH_NOTIFICATIONS.md](docs/PUSH_NOTIFICATIONS.md).
+Current build 16 uses the existing production config and has foreground alerts;
+do not describe that unconfigured build as closed-app push enabled.
 
 ## Reserved online-payment backend
 

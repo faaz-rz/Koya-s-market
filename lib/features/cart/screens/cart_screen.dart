@@ -13,6 +13,8 @@ import '../../offers/widgets/offer_redemption_panel.dart';
 import '../../products/widgets/product_visual.dart';
 import '../../store/providers/store_provider.dart';
 import '../widgets/quantity_stepper.dart';
+import '../providers/cart_persistence.dart';
+import '../../../core/widgets/four_dot_loader.dart';
 
 class CartScreen extends ConsumerWidget {
   const CartScreen({super.key});
@@ -30,60 +32,91 @@ class CartScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final store = ref.watch(storeProvider);
+    final savedCart = ref.watch(savedCartStatusProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Your cart')),
-      body: store.cartItems.isEmpty
-          ? EmptyState(
-              icon: Icons.shopping_bag_outlined,
-              title: 'Your basket is waiting',
-              message:
-                  'Add fresh groceries and daily essentials to start your order.',
-              action: KoyasButton(
-                label: 'Browse products',
-                expand: false,
-                onPressed: () => context.go('/home'),
+      body: savedCart.restoring
+          ? const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FourDotLoader(label: 'Restoring your cart'),
+                  SizedBox(height: 12),
+                  Text('Restoring your cart…'),
+                ],
               ),
             )
-          : SafeArea(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final wide = constraints.maxWidth >= 840;
-                  final items = _CartItems(
-                    onIncrement: (id) => _increment(context, ref, id),
-                    onAddMore: () => context.go('/home'),
-                  );
-                  final summary = const _OrderSummary();
-                  return SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.lg,
-                      AppSpacing.sm,
-                      AppSpacing.lg,
-                      AppSpacing.xxxl,
-                    ),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 1060),
-                        child: wide
-                            ? Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(flex: 3, child: items),
-                                  const SizedBox(width: AppSpacing.xxl),
-                                  Expanded(flex: 2, child: summary),
-                                ],
-                              )
-                            : Column(
-                                children: [
-                                  items,
-                                  const SizedBox(height: AppSpacing.xxl),
-                                  summary,
-                                ],
-                              ),
-                      ),
-                    ),
-                  );
-                },
-              ),
+          : Column(
+              children: [
+                if (savedCart.message != null)
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Text(savedCart.message!),
+                  ),
+                Expanded(
+                  child: store.cartItems.isEmpty
+                      ? EmptyState(
+                          icon: Icons.shopping_bag_outlined,
+                          title: 'Your basket is waiting',
+                          message:
+                              'Add fresh groceries and daily essentials to start your order.',
+                          action: KoyasButton(
+                            label: 'Browse products',
+                            expand: false,
+                            onPressed: () => context.go('/home'),
+                          ),
+                        )
+                      : SafeArea(
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              final wide = constraints.maxWidth >= 840;
+                              final items = _CartItems(
+                                onIncrement: (id) =>
+                                    _increment(context, ref, id),
+                                onAddMore: () => context.go('/home'),
+                              );
+                              final summary = const _OrderSummary();
+                              return SingleChildScrollView(
+                                padding: const EdgeInsets.fromLTRB(
+                                  AppSpacing.lg,
+                                  AppSpacing.sm,
+                                  AppSpacing.lg,
+                                  AppSpacing.xxxl,
+                                ),
+                                child: Center(
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 1060,
+                                    ),
+                                    child: wide
+                                        ? Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Expanded(flex: 3, child: items),
+                                              const SizedBox(
+                                                width: AppSpacing.xxl,
+                                              ),
+                                              Expanded(flex: 2, child: summary),
+                                            ],
+                                          )
+                                        : Column(
+                                            children: [
+                                              items,
+                                              const SizedBox(
+                                                height: AppSpacing.xxl,
+                                              ),
+                                              summary,
+                                            ],
+                                          ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                ),
+              ],
             ),
     );
   }

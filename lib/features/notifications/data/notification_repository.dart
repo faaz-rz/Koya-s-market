@@ -1,4 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart';
 
 /// Reserved RPC-only token persistence for the later push-notification release.
 ///
@@ -25,4 +27,42 @@ class NotificationRepository {
     'unregister_device_token',
     params: {'requested_token': token},
   );
+}
+
+abstract class PushDeviceRegistry {
+  Future<bool> register(String user, String token, bool sound);
+  Future<void> unregister(String user, String token);
+}
+
+final pushDeviceRegistryProvider = Provider<PushDeviceRegistry>(
+  (ref) => SupabasePushDeviceRegistry(),
+);
+
+class SupabasePushDeviceRegistry implements PushDeviceRegistry {
+  SupabaseClient get _client => Supabase.instance.client;
+  @override
+  Future<bool> register(String user, String token, bool sound) async {
+    if (_client.auth.currentUser?.id != user) return false;
+    final ready = await _client
+        .rpc(
+          'register_push_device',
+          params: {
+            'requested_token': token,
+            'requested_platform': defaultTargetPlatform == TargetPlatform.iOS
+                ? 'ios'
+                : 'android',
+            'requested_sound_enabled': sound,
+          },
+        )
+        .timeout(const Duration(seconds: 8));
+    return ready == true;
+  }
+
+  @override
+  Future<void> unregister(String user, String token) async {
+    if (_client.auth.currentUser?.id != user) return;
+    await _client
+        .rpc('unregister_device_token', params: {'requested_token': token})
+        .timeout(const Duration(seconds: 5));
+  }
 }

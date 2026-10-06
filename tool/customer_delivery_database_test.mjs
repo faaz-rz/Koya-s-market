@@ -62,4 +62,30 @@ export async function runCustomerDeliveryChecks({owner,transaction,fixture,anoth
     assert.equal(queued.length,1); assert.equal(queued[0].data.status,'ready_for_pickup');
     assert.equal((await owner.query('select delivery_pin from public.orders where id=$1',[id])).rows[0].delivery_pin,null);
   });
+  await check('push registration stays owned and reports inactive delivery until the server is configured', async () => {
+    const user=await anotherUser(),token='test-token-'+randomUUID();
+    const ready=await transaction(user,c=>c.query("select public.register_push_device($1,'android',false) as ready",[token]));
+    assert.equal(ready.rows[0].ready,false);
+    assert.equal((await owner.query('select sound_enabled,user_id from public.device_tokens where token=$1',[token])).rows[0].sound_enabled,false);
+    await assert.rejects(transaction(user,c=>c.query('select public.authorize_push_dispatch($1)', ['x'.repeat(60)])),{code:'42501'});
+  });
+  await check('parallel push workers claim one lease; acknowledgements survive partial retries and stale workers cannot complete it', async () => {
+    await owner.query('update public.notification_queue set processed_at=now() where processed_at is null');
+    const f=await fixture(),id=await transaction(f.user,c=>place(c,f));
+    await transaction(admin,c=>c.query("select public.update_order_status($1,'ready_for_pickup')",[id]));
+    const claims=await Promise.all(Array.from({length:6},()=>transaction(null,c=>c.query('select * from public.claim_notification_batch(1)'),'service_role')));
+    assert.equal(claims.reduce((n,r)=>n+r.rows.length,0),1);
+    const event=claims.find(r=>r.rows.length).rows[0],device=randomUUID();
+    await assert.rejects(transaction(f.user,c=>c.query('select public.acknowledge_notification_device($1,$2,$3)',[event.id,event.claim_token,device])),{code:'42501'});
+    const ack=await transaction(null,c=>c.query('select public.acknowledge_notification_device($1,$2,$3) as done',[event.id,event.claim_token,device]),'service_role');
+    assert.equal(ack.rows[0].done,true);
+    await transaction(null,c=>c.query("select public.finish_notification_dispatch($1,$2,false,'provider_retry')",[event.id,event.claim_token]),'service_role');
+    await owner.query("update public.notification_queue set next_attempt_at=now()-interval '1 second' where id=$1",[event.id]);
+    const retry=(await transaction(null,c=>c.query('select * from public.claim_notification_batch(1)'),'service_role')).rows[0];
+    assert.equal(retry.attempts,2);assert.deepEqual(retry.delivered_device_ids,[device]);assert.notEqual(retry.claim_token,event.claim_token);
+    const stale=await transaction(null,c=>c.query('select public.finish_notification_dispatch($1,$2,true) as done',[event.id,event.claim_token]),'service_role');
+    assert.equal(stale.rows[0].done,false);
+    const complete=await transaction(null,c=>c.query('select public.finish_notification_dispatch($1,$2,true) as done',[event.id,retry.claim_token]),'service_role');
+    assert.equal(complete.rows[0].done,true);
+  });
 }

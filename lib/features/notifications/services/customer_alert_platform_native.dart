@@ -6,6 +6,28 @@ import 'customer_alert_platform.dart';
 CustomerAlertPlatform createCustomerAlertPlatform() => NativeCustomerAlerts();
 
 class NativeCustomerAlerts implements CustomerAlertPlatform {
+  static Future<void> preparePushChannels() async {
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+    final android = FlutterLocalNotificationsPlugin()
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    for (final sound in [true, false]) {
+      await android?.createNotificationChannel(
+        AndroidNotificationChannel(
+          sound
+              ? 'customer_order_updates_v1'
+              : 'customer_order_updates_silent_v1',
+          sound ? 'Order updates' : 'Silent order updates',
+          description: 'Pickup and delivery status updates',
+          importance: Importance.high,
+          playSound: sound,
+          enableVibration: sound,
+        ),
+      );
+    }
+  }
+
   static int _nextId = 2100;
   final int _id = _nextId++;
   final _plugin = FlutterLocalNotificationsPlugin();
@@ -33,6 +55,7 @@ class NativeCustomerAlerts implements CustomerAlertPlatform {
       },
     );
     _initialized = true;
+    await preparePushChannels();
     if (_disposed) return false;
     if (defaultTargetPlatform == TargetPlatform.android) {
       return await _plugin

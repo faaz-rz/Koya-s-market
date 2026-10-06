@@ -23,13 +23,15 @@ Select **Yes, we collect data from this app** and declare:
 | Purchases → Purchase History | Yes | No | App Functionality |
 | Identifiers → User ID | Yes | No | App Functionality |
 
-If Firebase push notifications are added in a later binary, also declare the
-data reported by the chosen Firebase SDK version's privacy manifests:
+Build 16 includes Firebase Core/Messaging. Declare the actual enabled flows and
+the data reported by the SDK manifests in the final archive:
 
 | Apple data type | Linked to identity | Tracking | Purpose |
 | --- | --- | --- | --- |
-| Identifiers → Device ID | No | No | App Functionality |
-| Diagnostics → Other Diagnostic Data | No | No | App Functionality |
+| Identifiers → Device ID | Yes (registered tokens are associated with the account) | No | App Functionality |
+| Location → Precise Location | Yes | No | App Functionality, optional delivery pin |
+| Location → Coarse Location | Yes | No | App Functionality, optional approximate pin |
+| Diagnostics → Other Diagnostic Data | No | No | App Functionality; messaging SDK analytics |
 | Other Data → Other Data Types | No | No | Analytics |
 
 Do not declare payment information for the first release. Customers pay outside
@@ -39,8 +41,8 @@ worksheet, the public privacy policy and the App Store answers before upload.
 
 ## Privacy manifest alignment
 
-`ios/Runner/PrivacyInfo.xcprivacy` declares the six linked customer data types
-used for account and order functionality, no tracking, no tracking domains and
+`ios/Runner/PrivacyInfo.xcprivacy` declares customer/contact, location, device and
+messaging SDK data types, no tracking, no tracking domains and
 no app-owned required-reason API use. Third-party frameworks carry their own
 privacy manifests. Validate the aggregated privacy report from the final Xcode
 archive rather than assuming source declarations match the submitted binary.
@@ -57,7 +59,8 @@ deletion transaction removes the customer link and recipient personal data.
 
 Before submission:
 
-1. Confirm Firebase and Razorpay frameworks are absent from the uploaded IPA.
+1. Confirm Razorpay is absent; reconcile Firebase Core/Messaging SDK manifests,
+   optional push configuration, APNs entitlement, and the final archive report.
 2. Generate Xcode's privacy report from the final archive and compare every
    listed data type with this worksheet.
 3. Test account deletion against production Supabase.

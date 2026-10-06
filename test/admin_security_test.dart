@@ -240,8 +240,8 @@ void main() {
       contains("queue.locked_at < now() - interval '5 minutes'"),
     );
     expect(migration, contains('to service_role'));
-    expect(function, contains('"claim_notification_batch"'));
-    expect(function, contains('timingSafeEqual'));
+    expect(function, contains("'claim_notification_batch'"));
+    expect(function, contains("'authorize_push_dispatch'"));
   });
 
   test('Vercel admin deployment includes browser security controls', () {

@@ -1,93 +1,48 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
-import { GoogleAuth } from "npm:google-auth-library@9";
-import { json, requiredEnv, timingSafeEqual } from "../_shared/http.ts";
+import { createClient } from 'npm:@supabase/supabase-js@2.117.2';
+import { GoogleAuth } from 'npm:google-auth-library@9.15.1';
+import { createDispatchHandler, notificationPayload } from './handler.ts';
 
-Deno.serve(async (request) => {
-  if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
-  if (!timingSafeEqual(
-    request.headers.get("x-koyas-webhook-secret") ?? "",
-    requiredEnv("KOYAS_WEBHOOK_SECRET"),
-  )) {
-    return json({ error: "Unauthorized" }, 401);
-  }
-
+let client: ReturnType<typeof createClient>;
+const database=()=>client??=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  {auth:{persistSession:false,autoRefreshToken:false}});
+async function rpc(name:string,params:Record<string,unknown>={}) {
+  const {data,error}=await database().rpc(name,params); if(error) throw new Error('Database request failed'); return data;
+}
+let credentials:any;
+function configured() {
   try {
-    const client = createClient(
-      requiredEnv("SUPABASE_URL"),
-      requiredEnv("SUPABASE_SERVICE_ROLE_KEY"),
-    );
-    const credentials = JSON.parse(requiredEnv("FIREBASE_SERVICE_ACCOUNT_JSON"));
-    const auth = new GoogleAuth({
-      credentials,
-      scopes: ["https://www.googleapis.com/auth/firebase.messaging"],
-    });
-    const accessToken = await auth.getAccessToken();
-    const projectId = credentials.project_id as string;
-    const { data: queue, error } = await client.rpc(
-      "claim_notification_batch",
-      { requested_limit: 50 },
-    );
-    if (error) throw error;
+    credentials=JSON.parse(Deno.env.get('FIREBASE_SERVICE_ACCOUNT_JSON')??'null');
+    return credentials?.type==='service_account'&&typeof credentials?.project_id==='string'&&
+      /^[a-z0-9-]+$/.test(credentials.project_id)&&typeof credentials.client_email==='string'&&typeof credentials.private_key==='string';
+  } catch (_) {return false;}
+}
 
-    let sent = 0;
-    for (const notification of queue ?? []) {
-      const { data: devices } = await client
-        .from("device_tokens")
-        .select("token")
-        .eq("user_id", notification.user_id);
-      let successful = true;
-      for (const device of devices ?? []) {
-        const response = await fetch(
-          `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              message: {
-                token: device.token,
-                notification: { title: notification.title, body: notification.body },
-                data: Object.fromEntries(
-                  Object.entries(notification.data ?? {}).map(([key, value]) => [key, String(value)]),
-                ),
-                android: { priority: "high" },
-                apns: { payload: { aps: { sound: "default" } } },
-              },
-            }),
-          },
-        );
-        if (!response.ok) {
-          let responseBody: {
-            error?: { details?: Array<{ errorCode?: string }> };
-          } = {};
-          try {
-            responseBody = await response.json();
-          } catch (_) {
-            // A non-JSON provider error remains retryable.
-          }
-          const unregistered = responseBody.error?.details?.some(
-            (detail) => detail.errorCode === "UNREGISTERED",
-          ) ?? false;
-          if (unregistered) {
-            // Do not retry or retain a token that FCM has permanently revoked.
-            await client.from("device_tokens").delete().eq("token", device.token);
-          } else {
-            successful = false;
-          }
-        }
-      }
-      await client.from("notification_queue").update({
-        processed_at: successful ? new Date().toISOString() : null,
-        locked_at: null,
-        attempts: notification.attempts + 1,
-      }).eq("id", notification.id);
-      if (successful) sent += 1;
-    }
-    return json({ processed: queue?.length ?? 0, sent });
-  } catch (error) {
-    console.error(error);
-    return json({ error: "Notification dispatch failed" }, 500);
-  }
-});
+Deno.serve(createDispatchHandler({
+  authorize:async(secret)=>await rpc('authorize_push_dispatch',{requested_secret:secret})===true,
+  configured,
+  accessToken:async()=> {
+    const auth=new GoogleAuth({credentials,scopes:['https://www.googleapis.com/auth/firebase.messaging']});
+    const token=await auth.getAccessToken();if(!token) throw new Error('Provider authorization failed');return token;
+  },
+  claim:()=>rpc('claim_notification_batch',{requested_limit:10}),
+  devices:async(user)=> {
+    const {data,error}=await database().from('device_tokens').select('id,token,user_id,sound_enabled').eq('user_id',user);
+    if(error) throw new Error('Device lookup failed');return data??[];
+  },
+  current:async(notification)=> {
+    const {data,error}=await database().from('orders').select('user_id,order_status').eq('id',notification.data.order_id).maybeSingle();
+    if(error) throw new Error('Order lookup failed');return data?.user_id===notification.user_id&&data?.order_status===notification.data.status;
+  },
+  acknowledge:(n,device)=>rpc('acknowledge_notification_device',{requested_id:n.id,requested_claim:n.claim_token,requested_device:device}),
+  finish:(n,success,code)=>rpc('finish_notification_dispatch',{requested_id:n.id,requested_claim:n.claim_token,successful:success,error_code:code}),
+  removeDevice:async(token)=> {const {error}=await database().from('device_tokens').delete().eq('token',token);if(error) throw new Error('Token cleanup failed');},
+  send:async(access,notification,device)=> {
+    const response=await fetch(`https://fcm.googleapis.com/v1/projects/${credentials.project_id}/messages:send`,{
+      method:'POST',headers:{Authorization:`Bearer ${access}`,'Content-Type':'application/json'},
+      body:JSON.stringify(notificationPayload(notification,device)),signal:AbortSignal.timeout(5000)});
+    if(response.ok) return {ok:true,unregistered:false};
+    let details:any;try {details=await response.json();} catch (_) {}
+    return {ok:false,unregistered:details?.error?.details?.some((d:any)=>d.errorCode==='UNREGISTERED')??false};
+  },
+  now:()=>Date.now(),
+}));

@@ -94,8 +94,8 @@ void main() {
     expect(repository, contains("'register_device_token'"));
     expect(repository, contains("'unregister_device_token'"));
     expect(repository, isNot(contains("from('device_tokens')")));
-    expect(worker, contains('detail.errorCode === "UNREGISTERED"'));
-    expect(worker, contains('.from("device_tokens").delete()'));
+    expect(worker, contains("errorCode==='UNREGISTERED'"));
+    expect(worker, contains(".from('device_tokens').delete()"));
   });
 
   test('production catalogue avoids third-party and cleartext images', () {

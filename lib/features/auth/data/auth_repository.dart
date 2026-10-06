@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../notifications/services/push_session_lifecycle.dart';
 import '../../store/data/supabase_store_repository.dart';
 import 'otp_send_limiter.dart';
 
@@ -176,6 +177,7 @@ class AuthRepository {
   }
 
   Future<void> signOut() async {
+    await PushSessionLifecycle.beforeSignOut?.call();
     SupabaseStoreRepository.clearReadCache(_client);
     await _client.auth.signOut().timeout(requestTimeout);
   }

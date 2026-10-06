@@ -46,6 +46,13 @@ val isReleaseBuildRequested = gradle.startParameter.taskNames.any {
     it.contains("release", ignoreCase = true)
 }
 
+val pushEnabled = flutterDartDefines["ENABLE_PUSH_NOTIFICATIONS"] == "true"
+if (pushEnabled) {
+    for (key in listOf("FIREBASE_PROJECT_ID", "FIREBASE_MESSAGING_SENDER_ID", "FIREBASE_ANDROID_API_KEY", "FIREBASE_ANDROID_APP_ID")) {
+        if (flutterDartDefines[key].isNullOrBlank()) throw GradleException("Push configuration is missing: $key")
+    }
+}
+
 if (isReleaseBuildRequested) {
     if (!hasReleaseSigning) {
         throw GradleException(
@@ -90,6 +97,12 @@ android {
     }
 
     defaultConfig {
+        if (pushEnabled) {
+            resValue("string", "google_app_id", requireNotNull(flutterDartDefines["FIREBASE_ANDROID_APP_ID"]))
+            resValue("string", "google_api_key", requireNotNull(flutterDartDefines["FIREBASE_ANDROID_API_KEY"]))
+            resValue("string", "gcm_defaultSenderId", requireNotNull(flutterDartDefines["FIREBASE_MESSAGING_SENDER_ID"]))
+            resValue("string", "project_id", requireNotNull(flutterDartDefines["FIREBASE_PROJECT_ID"]))
+        }
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

@@ -17,7 +17,8 @@ void main() {
     expect(productionInfo, contains('UIInterfaceOrientationPortrait'));
     expect(productionInfo, isNot(contains('NSBonjourServices')));
     expect(productionInfo, isNot(contains('NSLocalNetworkUsageDescription')));
-    expect(productionInfo, isNot(contains('UIBackgroundModes')));
+    expect(productionInfo, contains('<string>remote-notification</string>'));
+    expect(productionInfo, isNot(contains('<string>location</string>')));
     expect(debugInfo, contains('NSBonjourServices'));
     expect(debugInfo, contains('NSLocalNetworkUsageDescription'));
 
@@ -45,42 +46,51 @@ void main() {
     expect(project, contains('validate_ios_release.sh'));
   });
 
-  test('iOS uses Swift Package Manager without dormant native SDKs', () {
-    final pubspec = File('pubspec.yaml').readAsStringSync();
-    final project = File(
-      'ios/Runner.xcodeproj/project.pbxproj',
-    ).readAsStringSync();
-    final scheme = File(
-      'ios/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme',
-    ).readAsStringSync();
-    final workspace = File(
-      'ios/Runner.xcworkspace/contents.xcworkspacedata',
-    ).readAsStringSync();
-    final appEnvironment = File(
-      'lib/core/config/app_environment.dart',
-    ).readAsStringSync();
-    final dartSources = Directory('lib')
-        .listSync(recursive: true)
-        .whereType<File>()
-        .where((file) => file.path.endsWith('.dart'))
-        .map((file) => file.readAsStringSync())
-        .join('\n');
+  test(
+    'iOS uses Swift Package Manager and push requires explicit configuration',
+    () {
+      final pubspec = File('pubspec.yaml').readAsStringSync();
+      final project = File(
+        'ios/Runner.xcodeproj/project.pbxproj',
+      ).readAsStringSync();
+      final scheme = File(
+        'ios/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme',
+      ).readAsStringSync();
+      final workspace = File(
+        'ios/Runner.xcworkspace/contents.xcworkspacedata',
+      ).readAsStringSync();
+      final appEnvironment = File(
+        'lib/core/config/app_environment.dart',
+      ).readAsStringSync();
+      final dartSources = Directory('lib')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.dart'))
+          .map((file) => file.readAsStringSync())
+          .join('\n');
 
-    expect(File('ios/Podfile').existsSync(), isFalse);
-    expect(File('ios/Podfile.lock').existsSync(), isFalse);
-    expect(project, contains('FlutterGeneratedPluginSwiftPackage'));
-    expect(scheme, contains('Run Prepare Flutter Framework Script'));
-    expect(project, isNot(contains('Pods-')));
-    expect(workspace, isNot(contains('Pods.xcodeproj')));
-    expect(pubspec, isNot(contains('firebase_core:')));
-    expect(pubspec, isNot(contains('firebase_messaging:')));
-    expect(pubspec, isNot(contains('razorpay_flutter:')));
-    expect(pubspec, isNot(contains('file_picker:')));
-    expect(dartSources, isNot(contains('package:firebase_')));
-    expect(dartSources, isNot(contains('package:razorpay_flutter')));
-    expect(appEnvironment, contains('enablePushNotifications = false'));
-    expect(appEnvironment, contains('enableRazorpayPayments = false'));
-  });
+      expect(File('ios/Podfile').existsSync(), isFalse);
+      expect(File('ios/Podfile.lock').existsSync(), isFalse);
+      expect(project, contains('FlutterGeneratedPluginSwiftPackage'));
+      expect(scheme, contains('Run Prepare Flutter Framework Script'));
+      expect(project, isNot(contains('Pods-')));
+      expect(workspace, isNot(contains('Pods.xcodeproj')));
+      expect(pubspec, contains('firebase_core: 4.15.0'));
+      expect(pubspec, contains('firebase_messaging: 16.7.0'));
+      expect(pubspec, isNot(contains('razorpay_flutter:')));
+      expect(pubspec, isNot(contains('file_picker:')));
+      expect(dartSources, isNot(contains('package:razorpay_flutter')));
+      expect(
+        appEnvironment,
+        contains('enablePushNotifications = PushConfiguration.enabled'),
+      );
+      expect(
+        File('lib/core/config/push_configuration.dart').readAsStringSync(),
+        contains("bool.fromEnvironment('ENABLE_PUSH_NOTIFICATIONS')"),
+      );
+      expect(appEnvironment, contains('enableRazorpayPayments = false'));
+    },
+  );
 
   test('App Store metadata and 6.9-inch screenshots satisfy limits', () {
     String listing(String name) =>
@@ -179,7 +189,7 @@ void main() {
 
     final push = validate({...required, 'ENABLE_PUSH_NOTIFICATIONS': 'true'});
     expect(push.exitCode, isNot(0));
-    expect(push.stderr.toString(), contains('Push notifications are excluded'));
+    expect(push.stderr.toString(), contains('Push configuration is incomplete'));
 
     final payment = validate({...required, 'ENABLE_RAZORPAY_PAYMENTS': 'true'});
     expect(payment.exitCode, isNot(0));

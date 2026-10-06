@@ -6,6 +6,7 @@ import 'app/app.dart';
 import 'core/config/app_environment.dart';
 import 'core/services/backend_bootstrap.dart';
 import 'core/widgets/configuration_error_app.dart';
+import 'features/notifications/services/push_gateway.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,5 +15,6 @@ Future<void> main() async {
     return;
   }
   await BackendBootstrap.initialize();
+  await FirebasePushGateway.initialize();
   runApp(const ProviderScope(child: KoyasApp()));
 }

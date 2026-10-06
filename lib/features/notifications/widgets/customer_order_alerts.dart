@@ -5,6 +5,7 @@ import '../../../core/widgets/four_dot_loader.dart';
 import '../../orders/widgets/order_status_ui.dart';
 import '../../store/providers/store_provider.dart';
 import '../providers/customer_order_alerts.dart';
+import '../providers/push_session.dart';
 
 class CustomerOrderAlerts extends ConsumerStatefulWidget {
   const CustomerOrderAlerts({required this.child, super.key});
@@ -107,13 +108,16 @@ class CustomerAlertSettings extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final alerts = ref.watch(customerOrderAlertsProvider);
     final controller = ref.read(customerOrderAlertsProvider.notifier);
+    final push = ref.watch(pushSessionStatusProvider);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Pickup and delivery updates appear while the app is open.',
+          Text(
+            push.ready
+                ? 'Pickup and delivery alerts can arrive when the app is closed.'
+                : 'Pickup and delivery updates appear while the app is open.',
           ),
           Wrap(
             spacing: 8,
@@ -145,6 +149,8 @@ class CustomerAlertSettings extends ConsumerWidget {
           ),
           if (alerts.note != null)
             Text(alerts.note!, style: Theme.of(context).textTheme.bodySmall),
+          if (push.message != null)
+            Text(push.message!, style: Theme.of(context).textTheme.bodySmall),
         ],
       ),
     );

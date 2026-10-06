@@ -21,6 +21,11 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify push dispatch without external messages
+        run: node --test tool/push_dispatch_handler_test.mjs
       - name: Confirm an unconfigured release is rejected
         run: |
           if flutter build apk --release > release-gate.log 2>&1; then

@@ -48,10 +48,24 @@
         Koya Stores uses Supabase for authentication, database, storage and
         server functions. Supabase processes information on Koya Stores'
         instructions under its own security and privacy terms. The first app
-        release does not include third-party advertising or native online-payment SDKs. Device notifications are optional; server push for closed apps is not enabled. Opening a delivery pin in Maps shares the selected coordinates with your chosen map provider.
+        release does not include third-party advertising or native online-payment SDKs.
+        Device notifications are optional. When background notifications are
+        configured and enabled, Firebase Cloud Messaging and Apple Push
+        Notification service process a device identifier and order-update
+        payload to deliver alerts. Messaging SDKs also declare limited
+        diagnostics and messaging-service analytics; we do not use these for
+        advertising or track people for advertising. Opening a delivery pin in
+        Maps shares the selected coordinates with your chosen map provider.
       </p>
 
       <h2>Retention and deletion</h2>
+      <p>
+        A cart containing product identifiers and quantities is saved in
+        encrypted storage on your device, separately for each account. Signing
+        out keeps it for your next sign-in on that device. Confirmed purchases
+        remove the purchased quantities. Account deletion removes that account's
+        saved cart. Clearing device or browser storage may also remove it.
+      </p>
       <p>
         Account, profile and saved-address data is retained while the account is
         active. A customer can permanently delete the

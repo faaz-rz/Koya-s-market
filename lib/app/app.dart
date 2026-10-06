@@ -1,4 +1,7 @@
 import '../features/store/widgets/store_realtime_sync.dart';
+import '../features/cart/providers/cart_persistence.dart';
+import '../features/notifications/providers/push_session.dart';
+import '../features/notifications/services/push_session_lifecycle.dart';
 import '../features/notifications/widgets/customer_order_alerts.dart';
 import 'dart:async';
 
@@ -28,6 +31,14 @@ class _KoyasAppState extends ConsumerState<KoyasApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(cartPersistenceProvider);
+      final push = ref.read(pushSessionProvider);
+      PushSessionLifecycle.beforeSignOut = push.beforeSignOut;
+      push.onMessage = (data) => unawaited(_pushRefresh(data));
+      push.onOpen = (data) => unawaited(_pushRefresh(data, open: true));
+    });
     if (AppEnvironment.hasSupabaseConfig) {
       _authSubscription = Supabase.instance.client.auth.onAuthStateChange
           .listen((state) {
@@ -35,10 +46,19 @@ class _KoyasAppState extends ConsumerState<KoyasApp> {
             SupabaseStoreRepository.clearReadCache(Supabase.instance.client);
             // Remote revocation, expiry, or another-tab sign-out must remove
             // cached orders, addresses, profile data, and cart immediately.
-            ref.read(storeProvider.notifier).logout();
+            final previousCustomer = ref.read(storeProvider).profile?.id;
             final deleted = AuthRepository.takeAccountDeleted(
               Supabase.instance.client,
             );
+            ref.read(storeProvider.notifier).logout();
+            if (deleted && previousCustomer != null) {
+              unawaited(
+                ref
+                    .read(cartPersistenceProvider)
+                    .deleteForAccount(previousCustomer)
+                    .catchError((Object _) {}),
+              );
+            }
             ref
                 .read(appRouterProvider)
                 .go('/login?reason=${deleted ? 'account-deleted' : 'session'}');
@@ -48,8 +68,43 @@ class _KoyasAppState extends ConsumerState<KoyasApp> {
 
   @override
   void dispose() {
+    PushSessionLifecycle.beforeSignOut = null;
     _authSubscription?.cancel();
     super.dispose();
+  }
+
+  Future<void> _pushRefresh(
+    Map<String, dynamic> data, {
+    bool open = false,
+  }) async {
+    final user = ref.read(storeProvider).profile?.id;
+    if (!mounted ||
+        user == null ||
+        data['user_id'] != user ||
+        !AppEnvironment.hasSupabaseConfig) {
+      return;
+    }
+    try {
+      final bundle = await SupabaseStoreRepository().loadStore();
+      if (!mounted ||
+          ref.read(storeProvider).profile?.id != user ||
+          bundle.profile.id != user) {
+        return;
+      }
+      ref.read(storeProvider.notifier).hydrateRemoteBundle(bundle);
+      if (open && bundle.orders.any((o) => o.id == data['order_id'])) {
+        ref.read(appRouterProvider).go('/order/${data['order_id']}');
+      }
+    } catch (_) {
+      // The existing network banner/retry flow remains available. Notification
+      // data never creates an order or bypasses the owned database read.
+      if (mounted &&
+          open &&
+          ref.read(storeProvider).isAuthenticated &&
+          ref.read(storeProvider).profile?.id == user) {
+        ref.read(appRouterProvider).go('/orders');
+      }
+    }
   }
 
   @override
