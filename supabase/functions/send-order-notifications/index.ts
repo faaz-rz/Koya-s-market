@@ -24,6 +24,14 @@ Deno.serve(createDispatchHandler({
     const auth=new GoogleAuth({credentials,scopes:['https://www.googleapis.com/auth/firebase.messaging']});
     const token=await auth.getAccessToken();if(!token) throw new Error('Provider authorization failed');return token;
   },
+  projectId:()=>credentials.project_id,
+  validate:async(access,token)=> {
+    const response=await fetch(`https://fcm.googleapis.com/v1/projects/${credentials.project_id}/messages:send`,{
+      method:'POST',headers:{Authorization:`Bearer ${access}`,'Content-Type':'application/json'},
+      body:JSON.stringify({validate_only:true,message:{token,notification:{title:'Koya Stores',body:'Configuration check'}}}),
+      signal:AbortSignal.timeout(5000)});
+    return response.ok;
+  },
   claim:()=>rpc('claim_notification_batch',{requested_limit:10}),
   devices:async(user)=> {
     const {data,error}=await database().from('device_tokens').select('id,token,user_id,sound_enabled').eq('user_id',user);

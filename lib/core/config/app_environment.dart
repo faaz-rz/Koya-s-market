@@ -26,8 +26,8 @@ abstract final class AppEnvironment {
       ? Uri.base.resolve(path).toString()
       : '';
 
-  /// Native push is activated only with public Firebase build configuration,
-  /// a configured server dispatcher and the required APNs provisioning.
+  /// Native push requires public Firebase build configuration and a configured
+  /// server dispatcher. iPhone additionally requires APNs provisioning.
   static const enablePushNotifications = PushConfiguration.enabled;
 
   /// Native online checkout is deliberately excluded from the first store

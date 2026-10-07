@@ -4,6 +4,8 @@ export interface DispatchDependencies {
   authorize(secret: string): Promise<boolean>;
   configured(): boolean;
   accessToken(): Promise<string>;
+  projectId?(): string;
+  validate?(accessToken: string, deviceToken: string): Promise<boolean>;
   claim(): Promise<any[]>;
   devices(user: string): Promise<any[]>;
   current(notification: any): Promise<boolean>;
@@ -36,6 +38,16 @@ export function createDispatchHandler(deps: DispatchDependencies) {
       if(!await deps.authorize(secret)) return json({error:'Unauthorized'},401);
       if(!deps.configured()) return json({error:'Push is not configured'},503);
       const access=await deps.accessToken();
+      if(request.headers.get('x-koyas-check-config')==='true') {
+        // Private operational check: never claims queue work or sends a message.
+        // Google validate_only verifies API/IAM access against a QA device token.
+        const device=request.headers.get('x-koyas-validation-token');
+        if(device && (device.length>4096 || !deps.validate || !await deps.validate(access,device))) {
+          return json({error:'Provider validation failed'},503);
+        }
+        return json({ready:true,project_id:deps.projectId?.()??null,
+          provider_validated:!!device,claimed:0});
+      }
       const queue=await deps.claim();
       for(const notification of queue) unfinished.set(notification.id,notification);
       const deadline=deps.now()+40000;

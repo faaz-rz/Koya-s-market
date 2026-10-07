@@ -275,9 +275,10 @@ notification when the customer app or browser is fully closed.
 
 Build 16 adds the native push client and deploys the dispatch function, private
 Vault authorization, queue leases, per-device acknowledgements, status-change
-wakeup and retry schedule. Android build 17 has the local Firebase app values for
-`koya-stores`; the dispatcher stays disabled until the server credential is saved
-and verified. Android can be activated before iPhone. iPhone still needs its own
+wakeup and retry schedule. Android build 18 has the local Firebase app values for
+`koya-stores`. On 7 October 2026 the server credential and FCM provider permission
+passed validation, and the dispatcher was enabled. Android can be activated before
+iPhone. iPhone still needs its own
 Firebase app values and APNs provisioning. Follow [PUSH_NOTIFICATIONS.md](PUSH_NOTIFICATIONS.md)
 for activation and physical-device verification.
 

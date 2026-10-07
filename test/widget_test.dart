@@ -518,7 +518,7 @@ void main() {
             grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
         expect(
           delegate.crossAxisCount,
-          width <= 360 ? 2 : 3,
+          width < 440 ? 2 : 3,
           reason: 'width $width',
         );
         expect(find.text('ADD'), findsNothing);
@@ -527,7 +527,7 @@ void main() {
           expect(addButton, findsOneWidget, reason: 'width $width');
           expect(
             tester.getSize(addButton),
-            const Size.square(44),
+            const Size.square(48),
             reason: 'width $width',
           );
         }

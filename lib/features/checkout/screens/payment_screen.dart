@@ -376,7 +376,7 @@ class _PaymentMethods extends ConsumerWidget {
               SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Text(
-                  'Prices and stock are revalidated on the server before every order.',
+                  'We confirm current prices and availability before placing your order.',
                 ),
               ),
             ],
@@ -425,7 +425,8 @@ class _CheckoutSummary extends StatelessWidget {
             child: Divider(),
           ),
           _PriceLine(
-            label: '${store.cartCount} items',
+            label:
+                '${store.cartCount} ${store.cartCount == 1 ? 'item' : 'items'}',
             value: formatPrice(store.subtotalPaise + store.savingsPaise),
           ),
           if (store.savingsPaise > 0) ...[

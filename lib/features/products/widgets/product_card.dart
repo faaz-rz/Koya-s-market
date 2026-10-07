@@ -49,7 +49,7 @@ class ProductCard extends ConsumerWidget {
             constraints.maxWidth < ProductGridLayout.compactCardBreakpoint;
         final theme = Theme.of(context);
         final textScaler = MediaQuery.textScalerOf(context);
-        const actionSize = 44.0;
+        const actionSize = 48.0;
         final metadata = hasMultipleSizes
             ? '$selectedSize · ${variants.length} options'
             : [
@@ -170,7 +170,7 @@ class ProductCard extends ConsumerWidget {
                                   ),
                                   foregroundColor: AppColors.offer,
                                   minimumSize: Size.zero,
-                                  fixedSize: const Size.square(44),
+                                  fixedSize: const Size.square(48),
                                   padding: EdgeInsets.zero,
                                   tapTargetSize:
                                       MaterialTapTargetSize.shrinkWrap,
@@ -321,18 +321,15 @@ class ProductCard extends ConsumerWidget {
                             key: Key('quantity-product-${product.id}'),
                             width: double.infinity,
                             height: actionSize,
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: QuantityStepper(
-                                quantity: quantity,
-                                compact: true,
-                                onIncrement: () => ref
-                                    .read(storeProvider.notifier)
-                                    .addToCart(product.id),
-                                onDecrement: () => ref
-                                    .read(storeProvider.notifier)
-                                    .decrementCart(product.id),
-                              ),
+                            child: QuantityStepper(
+                              quantity: quantity,
+                              compact: true,
+                              onIncrement: () => ref
+                                  .read(storeProvider.notifier)
+                                  .addToCart(product.id),
+                              onDecrement: () => ref
+                                  .read(storeProvider.notifier)
+                                  .decrementCart(product.id),
                             ),
                           ),
                         )

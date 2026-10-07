@@ -301,13 +301,15 @@ customer-facing build. Only JPEG, PNG, and WebP files up to 5 MB are accepted.
 
 The native Firebase client, owned token registration, leased dispatcher,
 status-change trigger and conditional retry schedule are implemented. Delivery
-is disabled until the Firebase service-account secret and public app values are
-provided. iPhone additionally requires APNs capability and Apple Developer
+is active for Android after verifying the Firebase server credential and public
+app values. iPhone additionally requires APNs capability and Apple Developer
 Program signing. Follow [PUSH_NOTIFICATIONS.md](docs/PUSH_NOTIFICATIONS.md).
-Android build 17 includes the local Firebase configuration for `koya-stores`.
-The server remains disabled until its separate service-account secret is saved
-and verified. Build 16 on iPhone still has foreground alerts; iPhone closed-app
+Android build 18 includes the local Firebase configuration for `koya-stores`.
+Native SDK token generation and server-side FCM validation passed; displaying a
+real notification on a closed physical phone still needs verification. Build 16
+on iPhone still has foreground alerts; iPhone closed-app
 delivery also requires its own Firebase registration and APNs provisioning.
+See [FINAL_ANDROID_QA.md](docs/FINAL_ANDROID_QA.md) for coverage and deployment limits.
 
 ## Reserved online-payment backend
 

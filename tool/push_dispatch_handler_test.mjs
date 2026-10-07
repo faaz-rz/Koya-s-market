@@ -48,3 +48,18 @@ test('revoked tokens are removed, failed transport releases the lease, and respo
   assert.ok(!(await response.text()).includes('secret-device-token'));
   assert.equal(failed.calls.find(c=>c[0]==='finish')[2],false);
 });
+test('private configuration validation never claims or sends, and rejects failed provider validation',async()=>{
+  for(const [allowed,expected] of [[true,200],[false,503]]) {
+    const {calls,handler}=fixture({projectId:()=> 'koya-stores',validate:async()=>allowed});
+    const response=await handler(new Request('https://edge.test/push',{method:'POST',headers:{
+      'x-koyas-webhook-secret':secret,'x-koyas-check-config':'true','x-koyas-validation-token':'private-qa-device-token'}}));
+    assert.equal(response.status,expected);
+    const body=await response.text();assert.ok(!body.includes('private-qa-device-token'));
+    if(allowed) assert.deepEqual(JSON.parse(body),{ready:true,project_id:'koya-stores',provider_validated:true,claimed:0});
+    assert.ok(!calls.some(c=>['claim','devices','send','ack','finish'].includes(c[0])));
+  }
+  const blocked=fixture({authorize:async()=>false});
+  const denied=await blocked.handler(new Request('https://edge.test/push',{method:'POST',headers:{
+    'x-koyas-webhook-secret':secret,'x-koyas-check-config':'true'}}));
+  assert.equal(denied.status,401);assert.ok(!blocked.calls.some(c=>c[0]==='access'));
+});

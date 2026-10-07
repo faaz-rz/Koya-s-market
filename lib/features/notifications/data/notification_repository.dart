@@ -2,10 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
 
-/// Reserved RPC-only token persistence for the later push-notification release.
-///
-/// Keeping this boundary in source lets the server security policy stay tested
-/// without shipping a Firebase SDK or registering a device in this release.
+/// Owned device-token persistence through authenticated server RPCs.
 class NotificationRepository {
   NotificationRepository({SupabaseClient? client})
     : _client = client ?? Supabase.instance.client;

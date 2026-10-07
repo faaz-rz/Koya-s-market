@@ -117,6 +117,8 @@ class CustomerAlertSettings extends ConsumerWidget {
           Text(
             push.ready
                 ? 'Pickup and delivery alerts can arrive when the app is closed.'
+                : push.available
+                ? 'Enable device alerts for pickup and delivery updates when the app is closed.'
                 : 'Pickup and delivery updates appear while the app is open.',
           ),
           Wrap(

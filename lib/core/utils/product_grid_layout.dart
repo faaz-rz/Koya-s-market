@@ -18,7 +18,9 @@ abstract final class ProductGridLayout {
         : width < 1080
         ? 5
         : 6;
-    final minimum = 108 + math.max(0, textScale - 1.35) * 40;
+    // At large text sizes, preserve room for names and accessible cart controls
+    // instead of squeezing two heavily truncated cards onto a narrow phone.
+    final minimum = 128 + math.max(0, textScale - 1.35) * 100;
     final spacing = spacingForWidth(width);
     final fitting = ((width + spacing) / (minimum + spacing)).floor();
     return fitting.clamp(1, preferred);

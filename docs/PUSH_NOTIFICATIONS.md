@@ -1,21 +1,23 @@
 # Background order notifications
 
 The client integration, authenticated device registration, leased dispatcher,
-database trigger and retry schedule are implemented. Hosted dispatch is disabled
-until Firebase server credentials are supplied. Android can be activated before
-iPhone; iPhone separately needs its Firebase app configuration and Apple push
-provisioning. Device registration reports the dispatcher setting, so a client
-cannot claim background delivery
-is ready merely because notification permission was granted.
+database trigger and retry schedule are implemented. On 7 October 2026, the
+hosted dispatcher was activated for Android project `koya-stores`. The server
+credential authenticated successfully, and FCM accepted a `validate_only` request
+for an Android emulator token. No notification was sent by that check; the QA
+token was revoked afterward. A physical-phone delivery check remains necessary.
+iPhone separately needs its Firebase app configuration and Apple push provisioning.
+Device registration reports the dispatcher setting, so permission alone does not
+make an unconfigured server appear ready.
 
 ## Activate Android
 
-Build 17 has local Android Firebase configuration for project `koya-stores`,
+Build 18 has local Android Firebase configuration for project `koya-stores`,
 imported from the matching `com.koyas.koyas_supermarket` app registration. The
 configuration remains in ignored `config/push-production.json`. The private
-service-account credential is separate and must be saved in Supabase secrets
-before enabling hosted dispatch. A successfully built APK does not establish
-that live notification delivery is active.
+service-account credential is saved separately in Supabase secrets. Firebase
+configuration and provider permission were verified, but a successfully built
+APK alone does not establish that a physical phone displays background alerts.
 
 1. Create or select the store's Firebase project. Analytics is unnecessary.
 2. Register Android app `com.koyas.koyas_supermarket`. Copy its public SDK
@@ -73,6 +75,13 @@ If Firebase server credentials are not ready, keep it false. Android-only
 activation is supported while the iPhone build has no Firebase push configuration
 and therefore registers no iPhone push token. To stop new dispatch, set it false
 again. Do not disclose or edit the generated Vault secret.
+
+The function also accepts private operational checks with
+`x-koyas-check-config: true` after the same Vault authorization. An optional QA
+token in `x-koyas-validation-token` is passed to Google's `validate_only` API.
+This route never claims queue events or sends notifications, and exposes no
+private credentials or device tokens in its response. It reports the public
+Firebase project ID so an operator can detect a mismatched server credential.
 
 ## Verify before launch
 
