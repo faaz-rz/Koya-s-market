@@ -304,8 +304,10 @@ status-change trigger and conditional retry schedule are implemented. Delivery
 is disabled until the Firebase service-account secret and public app values are
 provided. iPhone additionally requires APNs capability and Apple Developer
 Program signing. Follow [PUSH_NOTIFICATIONS.md](docs/PUSH_NOTIFICATIONS.md).
-Current build 16 uses the existing production config and has foreground alerts;
-do not describe that unconfigured build as closed-app push enabled.
+Android build 17 includes the local Firebase configuration for `koya-stores`.
+The server remains disabled until its separate service-account secret is saved
+and verified. Build 16 on iPhone still has foreground alerts; iPhone closed-app
+delivery also requires its own Firebase registration and APNs provisioning.
 
 ## Reserved online-payment backend
 

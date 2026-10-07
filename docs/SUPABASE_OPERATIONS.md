@@ -270,16 +270,15 @@ used after that action. The app also shows an in-app live banner without this
 permission. Initial order history is silent, status changes are deduplicated,
 and logout clears pending customer alerts. Pickup readiness, out-for-delivery,
 delivered, collected, cancelled and rejected states each have their own message.
-The current release supports foreground and open-browser alerts. It does not
-deliver a notification when the customer app or browser is fully closed.
-Closed-app push requires a later APNs/FCM credentialed release, an Edge Function
-dispatcher, platform entitlements and a physical-device test; do not describe
-the current build as background push enabled.
+Build 15 supports foreground and open-browser alerts. It does not deliver a
+notification when the customer app or browser is fully closed.
 
 Build 16 adds the native push client and deploys the dispatch function, private
 Vault authorization, queue leases, per-device acknowledgements, status-change
-wakeup and retry schedule. The dispatcher stays disabled because Firebase/APNs
-credentials are missing. Follow [PUSH_NOTIFICATIONS.md](PUSH_NOTIFICATIONS.md)
+wakeup and retry schedule. Android build 17 has the local Firebase app values for
+`koya-stores`; the dispatcher stays disabled until the server credential is saved
+and verified. Android can be activated before iPhone. iPhone still needs its own
+Firebase app values and APNs provisioning. Follow [PUSH_NOTIFICATIONS.md](PUSH_NOTIFICATIONS.md)
 for activation and physical-device verification.
 
 ## Saved customer carts (build 16)

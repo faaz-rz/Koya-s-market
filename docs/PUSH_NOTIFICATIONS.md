@@ -2,11 +2,20 @@
 
 The client integration, authenticated device registration, leased dispatcher,
 database trigger and retry schedule are implemented. Hosted dispatch is disabled
-until Firebase credentials and Apple provisioning are supplied. This setting is
-reported by device registration, so a client cannot claim background delivery
+until Firebase server credentials are supplied. Android can be activated before
+iPhone; iPhone separately needs its Firebase app configuration and Apple push
+provisioning. Device registration reports the dispatcher setting, so a client
+cannot claim background delivery
 is ready merely because notification permission was granted.
 
 ## Activate Android
+
+Build 17 has local Android Firebase configuration for project `koya-stores`,
+imported from the matching `com.koyas.koyas_supermarket` app registration. The
+configuration remains in ignored `config/push-production.json`. The private
+service-account credential is separate and must be saved in Supabase secrets
+before enabling hosted dispatch. A successfully built APK does not establish
+that live notification delivery is active.
 
 1. Create or select the store's Firebase project. Analytics is unnecessary.
 2. Register Android app `com.koyas.koyas_supermarket`. Copy its public SDK
@@ -60,8 +69,10 @@ update koyas_private.push_dispatch_config set enabled=true where id;
 ```
 
 This administrative setting is unavailable to app users and staff sessions.
-If credentials or APNs are not ready, keep it false. To stop new dispatch, set
-it false again. Do not disclose or edit the generated Vault secret.
+If Firebase server credentials are not ready, keep it false. Android-only
+activation is supported while the iPhone build has no Firebase push configuration
+and therefore registers no iPhone push token. To stop new dispatch, set it false
+again. Do not disclose or edit the generated Vault secret.
 
 ## Verify before launch
 

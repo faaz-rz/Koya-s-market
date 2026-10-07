@@ -84,6 +84,11 @@ if (isReleaseBuildRequested) {
 
 android {
     namespace = "com.koyas.koyas_supermarket"
+    buildFeatures {
+        // AGP 9 disables generated resValue entries by default. Firebase needs
+        // these native values when Android restarts its messaging service.
+        resValues = pushEnabled
+    }
     // Compile with the SDK required by encrypted-storage dependencies while
     // keeping the Play submission's runtime behavior target fixed at API 36.
     compileSdk = 37
