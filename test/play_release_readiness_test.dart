@@ -58,7 +58,7 @@ void main() {
           '"androidx.test.espresso:espresso-core:3.3+" -> useVersion("3.3.0")',
         ),
       );
-      expect(pubspec, contains('version: 1.1.5+19'));
+      expect(pubspec, contains('version: 1.1.5+20'));
     },
   );
 

@@ -36,6 +36,7 @@ class _ProductVariantSheetState extends ConsumerState<_ProductVariantSheet> {
   late final Map<String, int> _baseline, _selection;
   late final String? _user;
   String? _error;
+  bool _confirming = false;
   @override
   void initState() {
     super.initState();
@@ -46,6 +47,21 @@ class _ProductVariantSheetState extends ConsumerState<_ProductVariantSheet> {
         product.id: store.cartQuantities[product.id] ?? 0,
     };
     _selection = {..._baseline};
+    ref.listenManual(storeProvider.select((s) => s.cartQuantities), (_, cart) {
+      if (!mounted ||
+          _confirming ||
+          ref.read(storeProvider).profile?.id != _user) {
+        return;
+      }
+      setState(() {
+        for (final id in _baseline.keys) {
+          final draftDelta = (_selection[id] ?? 0) - _baseline[id]!;
+          final restored = cart[id] ?? 0;
+          _baseline[id] = restored;
+          _selection[id] = math.max(0, restored + draftDelta);
+        }
+      });
+    });
   }
 
   void _change(Product product, int delta) {
@@ -61,6 +77,8 @@ class _ProductVariantSheetState extends ConsumerState<_ProductVariantSheet> {
   }
 
   void _confirm() {
+    if (_confirming) return;
+    _confirming = true;
     try {
       ref
           .read(storeProvider.notifier)
@@ -71,6 +89,7 @@ class _ProductVariantSheetState extends ConsumerState<_ProductVariantSheet> {
           );
       Navigator.of(context).pop();
     } on StoreValidationException catch (error) {
+      _confirming = false;
       setState(() => _error = error.message);
     }
   }
@@ -241,7 +260,8 @@ class _ProductVariantSheetState extends ConsumerState<_ProductVariantSheet> {
                               width: double.infinity,
                               child: FilledButton(
                                 key: const Key('confirm-variant-selection'),
-                                onPressed: count > 0 || hasChanges
+                                onPressed:
+                                    !_confirming && (count > 0 || hasChanges)
                                     ? _confirm
                                     : null,
                                 style: FilledButton.styleFrom(

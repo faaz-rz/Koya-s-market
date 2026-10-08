@@ -104,17 +104,33 @@ class _AddressSetupScreenState extends ConsumerState<AddressSetupScreen> {
   @override
   Widget build(BuildContext context) {
     final profile = ref.watch(storeProvider.select((s) => s.profile));
+    final textScale = MediaQuery.textScalerOf(context).scale(20) / 20;
+    final compactActions =
+        MediaQuery.sizeOf(context).width < 360 || textScale > 1.5;
     return PopScope(
       canPop: false,
       child: Scaffold(
         appBar: AppBar(
           automaticallyImplyLeading: false,
-          title: const Text('Set up your address'),
+          toolbarHeight:
+              kToolbarHeight + (textScale > 1 ? 20 * (textScale - 1) : 0),
+          title: const Text(
+            'Your address',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
           actions: [
-            TextButton(
-              onPressed: _saving ? null : _signOut,
-              child: const Text('Sign out'),
-            ),
+            if (compactActions)
+              IconButton(
+                tooltip: 'Sign out',
+                onPressed: _saving ? null : _signOut,
+                icon: const Icon(Icons.logout_rounded),
+              )
+            else
+              TextButton(
+                onPressed: _saving ? null : _signOut,
+                child: const Text('Sign out'),
+              ),
           ],
         ),
         body: SafeArea(

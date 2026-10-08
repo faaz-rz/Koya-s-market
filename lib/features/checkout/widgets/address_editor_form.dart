@@ -31,6 +31,11 @@ class AddressEditorForm extends StatefulWidget {
 
 class AddressEditorFormState extends State<AddressEditorForm> {
   final _form = GlobalKey<FormState>();
+  final _focus = <Key, FocusNode>{
+    for (final name in ['line', 'city', 'pincode', 'name', 'phone', 'label'])
+      Key('address-$name'): FocusNode(),
+  };
+  bool _submitted = false;
   late final TextEditingController _label,
       _name,
       _phone,
@@ -56,6 +61,9 @@ class AddressEditorFormState extends State<AddressEditorForm> {
 
   @override
   void dispose() {
+    for (final node in _focus.values) {
+      node.dispose();
+    }
     for (final c in [
       _label,
       _name,
@@ -82,7 +90,26 @@ class AddressEditorFormState extends State<AddressEditorForm> {
   }
 
   void save() {
-    if (widget.saving || _locating || !_form.currentState!.validate()) return;
+    if (widget.saving || _locating) return;
+    final invalid = _form.currentState!.validateGranularly();
+    if (invalid.isNotEmpty) {
+      setState(() => _submitted = true);
+      final first = invalid.first;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !first.mounted) return;
+        _focus[first.widget.key]?.requestFocus();
+        Scrollable.ensureVisible(
+          first.context,
+          alignment: 0.25,
+          duration:
+              MediaQuery.disableAnimationsOf(context) ||
+                  MediaQuery.accessibleNavigationOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 180),
+        );
+      });
+      return;
+    }
     FocusScope.of(context).unfocus();
     widget.onSave(
       CustomerAddress(
@@ -106,6 +133,9 @@ class AddressEditorFormState extends State<AddressEditorForm> {
   @override
   Widget build(BuildContext context) => Form(
     key: _form,
+    autovalidateMode: _submitted
+        ? AutovalidateMode.onUserInteraction
+        : AutovalidateMode.disabled,
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -128,6 +158,7 @@ class AddressEditorFormState extends State<AddressEditorForm> {
         const SizedBox(height: AppSpacing.lg),
         TextFormField(
           key: const Key('address-line'),
+          focusNode: _focus[const Key('address-line')],
           controller: _line,
           enabled: !widget.saving && !_locating,
           maxLength: 200,
@@ -136,22 +167,30 @@ class AddressEditorFormState extends State<AddressEditorForm> {
           textInputAction: TextInputAction.next,
           decoration: const InputDecoration(
             labelText: 'Flat, building and street',
+            counterText: '',
+            errorMaxLines: 2,
           ),
         ),
         const SizedBox(height: AppSpacing.md),
         TextFormField(
           key: const Key('address-city'),
+          focusNode: _focus[const Key('address-city')],
           controller: _city,
           enabled: !widget.saving && !_locating,
           maxLength: 80,
           onChanged: _addressChanged,
           validator: _required,
           textInputAction: TextInputAction.next,
-          decoration: const InputDecoration(labelText: 'City'),
+          decoration: const InputDecoration(
+            labelText: 'City',
+            counterText: '',
+            errorMaxLines: 2,
+          ),
         ),
         const SizedBox(height: AppSpacing.md),
         TextFormField(
           key: const Key('address-pincode'),
+          focusNode: _focus[const Key('address-pincode')],
           controller: _pincode,
           enabled: !widget.saving && !_locating,
           maxLength: 6,
@@ -161,7 +200,11 @@ class AddressEditorFormState extends State<AddressEditorForm> {
           validator: (v) => RegExp(r'^\d{6}$').hasMatch(v?.trim() ?? '')
               ? null
               : 'Enter a valid 6-digit PIN',
-          decoration: const InputDecoration(labelText: 'PIN code'),
+          decoration: const InputDecoration(
+            labelText: 'PIN code',
+            counterText: '',
+            errorMaxLines: 2,
+          ),
         ),
         const SizedBox(height: AppSpacing.md),
         TextFormField(
@@ -170,23 +213,30 @@ class AddressEditorFormState extends State<AddressEditorForm> {
           maxLength: 120,
           maxLines: 2,
           decoration: const InputDecoration(
-            labelText: 'Landmark or delivery instructions (optional)',
+            labelText: 'Landmark (optional)',
+            counterText: '',
           ),
         ),
         const SizedBox(height: AppSpacing.md),
         TextFormField(
           key: const Key('address-name'),
+          focusNode: _focus[const Key('address-name')],
           controller: _name,
           enabled: !widget.saving,
           maxLength: 120,
           validator: _required,
           textInputAction: TextInputAction.next,
           autofillHints: const [AutofillHints.name],
-          decoration: const InputDecoration(labelText: 'Recipient name'),
+          decoration: const InputDecoration(
+            labelText: 'Recipient name',
+            counterText: '',
+            errorMaxLines: 2,
+          ),
         ),
         const SizedBox(height: AppSpacing.md),
         TextFormField(
           key: const Key('address-phone'),
+          focusNode: _focus[const Key('address-phone')],
           controller: _phone,
           enabled: !widget.saving,
           maxLength: 40,
@@ -198,7 +248,11 @@ class AddressEditorFormState extends State<AddressEditorForm> {
                   (v?.replaceAll(RegExp(r'\D'), '').length ?? 0) >= 10
               ? null
               : 'Enter a valid phone number',
-          decoration: const InputDecoration(labelText: 'Phone'),
+          decoration: const InputDecoration(
+            labelText: 'Phone',
+            counterText: '',
+            errorMaxLines: 2,
+          ),
         ),
         const SizedBox(height: AppSpacing.md),
         Wrap(
@@ -217,11 +271,17 @@ class AddressEditorFormState extends State<AddressEditorForm> {
         ),
         const SizedBox(height: AppSpacing.sm),
         TextFormField(
+          key: const Key('address-label'),
+          focusNode: _focus[const Key('address-label')],
           controller: _label,
           enabled: !widget.saving,
           maxLength: 40,
           validator: _required,
-          decoration: const InputDecoration(labelText: 'Label'),
+          decoration: const InputDecoration(
+            labelText: 'Label',
+            counterText: '',
+            errorMaxLines: 2,
+          ),
         ),
         const SizedBox(height: AppSpacing.lg),
         if (widget.showSaveButton)
