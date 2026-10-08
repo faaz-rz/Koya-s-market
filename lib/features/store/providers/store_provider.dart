@@ -86,6 +86,9 @@ class StoreState {
   final String? selectedOfferCode;
   final String? lastOrderId;
 
+  bool get needsAddressSetup =>
+      isAuthenticated && !isAdminAccount && addresses.isEmpty;
+
   Product? productById(String id) {
     for (final product in products) {
       if (product.id == id) return product;
@@ -483,6 +486,40 @@ class StoreController extends Notifier<StoreState> {
       updated.remove(productId);
     } else {
       updated[productId] = current - 1;
+    }
+    state = state.copyWith(cartQuantities: updated);
+  }
+
+  /// Commit a pack selection once; preserve cart changes made while it was open.
+  void confirmCartSelection({
+    required String? expectedUserId,
+    required Map<String, int> baseline,
+    required Map<String, int> selection,
+  }) {
+    if (!state.isAuthenticated || state.profile?.id != expectedUserId) {
+      throw const StoreValidationException(
+        'Your session changed. Please sign in again.',
+      );
+    }
+    final updated = {...state.cartQuantities};
+    for (final id in {...baseline.keys, ...selection.keys}) {
+      final delta = (selection[id] ?? 0) - (baseline[id] ?? 0);
+      if (delta == 0) continue;
+      final quantity = max(0, (updated[id] ?? 0) + delta);
+      final product = state.productById(id);
+      if (delta > 0 &&
+          (product == null ||
+              !product.isAvailable ||
+              quantity > product.stockQuantity)) {
+        throw const StoreValidationException(
+          'Stock changed. Please adjust your selected quantities.',
+        );
+      }
+      if (quantity == 0) {
+        updated.remove(id);
+      } else {
+        updated[id] = quantity;
+      }
     }
     state = state.copyWith(cartQuantities: updated);
   }

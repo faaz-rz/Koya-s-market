@@ -11,11 +11,13 @@ class DeliveryPinField extends ConsumerStatefulWidget {
     required this.pin,
     required this.onChanged,
     required this.onBusyChanged,
+    this.enabled = true,
     super.key,
   });
   final DeliveryPin? pin;
   final ValueChanged<DeliveryPin?> onChanged;
   final ValueChanged<bool> onBusyChanged;
+  final bool enabled;
   @override
   ConsumerState<DeliveryPinField> createState() => _DeliveryPinFieldState();
 }
@@ -68,7 +70,7 @@ class _DeliveryPinFieldState extends ConsumerState<DeliveryPinField> {
         const SizedBox(height: 8),
         OutlinedButton.icon(
           key: const Key('capture-delivery-pin'),
-          onPressed: _busy ? null : _capture,
+          onPressed: _busy || !widget.enabled ? null : _capture,
           icon: _busy
               ? const FourDotLoader(size: 20, label: 'Finding location')
               : const Icon(Icons.my_location_rounded),
@@ -113,7 +115,9 @@ class _DeliveryPinFieldState extends ConsumerState<DeliveryPinField> {
                 label: const Text('Check pin on map'),
               ),
               TextButton(
-                onPressed: _busy ? null : () => widget.onChanged(null),
+                onPressed: _busy || !widget.enabled
+                    ? null
+                    : () => widget.onChanged(null),
                 child: const Text('Remove pin'),
               ),
             ],

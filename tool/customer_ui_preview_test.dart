@@ -13,6 +13,11 @@ import 'package:koyas_supermarket/features/products/product_variants.dart';
 import 'package:koyas_supermarket/features/products/widgets/product_variant_sheet.dart';
 import 'package:koyas_supermarket/features/store/providers/store_provider.dart';
 
+class PreviewStore extends StoreController {
+  void requireAddress() =>
+      state = state.copyWith(addresses: [], selectedAddressId: '');
+}
+
 void main() {
   for (final viewport in [
     (width: 390.0, scale: 1.0),
@@ -35,7 +40,9 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
 
-      final container = ProviderContainer();
+      final container = ProviderContainer(
+        overrides: [storeProvider.overrideWith(PreviewStore.new)],
+      );
       addTearDown(container.dispose);
       final controller = container.read(storeProvider.notifier);
       controller.loginDemo();
@@ -79,10 +86,12 @@ void main() {
         family: family,
       );
       await tester.pumpAndSettle();
-      controller.addToCart(family.variants.firstWhere((p) => p.isAvailable).id);
+      final selected = family.variants.firstWhere((p) => p.isAvailable);
+      await tester.ensureVisible(find.byKey(Key('variant-add-${selected.id}')));
+      await tester.tap(find.byKey(Key('variant-add-${selected.id}')));
       await tester.pumpAndSettle();
       await _capture(tester, capture, '$prefix-pack-picker');
-      router.pop();
+      await tester.tap(find.byKey(const Key('confirm-variant-selection')));
       await tester.pumpAndSettle();
 
       for (final route in [
@@ -104,6 +113,11 @@ void main() {
       router.go('/login');
       await tester.pumpAndSettle();
       await _capture(tester, capture, '$prefix-login');
+      controller.loginDemo();
+      (controller as PreviewStore).requireAddress();
+      router.go('/address/setup');
+      await tester.pumpAndSettle();
+      await _capture(tester, capture, '$prefix-address-setup');
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }

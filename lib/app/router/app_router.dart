@@ -8,6 +8,7 @@ import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
 import '../../features/cart/screens/cart_screen.dart';
 import '../../features/checkout/screens/delivery_checkout_screen.dart';
+import '../../features/checkout/screens/address_setup_screen.dart';
 import '../../features/checkout/screens/fulfilment_screen.dart';
 import '../../features/checkout/screens/payment_screen.dart';
 import '../../features/home/screens/home_screen.dart';
@@ -28,10 +29,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final store = ref.read(storeProvider);
       final publicRoute = location == '/splash' || location == '/login';
       if (!store.isAuthenticated && !publicRoute) return '/login';
+      if (store.needsAddressSetup &&
+          location != '/address/setup' &&
+          location != '/splash') {
+        return '/address/setup';
+      }
+      if (!store.needsAddressSetup &&
+          store.isAuthenticated &&
+          location == '/address/setup') {
+        return '/home';
+      }
       if (store.isAuthenticated && location == '/login') return '/home';
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/address/setup',
+        builder: (context, state) =>
+            const CustomerBackdrop(child: AddressSetupScreen()),
+      ),
       GoRoute(
         path: '/splash',
         builder: (context, state) =>
@@ -154,6 +170,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   ref.listen(storeProvider.select((store) => store.isAuthenticated), (_, _) {
     router.refresh();
   });
+  ref.listen(
+    storeProvider.select((store) => store.needsAddressSetup),
+    (_, _) => router.refresh(),
+  );
   ref.onDispose(router.dispose);
   return router;
 });

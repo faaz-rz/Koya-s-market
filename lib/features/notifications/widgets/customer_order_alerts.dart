@@ -15,10 +15,12 @@ class CustomerOrderAlerts extends ConsumerStatefulWidget {
       _CustomerOrderAlertsState();
 }
 
-class _CustomerOrderAlertsState extends ConsumerState<CustomerOrderAlerts> {
+class _CustomerOrderAlertsState extends ConsumerState<CustomerOrderAlerts>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         ref
@@ -26,6 +28,20 @@ class _CustomerOrderAlertsState extends ConsumerState<CustomerOrderAlerts> {
             .observe(ref.read(storeProvider));
       }
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.read(customerOrderAlertsProvider.notifier).restore();
+      ref.read(pushSessionProvider).refresh();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   void _open(String id) {
@@ -116,9 +132,9 @@ class CustomerAlertSettings extends ConsumerWidget {
         children: [
           Text(
             push.ready
-                ? 'Pickup and delivery alerts can arrive when the app is closed.'
+                ? 'Order alerts appear on your lock screen and stay in the notification tray until you open or dismiss them.'
                 : push.available
-                ? 'Enable device alerts for pickup and delivery updates when the app is closed.'
+                ? 'Allow notifications to get pickup and delivery updates, including when your phone is locked.'
                 : 'Pickup and delivery updates appear while the app is open.',
           ),
           Wrap(
@@ -147,12 +163,25 @@ class CustomerAlertSettings extends ConsumerWidget {
                   ),
                   label: Text(alerts.sound ? 'Mute sound' : 'Turn sound on'),
                 ),
+              if (push.available)
+                TextButton.icon(
+                  onPressed: controller.openSettings,
+                  icon: const Icon(Icons.settings_outlined),
+                  label: const Text('Phone notification settings'),
+                ),
             ],
           ),
           if (alerts.note != null)
             Text(alerts.note!, style: Theme.of(context).textTheme.bodySmall),
           if (push.message != null)
             Text(push.message!, style: Theme.of(context).textTheme.bodySmall),
+          if (push.available)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text(
+                'If alerts are missing, check Koya Stores notifications and lock-screen visibility in your phone settings.',
+              ),
+            ),
         ],
       ),
     );

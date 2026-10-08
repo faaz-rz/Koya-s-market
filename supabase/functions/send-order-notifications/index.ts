@@ -25,6 +25,15 @@ Deno.serve(createDispatchHandler({
     const token=await auth.getAccessToken();if(!token) throw new Error('Provider authorization failed');return token;
   },
   projectId:()=>credentials.project_id,
+  testDelivery:async(access,token)=> {
+    const message=notificationPayload({id:'koyas-qa-delivery',user_id:'qa-device',
+      body:'Notification delivery test. This alert stays in the tray until opened or dismissed.',
+      data:{order_id:'qa-order',status:'ready_for_pickup'}},{token,sound_enabled:true});
+    const response=await fetch(`https://fcm.googleapis.com/v1/projects/${credentials.project_id}/messages:send`,{
+      method:'POST',headers:{Authorization:`Bearer ${access}`,'Content-Type':'application/json'},
+      body:JSON.stringify(message),signal:AbortSignal.timeout(5000)});
+    return response.ok;
+  },
   validate:async(access,token)=> {
     const response=await fetch(`https://fcm.googleapis.com/v1/projects/${credentials.project_id}/messages:send`,{
       method:'POST',headers:{Authorization:`Bearer ${access}`,'Content-Type':'application/json'},

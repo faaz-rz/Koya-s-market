@@ -5,6 +5,10 @@ import 'customer_alert_platform_native.dart'
 
 abstract class CustomerAlertPlatform {
   Future<bool> enable();
+
+  /// Restore an existing opt-in without showing another permission prompt.
+  Future<bool> restore() async => false;
+  Future<bool> openSettings() async => false;
   Future<bool> show({
     required String title,
     required String body,

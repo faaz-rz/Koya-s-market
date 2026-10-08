@@ -1,5 +1,13 @@
 # Background order notifications
 
+Build 19 asks for notification permission during first-customer address setup,
+remembers the choice, restores enabled alerts after reopening, and uses public
+Android lock-screen visibility with no notification expiry. Profile remains the
+place to change alerts and sound later. Android controls heads-up popup duration;
+the notification tray keeps the full message until opened or dismissed. An
+actual Firebase delivery was verified with an Android emulator asleep, the app
+process stopped and deep idle enabled. See [build 19 QA](ANDROID_BUILD_19_QA.md).
+
 The client integration, authenticated device registration, leased dispatcher,
 database trigger and retry schedule are implemented. On 7 October 2026, the
 hosted dispatcher was activated for Android project `koya-stores`. The server

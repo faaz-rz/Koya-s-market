@@ -95,6 +95,22 @@ void main() {
     await gateway.messages.close();
   });
   test(
+    'returning from phone settings rechecks permission without prompting and recovers registration',
+    () async {
+      preferences.values['alice'] = const PushPreference(enabled: true);
+      session.bind('alice');
+      await session.settled;
+      gateway.granted = false;
+      await session.refresh();
+      expect(states.last.ready, false);
+      expect(gateway.prompts, 0);
+      gateway.granted = true;
+      await session.refresh();
+      expect(states.last.ready, true);
+      expect(gateway.prompts, 0);
+    },
+  );
+  test(
     'explicit opt-in persists, restart registers without prompting, token refresh and mute update owned registration',
     () async {
       session.bind('alice');

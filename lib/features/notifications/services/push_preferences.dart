@@ -3,8 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class PushPreference {
-  const PushPreference({this.enabled = false, this.sound = true});
-  final bool enabled, sound;
+  const PushPreference({
+    this.enabled = false,
+    this.sound = true,
+    this.prompted = false,
+  });
+  final bool enabled, sound, prompted;
 }
 
 abstract class PushPreferences {
@@ -35,6 +39,7 @@ class SecurePushPreferences implements PushPreferences {
       return PushPreference(
         enabled: value['enabled'] == true,
         sound: value['sound'] != false,
+        prompted: value['prompted'] == true || value['enabled'] == true,
       );
     } catch (_) {
       return const PushPreference();
@@ -44,6 +49,10 @@ class SecurePushPreferences implements PushPreferences {
   @override
   Future<void> write(String user, PushPreference value) => _storage.write(
     key: 'push.$user',
-    value: jsonEncode({'enabled': value.enabled, 'sound': value.sound}),
+    value: jsonEncode({
+      'enabled': value.enabled,
+      'sound': value.sound,
+      'prompted': value.prompted,
+    }),
   );
 }

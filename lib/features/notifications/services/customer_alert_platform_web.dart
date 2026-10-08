@@ -6,7 +6,7 @@ import 'customer_alert_platform.dart';
 
 CustomerAlertPlatform createCustomerAlertPlatform() => WebCustomerAlerts();
 
-class WebCustomerAlerts implements CustomerAlertPlatform {
+class WebCustomerAlerts extends CustomerAlertPlatform {
   final _audio = BrowserOrderAlerts();
   web.Notification? _notification;
   bool _disposed = false;

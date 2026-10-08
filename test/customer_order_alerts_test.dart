@@ -8,16 +8,30 @@ import 'package:koyas_supermarket/features/notifications/providers/customer_orde
 import 'package:koyas_supermarket/features/notifications/services/customer_alert_platform.dart';
 import 'package:koyas_supermarket/features/orders/models/order.dart';
 import 'package:koyas_supermarket/features/store/providers/store_provider.dart';
+import 'package:koyas_supermarket/features/notifications/services/push_preferences.dart';
+import 'push_session_test.dart' show TestPreferences;
 
-class FakeAlerts implements CustomerAlertPlatform {
+class FakeAlerts extends CustomerAlertPlatform {
   final messages = <String>[];
   final sounds = <bool>[];
   bool disposed = false;
   bool permission = true;
+  int enableRequests = 0;
+  int restores = 0;
   Future<bool>? permissionResult;
   void Function()? open;
   @override
-  Future<bool> enable() => permissionResult ?? Future.value(permission);
+  Future<bool> enable() {
+    enableRequests++;
+    return permissionResult ?? Future.value(permission);
+  }
+
+  @override
+  Future<bool> restore() async {
+    restores++;
+    return permission;
+  }
+
   @override
   Future<bool> show({
     required String title,
@@ -46,6 +60,49 @@ class AlertTestStore extends StoreController {
 }
 
 void main() {
+  testWidgets(
+    'saved opt-in restores system notifications and mute without asking again',
+    (tester) async {
+      final fake = FakeAlerts();
+      final preferences = TestPreferences()
+        ..values['demo-customer'] = const PushPreference(
+          enabled: true,
+          sound: false,
+        );
+      final c = ProviderContainer(
+        overrides: [
+          storeProvider.overrideWith(AlertTestStore.new),
+          pushPreferencesProvider.overrideWithValue(preferences),
+          customerAlertPlatformFactoryProvider.overrideWithValue(() => fake),
+        ],
+      );
+      addTearDown(c.dispose);
+      c.read(storeProvider.notifier).loginDemo();
+      c.read(appRouterProvider).go('/orders');
+      await tester.pumpWidget(
+        UncontrolledProviderScope(container: c, child: const KoyasApp()),
+      );
+      await tester.pumpAndSettle();
+      expect(fake.restores, 1);
+      expect(c.read(customerOrderAlertsProvider).enabled, true);
+      final controller = c.read(storeProvider.notifier) as AlertTestStore;
+      controller.updateOrderStatus(
+        c.read(storeProvider).orders.first.id,
+        OrderStatus.readyForPickup,
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+      expect(fake.messages, hasLength(1));
+      expect(fake.sounds, [false]);
+      await tester.pump(const Duration(seconds: 30));
+      expect(find.text('Ready for pickup'), findsWidgets);
+      c.read(storeProvider.notifier).logout();
+      await tester.pumpAndSettle();
+      expect(fake.disposed, true);
+      expect(c.read(customerOrderAlertsProvider).enabled, false);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
   test(
     'history is silent; pickup, delivery and completion alert once even after replay',
     () {
@@ -87,6 +144,7 @@ void main() {
       final c = ProviderContainer(
         overrides: [
           storeProvider.overrideWith(AlertTestStore.new),
+          pushPreferencesProvider.overrideWithValue(TestPreferences()),
           customerAlertPlatformFactoryProvider.overrideWithValue(() => fake),
         ],
       );

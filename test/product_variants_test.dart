@@ -5,11 +5,112 @@ import 'package:koyas_supermarket/features/products/product_variants.dart';
 import 'package:koyas_supermarket/features/products/models/product.dart';
 import 'package:koyas_supermarket/features/products/screens/product_detail_screen.dart';
 import 'package:koyas_supermarket/features/products/widgets/product_card.dart';
+import 'package:koyas_supermarket/features/products/widgets/product_variant_sheet.dart';
 import 'package:koyas_supermarket/features/store/data/generated_product_catalog.dart';
 import 'package:koyas_supermarket/features/store/providers/store_provider.dart';
 
 void main() {
   final products = GeneratedProductCatalog.products;
+
+  testWidgets(
+    'X and system back discard draft additions and preserve confirmed cart items',
+    (tester) async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(storeProvider.notifier)..loginDemo();
+      final milk = [
+        _product(id: 'milk-500', name: 'Koya Milk', unit: '500 ml'),
+        _product(id: 'milk-1l', name: 'Koya Milk', unit: '1 L'),
+      ];
+      controller.loginDemo(isAdmin: true);
+      for (final p in milk) {
+        controller.adminSaveProduct(p);
+      }
+      controller.addToCart(milk.first.id);
+      final family = ProductVariants.familyFor(
+        product: milk.first,
+        catalogue: milk,
+      );
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () =>
+                      showProductVariantSheet(context: context, family: family),
+                  child: const Text('Choose'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      for (final closeWithX in [true, false]) {
+        await tester.tap(find.text('Choose'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(Key('variant-add-${milk.last.id}')));
+        await tester.pump();
+        expect(container.read(storeProvider).cartQuantities, {
+          milk.first.id: 1,
+        });
+        if (closeWithX) {
+          await tester.tap(find.byKey(const Key('close-variant-sheet')));
+        } else {
+          await tester.binding.handlePopRoute();
+        }
+        await tester.pumpAndSettle();
+        expect(container.read(storeProvider).cartQuantities, {
+          milk.first.id: 1,
+        });
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  test(
+    'variant confirmation merges other cart edits atomically and rejects changed stock',
+    () {
+      final c = ProviderContainer();
+      addTearDown(c.dispose);
+      final controller = c.read(storeProvider.notifier)
+        ..loginDemo(isAdmin: true);
+      final first = _product(id: 'test-first', name: 'First'),
+          second = _product(id: 'test-second', name: 'Second');
+      controller.adminSaveProduct(first);
+      controller.adminSaveProduct(second);
+      controller.addToCart(
+        first.id,
+      ); // A cart restore/edit after the sheet opened.
+      controller.confirmCartSelection(
+        expectedUserId: 'demo-customer',
+        baseline: {first.id: 0},
+        selection: {first.id: 2},
+      );
+      expect(c.read(storeProvider).cartQuantities[first.id], 3);
+      controller.adminSaveProduct(second.copyWith(stockQuantity: 0));
+      final before = Map.of(c.read(storeProvider).cartQuantities);
+      expect(
+        () => controller.confirmCartSelection(
+          expectedUserId: 'demo-customer',
+          baseline: {first.id: 3, second.id: 0},
+          selection: {first.id: 0, second.id: 1},
+        ),
+        throwsA(isA<StoreValidationException>()),
+      );
+      expect(c.read(storeProvider).cartQuantities, before);
+      expect(
+        () => controller.confirmCartSelection(
+          expectedUserId: 'foreign',
+          baseline: {first.id: 3},
+          selection: {first.id: 0},
+        ),
+        throwsA(isA<StoreValidationException>()),
+      );
+      expect(c.read(storeProvider).cartQuantities, before);
+    },
+  );
 
   test('different quantities collapse into one exact product family', () {
     final attaProducts = products
@@ -166,10 +267,13 @@ void main() {
     await tester.tap(find.byKey(Key('variant-add-${oneKg.id}')));
     await tester.pump();
 
+    expect(container.read(storeProvider).cartQuantities, isEmpty);
+    await tester.tap(find.byKey(const Key('confirm-variant-selection')));
+    await tester.pumpAndSettle();
     final cart = container.read(storeProvider).cartQuantities;
     expect(cart[oneKg.id], 1);
     expect(cart[fiveKg.id], isNull);
-    expect(find.byKey(Key('variant-quantity-${oneKg.id}')), findsOneWidget);
+    expect(find.byKey(const Key('confirm-variant-selection')), findsNothing);
   });
 }
 

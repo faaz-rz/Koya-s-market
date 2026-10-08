@@ -4,6 +4,7 @@ import '../../orders/models/order.dart';
 import '../../orders/widgets/order_status_ui.dart';
 import '../../store/providers/store_provider.dart';
 import '../services/customer_alert_platform.dart';
+import '../services/push_preferences.dart';
 import 'push_session.dart';
 
 /// Initial history is silent; a status is announced once per signed-in session.
@@ -55,6 +56,7 @@ class CustomerOrderAlerts extends Notifier<CustomerAlertState> {
   CustomerAlertPlatform? _platform;
   String? _user;
   int _generation = 0;
+  int _enableAttempt = 0;
   Timer? _batch;
   final _queued = <String, CustomerOrder>{};
   void Function(String)? onOpenOrder;
@@ -81,6 +83,7 @@ class CustomerOrderAlerts extends Notifier<CustomerAlertState> {
       _tracker = CustomerStatusTracker();
       _user = user;
       state = const CustomerAlertState();
+      if (user != null) unawaited(restore());
     }
     if (user == null) return;
     final updates = _tracker.observe(store.orders);
@@ -123,6 +126,75 @@ class CustomerOrderAlerts extends Notifier<CustomerAlertState> {
     });
   }
 
+  Future<void> restore() async {
+    final user = _user, generation = _generation;
+    if (user == null || state.enabling) return;
+    final attempt = ++_enableAttempt;
+    try {
+      final preference = await ref.read(pushPreferencesProvider).read(user);
+      if (!ref.mounted ||
+          generation != _generation ||
+          attempt != _enableAttempt ||
+          !preference.enabled) {
+        return;
+      }
+      final platform = _platform ??= ref.read(
+        customerAlertPlatformFactoryProvider,
+      )();
+      final enabled = await platform.restore();
+      if (!ref.mounted ||
+          generation != _generation ||
+          attempt != _enableAttempt) {
+        return;
+      }
+      state = CustomerAlertState(
+        updates: state.updates,
+        enabled: enabled,
+        sound: preference.sound,
+        note: enabled
+            ? null
+            : 'Allow order notifications in your phone settings.',
+      );
+    } catch (_) {
+      // A secure-preference or platform failure never blocks shopping.
+    }
+  }
+
+  Future<void> openSettings() async {
+    final platform = _platform ??= ref.read(
+      customerAlertPlatformFactoryProvider,
+    )();
+    await platform.openSettings().catchError((Object _) => false);
+  }
+
+  Future<void> promptForFirstLogin() async {
+    final user = _user, generation = _generation;
+    if (user == null || state.enabling) return;
+    try {
+      final preferences = ref.read(pushPreferencesProvider);
+      final saved = await preferences
+          .read(user)
+          .timeout(const Duration(seconds: 5));
+      if (!ref.mounted ||
+          generation != _generation ||
+          saved.prompted ||
+          saved.enabled) {
+        return;
+      }
+      await preferences
+          .write(
+            user,
+            PushPreference(
+              enabled: saved.enabled,
+              sound: saved.sound,
+              prompted: true,
+            ),
+          )
+          .timeout(const Duration(seconds: 5));
+      if (ref.mounted && generation == _generation) await enable();
+    } catch (_) {}
+  }
+
   Future<void> _notify(List<CustomerOrder> batch) async {
     final generation = _generation;
     final order = batch.last;
@@ -159,6 +231,7 @@ class CustomerOrderAlerts extends Notifier<CustomerAlertState> {
 
   Future<void> enable() async {
     if (_user == null || state.enabling) return;
+    ++_enableAttempt;
     final generation = _generation;
     final platform = _platform ??= ref.read(
       customerAlertPlatformFactoryProvider,
@@ -169,6 +242,20 @@ class CustomerOrderAlerts extends Notifier<CustomerAlertState> {
       sound: state.sound,
     );
     final enabled = await platform.enable().catchError((Object _) => false);
+    if (!ref.mounted || generation != _generation) return;
+    if (enabled &&
+        !ref.read(pushSessionStatusProvider).available &&
+        _user != null) {
+      try {
+        await ref
+            .read(pushPreferencesProvider)
+            .write(
+              _user!,
+              PushPreference(enabled: true, sound: state.sound, prompted: true),
+            )
+            .timeout(const Duration(seconds: 5));
+      } catch (_) {}
+    }
     final background = enabled
         ? await ref.read(pushSessionProvider).enable()
         : false;
@@ -187,6 +274,22 @@ class CustomerOrderAlerts extends Notifier<CustomerAlertState> {
 
   void mute(bool muted) {
     unawaited(ref.read(pushSessionProvider).sound(!muted));
+    final user = _user;
+    if (user != null && !ref.read(pushSessionStatusProvider).available) {
+      unawaited(
+        ref
+            .read(pushPreferencesProvider)
+            .write(
+              user,
+              PushPreference(
+                enabled: state.enabled,
+                sound: !muted,
+                prompted: true,
+              ),
+            )
+            .catchError((Object _) {}),
+      );
+    }
     state = CustomerAlertState(
       updates: state.updates,
       enabled: state.enabled,

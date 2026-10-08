@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:geolocator/geolocator.dart';
 import 'customer_alert_platform.dart';
 
 CustomerAlertPlatform createCustomerAlertPlatform() => NativeCustomerAlerts();
@@ -35,7 +36,15 @@ class NativeCustomerAlerts implements CustomerAlertPlatform {
   bool _disposed = false;
   void Function()? _onOpen;
   @override
-  Future<bool> enable() async {
+  Future<bool> enable() => _initialize(request: true);
+
+  @override
+  Future<bool> restore() => _initialize(request: false);
+
+  @override
+  Future<bool> openSettings() => Geolocator.openAppSettings();
+
+  Future<bool> _initialize({required bool request}) async {
     if (_disposed ||
         (defaultTargetPlatform != TargetPlatform.android &&
             defaultTargetPlatform != TargetPlatform.iOS)) {
@@ -58,12 +67,25 @@ class NativeCustomerAlerts implements CustomerAlertPlatform {
     await preparePushChannels();
     if (_disposed) return false;
     if (defaultTargetPlatform == TargetPlatform.android) {
+      final android = _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+      if (!request) return await android?.areNotificationsEnabled() ?? false;
       return await _plugin
               .resolvePlatformSpecificImplementation<
                 AndroidFlutterLocalNotificationsPlugin
               >()
               ?.requestNotificationsPermission() ??
           false;
+    }
+    if (!request) {
+      final permissions = await _plugin
+          .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin
+          >()
+          ?.checkPermissions();
+      return permissions?.isEnabled ?? false;
     }
     return await _plugin
             .resolvePlatformSpecificImplementation<
@@ -98,7 +120,11 @@ class NativeCustomerAlerts implements CustomerAlertPlatform {
             priority: Priority.high,
             playSound: sound,
             enableVibration: sound,
-            visibility: NotificationVisibility.private,
+            visibility: NotificationVisibility.public,
+            styleInformation: BigTextStyleInformation(body),
+            autoCancel: true,
+            // No timeout: the notification stays in the tray until read/dismissed.
+            timeoutAfter: null,
           ),
           iOS: DarwinNotificationDetails(
             presentAlert: true,

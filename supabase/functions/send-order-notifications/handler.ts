@@ -6,6 +6,7 @@ export interface DispatchDependencies {
   accessToken(): Promise<string>;
   projectId?(): string;
   validate?(accessToken: string, deviceToken: string): Promise<boolean>;
+  testDelivery?(accessToken: string, deviceToken: string): Promise<boolean>;
   claim(): Promise<any[]>;
   devices(user: string): Promise<any[]>;
   current(notification: any): Promise<boolean>;
@@ -22,6 +23,8 @@ export function notificationPayload(notification: any, device: any) {
   const sound = device.sound_enabled !== false;
   return { message:{token:device.token,notification:{title:'Koya Stores',body:notification.body},data,
     android:{priority:'high',ttl:'3600s',notification:{tag:notification.id,
+      notification_priority:'PRIORITY_HIGH',visibility:'PUBLIC',
+      default_vibrate_timings:sound,
       channel_id:sound?'customer_order_updates_v1':'customer_order_updates_silent_v1',
       ...(sound?{sound:'default'}:{}),icon:'ic_stat_order'}},
     apns:{headers:{'apns-priority':'10','apns-push-type':'alert','apns-collapse-id':notification.id},
@@ -38,6 +41,15 @@ export function createDispatchHandler(deps: DispatchDependencies) {
       if(!await deps.authorize(secret)) return json({error:'Unauthorized'},401);
       if(!deps.configured()) return json({error:'Push is not configured'},503);
       const access=await deps.accessToken();
+      if(request.headers.get('x-koyas-test-delivery')==='true') {
+        // Authorized operational QA only: a fixed test message, never queue work.
+        const device=request.headers.get('x-koyas-validation-token');
+        if(!device || device.length>4096) return json({error:'A QA device is required'},400);
+        if(!deps.testDelivery || !await deps.testDelivery(access,device)) {
+          return json({error:'Provider test delivery failed'},503);
+        }
+        return json({sent:true,project_id:deps.projectId?.()??null,claimed:0});
+      }
       if(request.headers.get('x-koyas-check-config')==='true') {
         // Private operational check: never claims queue work or sends a message.
         // Google validate_only verifies API/IAM access against a QA device token.

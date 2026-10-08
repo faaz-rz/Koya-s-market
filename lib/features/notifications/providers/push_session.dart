@@ -177,6 +177,37 @@ class PushSession {
     return attempt;
   }
 
+  /// Re-check after returning from phone settings or recovering connectivity.
+  Future<void> refresh() {
+    final user = _user, generation = _generation;
+    if (user == null || !gateway.available) return Future.value();
+    _operations = _operations
+        .then((_) async {
+          if (!_current(user, generation)) return;
+          _preference = await preferences.read(user);
+          if (!_current(user, generation) || !_preference.enabled) return;
+          if (!await gateway.permission()) {
+            if (_current(user, generation)) {
+              status(
+                const PushSessionState(
+                  available: true,
+                  message: 'Allow order notifications in your phone settings.',
+                ),
+              );
+            }
+            return;
+          }
+          final token = await gateway.token();
+          if (token != null && _current(user, generation)) {
+            await _register(user, generation, token);
+          }
+        })
+        .catchError((Object _) {
+          if (_current(user, generation)) _unavailable();
+        });
+    return _operations;
+  }
+
   Future<bool> _enable(String user, int generation) async {
     try {
       if (!_current(user, generation) ||
@@ -184,7 +215,11 @@ class PushSession {
           !_current(user, generation)) {
         return false;
       }
-      _preference = PushPreference(enabled: true, sound: _preference.sound);
+      _preference = PushPreference(
+        enabled: true,
+        sound: _preference.sound,
+        prompted: true,
+      );
       await preferences.write(user, _preference);
       final token = await gateway.token();
       if (!_current(user, generation) || token == null) {
@@ -207,7 +242,11 @@ class PushSession {
 
   Future<void> _sound(String user, int generation, bool enabled) async {
     if (!_current(user, generation)) return;
-    _preference = PushPreference(enabled: _preference.enabled, sound: enabled);
+    _preference = PushPreference(
+      enabled: _preference.enabled,
+      sound: enabled,
+      prompted: _preference.prompted,
+    );
     try {
       await preferences.write(user, _preference);
       final token = _token;

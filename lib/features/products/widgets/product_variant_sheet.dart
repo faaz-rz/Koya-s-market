@@ -1,11 +1,8 @@
 import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_motion.dart';
-import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/price_format.dart';
 import '../../store/providers/store_provider.dart';
 import '../models/product.dart';
@@ -27,16 +24,74 @@ Future<void> showProductVariantSheet({
   );
 }
 
-class _ProductVariantSheet extends ConsumerWidget {
+class _ProductVariantSheet extends ConsumerStatefulWidget {
   const _ProductVariantSheet({required this.family});
-
   final ProductFamily family;
+  @override
+  ConsumerState<_ProductVariantSheet> createState() =>
+      _ProductVariantSheetState();
+}
+
+class _ProductVariantSheetState extends ConsumerState<_ProductVariantSheet> {
+  late final Map<String, int> _baseline, _selection;
+  late final String? _user;
+  String? _error;
+  @override
+  void initState() {
+    super.initState();
+    final store = ref.read(storeProvider);
+    _user = store.profile?.id;
+    _baseline = {
+      for (final product in widget.family.variants)
+        product.id: store.cartQuantities[product.id] ?? 0,
+    };
+    _selection = {..._baseline};
+  }
+
+  void _change(Product product, int delta) {
+    final quantity = math.max(0, (_selection[product.id] ?? 0) + delta);
+    if (delta > 0 &&
+        (!product.isAvailable || quantity > product.stockQuantity)) {
+      return;
+    }
+    setState(() {
+      _selection[product.id] = quantity;
+      _error = null;
+    });
+  }
+
+  void _confirm() {
+    try {
+      ref
+          .read(storeProvider.notifier)
+          .confirmCartSelection(
+            expectedUserId: _user,
+            baseline: _baseline,
+            selection: _selection,
+          );
+      Navigator.of(context).pop();
+    } on StoreValidationException catch (error) {
+      setState(() => _error = error.message);
+    }
+  }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    final store = ref.watch(storeProvider);
+    final variants = widget.family.variants
+        .map((p) => store.productById(p.id) ?? p.copyWith(stockQuantity: 0))
+        .toList();
     final scale = math.max(
       1.0,
       MediaQuery.textScalerOf(context).scale(14) / 14,
+    );
+    final total = variants.fold(
+      0,
+      (sum, p) => sum + p.effectivePricePaise * (_selection[p.id] ?? 0),
+    );
+    final count = _selection.values.fold(0, (sum, value) => sum + value);
+    final hasChanges = _selection.keys.any(
+      (id) => _selection[id] != _baseline[id],
     );
     return Align(
       alignment: Alignment.bottomCenter,
@@ -44,100 +99,196 @@ class _ProductVariantSheet extends ConsumerWidget {
         constraints: const BoxConstraints(maxWidth: 640),
         child: LayoutBuilder(
           builder: (context, constraints) => SizedBox(
-            height: math.min(
-              constraints.maxHeight * 0.88,
-              (190.0 + family.variants.length * 112.0) * scale,
-            ),
-            child: Material(
-              color: AppColors.surface,
-              clipBehavior: Clip.antiAlias,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(AppRadii.xxl),
-              ),
-              child: SafeArea(
-                top: false,
-                child: CustomScrollView(
-                  key: const Key('variant-sheet-scroll'),
-                  slivers: [
-                    SliverToBoxAdapter(
+            height: math.min(constraints.maxHeight * 0.92, 560 * scale),
+            child: Column(
+              children: [
+                IconButton.filled(
+                  key: const Key('close-variant-sheet'),
+                  tooltip: 'Cancel selection',
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: IconButton.styleFrom(
+                    backgroundColor: AppColors.ink,
+                    foregroundColor: AppColors.surface,
+                    minimumSize: const Size(48, 48),
+                  ),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: Material(
+                    color: AppColors.surface,
+                    clipBehavior: Clip.antiAlias,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(28),
+                    ),
+                    child: SafeArea(
+                      top: false,
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Center(
-                            child: Container(
-                              width: 42,
-                              height: 4,
-                              margin: const EdgeInsets.only(top: AppSpacing.sm),
-                              decoration: BoxDecoration(
-                                color: AppColors.outlineStrong,
-                                borderRadius: BorderRadius.circular(
-                                  AppRadii.full,
+                          Expanded(
+                            child: SingleChildScrollView(
+                              key: const Key('variant-sheet-scroll'),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.all(20),
+                                    child: Row(
+                                      children: [
+                                        SizedBox.square(
+                                          dimension: 64,
+                                          child: ProductVisual(
+                                            product: variants.first,
+                                            radius: 16,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                widget.family.name,
+                                                style: Theme.of(
+                                                  context,
+                                                ).textTheme.titleLarge,
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                'Choose a pack size',
+                                                style: Theme.of(
+                                                  context,
+                                                ).textTheme.bodyMedium,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                    ),
+                                    child: Text(
+                                      'Quantity',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleMedium,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  SizedBox(
+                                    height: 285 * scale,
+                                    child: ListView.separated(
+                                      key: const Key('variant-cards'),
+                                      scrollDirection: Axis.horizontal,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 20,
+                                      ),
+                                      itemCount: variants.length,
+                                      separatorBuilder: (_, _) =>
+                                          const SizedBox(width: 12),
+                                      itemBuilder: (context, index) {
+                                        final product = variants[index];
+                                        return SizedBox(
+                                          width: math.min(
+                                            240,
+                                            180 + (scale - 1) * 60,
+                                          ),
+                                          child: _VariantCard(
+                                            product: product,
+                                            quantity:
+                                                _selection[product.id] ?? 0,
+                                            onChange: (delta) =>
+                                                _change(product, delta),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                    ),
+                                    child: Text(
+                                      'Tap Confirm to update your cart. Closing cancels these changes.',
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                ],
+                              ),
+                            ),
+                          ),
+                          if (_error != null)
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                              child: Semantics(
+                                liveRegion: true,
+                                child: Text(
+                                  _error!,
+                                  style: const TextStyle(
+                                    color: AppColors.error,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: FilledButton(
+                                key: const Key('confirm-variant-selection'),
+                                onPressed: count > 0 || hasChanges
+                                    ? _confirm
+                                    : null,
+                                style: FilledButton.styleFrom(
+                                  padding: const EdgeInsets.all(16),
+                                  minimumSize: const Size(0, 56),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(18),
+                                  ),
+                                ),
+                                child: LayoutBuilder(
+                                  builder: (context, c) {
+                                    final stacked =
+                                        c.maxWidth < 260 || scale > 1.5;
+                                    final amount = Text(
+                                      'Item total: ${formatPrice(total)}',
+                                      key: const Key('variant-item-total'),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    );
+                                    return stacked
+                                        ? Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              amount,
+                                              const SizedBox(height: 8),
+                                              const Text('Confirm'),
+                                            ],
+                                          )
+                                        : Row(
+                                            children: [
+                                              Expanded(child: amount),
+                                              const SizedBox(width: 12),
+                                              const Text('Confirm'),
+                                            ],
+                                          );
+                                  },
                                 ),
                               ),
                             ),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                              AppSpacing.xl,
-                              AppSpacing.lg,
-                              AppSpacing.sm,
-                              AppSpacing.md,
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Choose a pack size',
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.headlineMedium,
-                                      ),
-                                      const SizedBox(height: AppSpacing.xs),
-                                      Text(
-                                        family.name,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodyMedium
-                                            ?.copyWith(
-                                              color: AppColors.inkSecondary,
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                IconButton(
-                                  key: const Key('close-variant-sheet'),
-                                  tooltip: 'Close',
-                                  onPressed: () => Navigator.of(context).pop(),
-                                  icon: const Icon(Icons.close_rounded),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Divider(),
                         ],
                       ),
                     ),
-                    SliverPadding(
-                      padding: const EdgeInsets.all(AppSpacing.lg),
-                      sliver: SliverList.separated(
-                        itemCount: family.variants.length,
-                        separatorBuilder: (_, _) =>
-                            const SizedBox(height: AppSpacing.sm),
-                        itemBuilder: (context, index) =>
-                            _VariantRow(product: family.variants[index]),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ),
@@ -146,192 +297,109 @@ class _ProductVariantSheet extends ConsumerWidget {
   }
 }
 
-class _VariantRow extends ConsumerWidget {
-  const _VariantRow({required this.product});
-
-  final Product product;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final quantity = ref.watch(
-      storeProvider.select((store) => store.cartQuantities[product.id] ?? 0),
-    );
-    final size = ProductVariants.variantLabel(product) ?? product.unit;
-    return Semantics(
-      label:
-          '$size, ${formatPrice(product.effectivePricePaise)}'
-          '${product.isAvailable ? '' : ', out of stock'}',
-      child: Container(
-        key: Key('variant-option-${product.id}'),
-        padding: const EdgeInsets.all(AppSpacing.sm),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(AppRadii.lg),
-          border: Border.all(color: AppColors.outline),
-        ),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final stacked =
-                constraints.maxWidth < 320 ||
-                MediaQuery.textScalerOf(context).scale(14) > 20;
-            final details = Row(
-              children: [
-                SizedBox.square(
-                  dimension: stacked ? 60 : 78,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(AppRadii.md),
-                    child: ProductVisual(product: product, radius: AppRadii.md),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        size,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Wrap(
-                        spacing: AppSpacing.xs,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Text(
-                            formatPrice(product.effectivePricePaise),
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          if (product.discountPricePaise != null)
-                            Text(
-                              formatPrice(product.pricePaise),
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: AppColors.inkTertiary,
-                                    decoration: TextDecoration.lineThrough,
-                                  ),
-                            ),
-                        ],
-                      ),
-                      if (product.discountPercent > 0) ...[
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(
-                          '${product.discountPercent}% OFF',
-                          style: Theme.of(context).textTheme.labelMedium
-                              ?.copyWith(
-                                color: AppColors.offer,
-                                fontWeight: FontWeight.w800,
-                              ),
-                        ),
-                      ] else if (!product.isAvailable) ...[
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(
-                          'Out of stock',
-                          style: Theme.of(context).textTheme.labelMedium
-                              ?.copyWith(color: AppColors.error),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                if (!stacked) ...[
-                  const SizedBox(width: AppSpacing.sm),
-                  _VariantCartControl(product: product, quantity: quantity),
-                ],
-              ],
-            );
-            return stacked
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      details,
-                      const SizedBox(height: AppSpacing.sm),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: _VariantCartControl(
-                          product: product,
-                          quantity: quantity,
-                        ),
-                      ),
-                    ],
-                  )
-                : details;
-          },
-        ),
-      ),
-    );
-  }
-}
-
-class _VariantCartControl extends ConsumerWidget {
-  const _VariantCartControl({required this.product, required this.quantity});
-
+class _VariantCard extends StatelessWidget {
+  const _VariantCard({
+    required this.product,
+    required this.quantity,
+    required this.onChange,
+  });
   final Product product;
   final int quantity;
-
+  final ValueChanged<int> onChange;
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final controller = ref.read(storeProvider.notifier);
-    if (quantity == 0) {
-      return SizedBox(
-        width: 88,
-        height: 48,
-        child: OutlinedButton(
-          key: Key('variant-add-${product.id}'),
-          onPressed: product.isAvailable
-              ? () => controller.addToCart(product.id)
-              : null,
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(88, 48),
-            padding: EdgeInsets.zero,
-            backgroundColor: AppColors.surface,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadii.md),
-            ),
-          ),
-          child: const Text('ADD'),
-        ),
-      );
-    }
+  Widget build(BuildContext context) {
+    final size = ProductVariants.variantLabel(product) ?? product.unit;
     return Container(
-      key: Key('variant-quantity-${product.id}'),
-      constraints: const BoxConstraints(minWidth: 120, minHeight: 48),
+      key: Key('variant-option-${product.id}'),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.brand600,
-        borderRadius: BorderRadius.circular(AppRadii.md),
+        border: Border.all(color: AppColors.outline),
+        borderRadius: BorderRadius.circular(20),
+        color: AppColors.surface,
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _CounterButton(
-            key: Key('variant-remove-${product.id}'),
-            tooltip: 'Remove one $sizeLabel',
-            icon: Icons.remove_rounded,
-            onPressed: () => controller.decrementCart(product.id),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-            child: Text(
-              '$quantity',
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: AppColors.surface,
-                fontWeight: FontWeight.w800,
+          Expanded(child: ProductVisual(product: product, radius: 12)),
+          const SizedBox(height: 8),
+          if (quantity == 0)
+            OutlinedButton(
+              key: Key('variant-add-${product.id}'),
+              onPressed: product.isAvailable ? () => onChange(1) : null,
+              style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
+              child: Text(product.isAvailable ? 'ADD' : 'Out of stock'),
+            )
+          else
+            Container(
+              key: Key('variant-quantity-${product.id}'),
+              decoration: BoxDecoration(
+                color: AppColors.brand600,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  _CounterButton(
+                    key: Key('variant-remove-${product.id}'),
+                    tooltip: 'Remove one $size',
+                    icon: Icons.remove_rounded,
+                    onPressed: () => onChange(-1),
+                  ),
+                  Expanded(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        '$quantity',
+                        style: const TextStyle(
+                          color: AppColors.surface,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                  _CounterButton(
+                    key: Key('variant-increment-${product.id}'),
+                    tooltip: 'Add one $size',
+                    icon: Icons.add_rounded,
+                    onPressed:
+                        product.isAvailable && quantity < product.stockQuantity
+                        ? () => onChange(1)
+                        : null,
+                  ),
+                ],
               ),
             ),
-          ),
-          _CounterButton(
-            key: Key('variant-increment-${product.id}'),
-            tooltip: 'Add one $sizeLabel',
-            icon: Icons.add_rounded,
-            onPressed: quantity < product.stockQuantity
-                ? () => controller.addToCart(product.id)
-                : null,
+          const SizedBox(height: 12),
+          Text(size, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 6),
+          if (product.discountPercent > 0)
+            Text(
+              '${product.discountPercent}% OFF',
+              style: Theme.of(
+                context,
+              ).textTheme.labelLarge?.copyWith(color: AppColors.offer),
+            ),
+          Wrap(
+            spacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                formatPrice(product.effectivePricePaise),
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              if (product.discountPricePaise != null)
+                Text(
+                  formatPrice(product.pricePaise),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.inkTertiary,
+                    decoration: TextDecoration.lineThrough,
+                  ),
+                ),
+            ],
           ),
         ],
       ),
     );
   }
-
-  String get sizeLabel => ProductVariants.variantLabel(product) ?? product.unit;
 }
 
 class _CounterButton extends StatelessWidget {
@@ -341,33 +409,16 @@ class _CounterButton extends StatelessWidget {
     required this.onPressed,
     super.key,
   });
-
   final String tooltip;
   final IconData icon;
   final VoidCallback? onPressed;
-
   @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: Semantics(
-        button: true,
-        enabled: onPressed != null,
-        label: tooltip,
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(AppRadii.sm),
-          child: SizedBox(
-            width: 48,
-            height: 48,
-            child: Icon(
-              icon,
-              size: 18,
-              color: onPressed == null ? AppColors.brand300 : AppColors.surface,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => IconButton(
+    tooltip: tooltip,
+    onPressed: onPressed,
+    constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+    color: AppColors.surface,
+    disabledColor: AppColors.brand300,
+    icon: Icon(icon, size: 20),
+  );
 }

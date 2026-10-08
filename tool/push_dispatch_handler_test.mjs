@@ -33,6 +33,9 @@ test('partial delivery retries only the failed device and retains a stable OS no
   assert.equal(payload.message.apns.payload.aps.sound,undefined);
   assert.equal(payload.message.android.notification.tag,event.id);
   assert.equal(payload.message.data.user_id,'alice');
+  assert.equal(payload.message.android.priority,'high');
+  assert.equal(payload.message.android.notification.notification_priority,'PRIORITY_HIGH');
+  assert.equal(payload.message.android.notification.visibility,'PUBLIC');
 });
 test('obsolete status and cross-account device rows cannot dispatch an order message',async()=>{
   const stale=fixture({current:async()=>false});await post(stale.handler);
@@ -62,4 +65,17 @@ test('private configuration validation never claims or sends, and rejects failed
   const denied=await blocked.handler(new Request('https://edge.test/push',{method:'POST',headers:{
     'x-koyas-webhook-secret':secret,'x-koyas-check-config':'true'}}));
   assert.equal(denied.status,401);assert.ok(!blocked.calls.some(c=>c[0]==='access'));
+});
+test('private delivery QA requires authorization and a token, sends only a fixed probe and never claims customer work',async()=>{
+  for(const [allowed,token,expected] of [[false,'qa-token',401],[true,null,400],[true,'qa-token',200]]) {
+    let sent=0;
+    const {calls,handler}=fixture({authorize:async()=>allowed,testDelivery:async()=>{sent++;return true;}});
+    const headers={'x-koyas-webhook-secret':secret,'x-koyas-test-delivery':'true'};
+    if(token) headers['x-koyas-validation-token']=token;
+    const response=await handler(new Request('https://edge.test/push',{method:'POST',headers}));
+    assert.equal(response.status,expected);
+    assert.equal(sent,expected===200?1:0);
+    assert.ok(!calls.some(c=>['claim','devices','send','ack','finish'].includes(c[0])));
+    assert.ok(!(await response.text()).includes('qa-token'));
+  }
 });

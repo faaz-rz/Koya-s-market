@@ -1,5 +1,8 @@
 # Android build 18 verification — 7 October 2026
 
+For the subsequent address setup, variant confirmation and lock-screen
+notification changes, see [Android build 19 verification](ANDROID_BUILD_19_QA.md).
+
 The tested application version is `1.1.5+18`. The APK uses the hosted Supabase
 project `vorhfltcohtwtehngzay` and Firebase project `koya-stores`. Customer demo
 login is unavailable in this configured build. These are internal testing APKs

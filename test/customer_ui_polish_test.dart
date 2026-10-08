@@ -323,19 +323,30 @@ void main() {
       );
       await tester.tap(find.text('Choose'));
       await tester.pumpAndSettle();
-      final scroll = find
+      final horizontal = find
           .descendant(
-            of: find.byKey(const Key('variant-sheet-scroll')),
+            of: find.byKey(const Key('variant-cards')),
             matching: find.byType(Scrollable),
           )
           .first;
       for (final product in family.variants) {
         final add = find.byKey(Key('variant-add-${product.id}'));
-        await tester.scrollUntilVisible(add, 100, scrollable: scroll);
+        await tester.scrollUntilVisible(add, 100, scrollable: horizontal);
+        await tester.ensureVisible(add);
         await tester.pumpAndSettle();
         expect(tester.getBottomLeft(add).dy, lessThanOrEqualTo(640 - 34));
         await tester.tap(add);
         await tester.pumpAndSettle();
+        expect(
+          container.read(storeProvider).cartQuantities[product.id],
+          isNull,
+        );
+      }
+      final confirm = find.byKey(const Key('confirm-variant-selection'));
+      expect(tester.getBottomLeft(confirm).dy, lessThanOrEqualTo(640 - 34));
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+      for (final product in family.variants) {
         expect(container.read(storeProvider).cartQuantities[product.id], 1);
       }
       expect(tester.takeException(), isNull);
