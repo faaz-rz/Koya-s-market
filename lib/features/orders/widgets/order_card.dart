@@ -52,7 +52,7 @@ class OrderCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Order #${order.displayReference.replaceFirst('KOY', '')}',
+                    'Order #${order.customerDisplayNumber}',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: AppSpacing.xs),

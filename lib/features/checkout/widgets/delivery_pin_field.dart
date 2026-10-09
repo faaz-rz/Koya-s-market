@@ -5,6 +5,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/widgets/four_dot_loader.dart';
 import '../models/delivery_pin.dart';
 import '../services/delivery_location_service.dart';
+import '../services/delivery_address_lookup.dart';
+import 'delivery_location_picker.dart';
 
 class DeliveryPinField extends ConsumerStatefulWidget {
   const DeliveryPinField({
@@ -12,12 +14,14 @@ class DeliveryPinField extends ConsumerStatefulWidget {
     required this.onChanged,
     required this.onBusyChanged,
     this.enabled = true,
+    this.onAddressResolved,
     super.key,
   });
   final DeliveryPin? pin;
   final ValueChanged<DeliveryPin?> onChanged;
   final ValueChanged<bool> onBusyChanged;
   final bool enabled;
+  final ValueChanged<ResolvedDeliveryAddress>? onAddressResolved;
   @override
   ConsumerState<DeliveryPinField> createState() => _DeliveryPinFieldState();
 }
@@ -34,7 +38,16 @@ class _DeliveryPinFieldState extends ConsumerState<DeliveryPinField> {
     widget.onBusyChanged(true);
     try {
       final pin = await ref.read(deliveryLocationServiceProvider).capture();
-      if (mounted) widget.onChanged(pin);
+      if (!mounted) return;
+      final selection = await ref.read(deliveryLocationPickerProvider)(
+        context,
+        pin,
+      );
+      if (!mounted || selection == null) return;
+      widget.onChanged(selection.pin);
+      widget.onAddressResolved?.call(
+        selection.address ?? const ResolvedDeliveryAddress(),
+      );
     } on DeliveryLocationFailure catch (error) {
       if (mounted) setState(() => _error = error);
     } catch (_) {
@@ -60,7 +73,7 @@ class _DeliveryPinFieldState extends ConsumerState<DeliveryPinField> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Delivery pin (optional)',
+          'Delivery location',
           style: Theme.of(context).textTheme.titleSmall,
         ),
         const SizedBox(height: 6),

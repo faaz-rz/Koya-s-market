@@ -723,6 +723,14 @@ class StoreController extends Notifier<StoreState> {
     }
     final order = CustomerOrder(
       id: id,
+      customerOrderNumber:
+          state.orders.fold<int>(
+            0,
+            (max, order) => (order.customerOrderNumber ?? 0) > max
+                ? order.customerOrderNumber!
+                : max,
+          ) +
+          1,
       items: orderItems,
       fulfilmentType: state.fulfilmentType,
       fulfilmentDate: state.fulfilmentType == FulfilmentType.pickup
@@ -1069,6 +1077,7 @@ class StoreController extends Notifier<StoreState> {
     return [
       CustomerOrder(
         id: 'KOY34621',
+        customerOrderNumber: 4,
         items: [snapshot(2)],
         fulfilmentType: FulfilmentType.delivery,
         fulfilmentDate: now,
@@ -1090,6 +1099,7 @@ class StoreController extends Notifier<StoreState> {
       ),
       CustomerOrder(
         id: 'KOY34620',
+        customerOrderNumber: 3,
         items: [snapshot(3)],
         fulfilmentType: FulfilmentType.delivery,
         fulfilmentDate: now,
@@ -1111,6 +1121,7 @@ class StoreController extends Notifier<StoreState> {
       ),
       CustomerOrder(
         id: 'KOY34619',
+        customerOrderNumber: 2,
         items: pickupItems,
         fulfilmentType: FulfilmentType.pickup,
         fulfilmentDate: now,
@@ -1128,6 +1139,7 @@ class StoreController extends Notifier<StoreState> {
       ),
       CustomerOrder(
         id: 'KOY34572',
+        customerOrderNumber: 1,
         items: deliveryItems,
         fulfilmentType: FulfilmentType.delivery,
         fulfilmentDate: now.subtract(const Duration(days: 8)),

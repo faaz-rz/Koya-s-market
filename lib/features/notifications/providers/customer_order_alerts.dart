@@ -206,7 +206,7 @@ class CustomerOrderAlerts extends Notifier<CustomerAlertState> {
               ? 'Koya Stores · ${order.customerStatusLabel}'
               : 'Koya Stores · ${batch.length} order updates',
           body: batch.length == 1
-              ? order.customerStatusMessage
+              ? 'Order #${order.customerDisplayNumber}: ${order.customerStatusMessage}'
               : 'Open your orders to see pickup and delivery updates.',
           sound: state.sound,
           onOpen: () {

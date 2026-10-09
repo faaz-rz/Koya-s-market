@@ -92,8 +92,7 @@ class OrderConfirmationScreen extends ConsumerWidget {
                       children: [
                         _ConfirmationRow(
                           label: 'Order number',
-                          value:
-                              '#${order.displayReference.replaceFirst('KOY', '')}',
+                          value: '#${order.customerDisplayNumber}',
                         ),
                         const Divider(height: AppSpacing.xxl),
                         _ConfirmationRow(

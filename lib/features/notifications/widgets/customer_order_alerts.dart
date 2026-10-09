@@ -89,7 +89,9 @@ class _CustomerOrderAlertsState extends ConsumerState<CustomerOrderAlerts>
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                           const SizedBox(height: 4),
-                          Text(order.customerStatusMessage),
+                          Text(
+                            'Order #${order.customerDisplayNumber}: ${order.customerStatusMessage}',
+                          ),
                           Wrap(
                             spacing: 8,
                             children: [

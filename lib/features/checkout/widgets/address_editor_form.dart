@@ -37,6 +37,7 @@ class AddressEditorFormState extends State<AddressEditorForm> {
   };
   bool _submitted = false;
   late final TextEditingController _label,
+      _flat,
       _name,
       _phone,
       _line,
@@ -50,6 +51,7 @@ class AddressEditorFormState extends State<AddressEditorForm> {
     super.initState();
     final a = widget.address;
     _label = TextEditingController(text: a?.label ?? 'Home');
+    _flat = TextEditingController();
     _name = TextEditingController(text: a?.recipientName ?? widget.initialName);
     _phone = TextEditingController(text: a?.phone ?? widget.initialPhone);
     _line = TextEditingController(text: a?.line1 ?? '');
@@ -66,6 +68,7 @@ class AddressEditorFormState extends State<AddressEditorForm> {
     }
     for (final c in [
       _label,
+      _flat,
       _name,
       _phone,
       _line,
@@ -120,7 +123,10 @@ class AddressEditorFormState extends State<AddressEditorForm> {
         label: _label.text.trim(),
         recipientName: _name.text.trim(),
         phone: _phone.text.trim(),
-        line1: _line.text.trim(),
+        line1: [
+          _flat.text.trim(),
+          _line.text.trim(),
+        ].where((value) => value.isNotEmpty).join(', '),
         city: _city.text.trim(),
         pincode: _pincode.text.trim(),
         instructions: _instructions.text.trim(),
@@ -146,6 +152,14 @@ class AddressEditorFormState extends State<AddressEditorForm> {
             _pin = pin;
             _pinCleared = false;
           }),
+          onAddressResolved: (address) {
+            // Controller assignment does not run the manual-edit listener,
+            // so the confirmed pin remains attached to the resolved address.
+            _flat.clear();
+            _line.text = address.street;
+            _city.text = address.city;
+            _pincode.text = address.pincode;
+          },
           onBusyChanged: (busy) {
             setState(() => _locating = busy);
             widget.onLocatingChanged?.call(busy);
@@ -156,6 +170,18 @@ class AddressEditorFormState extends State<AddressEditorForm> {
             'Address changed. Capture a new pin at this address if needed.',
           ),
         const SizedBox(height: AppSpacing.lg),
+        TextFormField(
+          key: const Key('address-flat'),
+          controller: _flat,
+          enabled: !widget.saving && !_locating,
+          maxLength: 60,
+          textInputAction: TextInputAction.next,
+          decoration: const InputDecoration(
+            labelText: 'Flat / house number (optional)',
+            counterText: '',
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
         TextFormField(
           key: const Key('address-line'),
           focusNode: _focus[const Key('address-line')],

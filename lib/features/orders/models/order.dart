@@ -54,6 +54,7 @@ class CustomerOrder {
     required this.status,
     required this.createdAt,
     this.reference,
+    this.customerOrderNumber,
     this.addressText,
     this.deliveryPin,
     this.deliveryInstructions = '',
@@ -92,8 +93,13 @@ class CustomerOrder {
   final String? offerTitle;
   final int offerDiscountPaise;
   final String? reference;
+  final int? customerOrderNumber;
 
   String get displayReference => reference ?? id;
+  String get customerDisplayNumber =>
+      customerOrderNumber != null && customerOrderNumber! > 0
+      ? '$customerOrderNumber'
+      : displayReference.replaceFirst('KOY', '');
 
   CustomerOrder copyWith({
     OrderStatus? status,
@@ -126,6 +132,7 @@ class CustomerOrder {
       offerTitle: offerTitle,
       offerDiscountPaise: offerDiscountPaise,
       reference: reference,
+      customerOrderNumber: customerOrderNumber,
     );
   }
 }

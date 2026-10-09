@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../core/widgets/appearance_selector.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -298,6 +299,10 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        const Align(
+                          alignment: Alignment.centerRight,
+                          child: AppearanceButton(),
+                        ),
                         const KoyasLogo(),
                         const SizedBox(height: AppSpacing.xxxl),
                         Text(

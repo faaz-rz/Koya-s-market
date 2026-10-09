@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app/app.dart';
 import 'core/config/app_environment.dart';
 import 'core/services/backend_bootstrap.dart';
+import 'core/theme/appearance_provider.dart';
 import 'core/widgets/configuration_error_app.dart';
 import 'features/notifications/services/push_gateway.dart';
 
@@ -16,5 +17,11 @@ Future<void> main() async {
   }
   await BackendBootstrap.initialize();
   await FirebasePushGateway.initialize();
-  runApp(const ProviderScope(child: KoyasApp()));
+  final appearance = await DeviceAppearanceStorage().read();
+  runApp(
+    ProviderScope(
+      overrides: [initialAppearanceProvider.overrideWithValue(appearance)],
+      child: const KoyasApp(),
+    ),
+  );
 }

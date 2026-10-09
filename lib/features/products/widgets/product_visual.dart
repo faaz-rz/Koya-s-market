@@ -7,6 +7,7 @@ import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/config/usage_policy.dart';
 import '../models/product.dart';
+import '../bundled_product_images.dart';
 import 'category_tile.dart';
 import 'product_image_cache.dart';
 
@@ -95,7 +96,11 @@ class ProductVisual extends StatelessWidget {
         ),
       );
     }
-    final imageAsset = product.imageAsset;
+    final imageAsset = product.imagePath.isEmpty
+        ? (product.imageAsset.isNotEmpty
+              ? product.imageAsset
+              : BundledProductImages.assetFor(product))
+        : '';
     if (imageAsset.isNotEmpty) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(radius),

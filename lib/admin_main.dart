@@ -6,6 +6,7 @@ import 'package:flutter_web_plugins/url_strategy.dart';
 import 'admin/admin_app.dart';
 import 'core/config/app_environment.dart';
 import 'core/services/backend_bootstrap.dart';
+import 'core/theme/appearance_provider.dart';
 import 'core/widgets/configuration_error_app.dart';
 
 Future<void> main() async {
@@ -20,5 +21,11 @@ Future<void> main() async {
   // Staff sessions live only in the current tab. Refreshing or closing the
   // browser requires a fresh email OTP. There is no inactivity lock.
   await BackendBootstrap.initialize(persistAuthSession: false);
-  runApp(const ProviderScope(child: KoyasAdminApp()));
+  final appearance = await DeviceAppearanceStorage().read();
+  runApp(
+    ProviderScope(
+      overrides: [initialAppearanceProvider.overrideWithValue(appearance)],
+      child: const KoyasAdminApp(),
+    ),
+  );
 }

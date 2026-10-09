@@ -1,5 +1,7 @@
 # Android build 18 verification — 7 October 2026
 
+For the latest APK changes and tests, see [build 23 verification](ANDROID_BUILD_23_QA.md).
+
 For the latest staff sign-in and session behavior, see
 [build 22 staff access](STAFF_ACCESS_22.md).
 

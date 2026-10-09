@@ -187,6 +187,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       await tester.pumpAndSettle();
       expect(fake.sounds, [true, false]);
+      expect(
+        fake.messages.last,
+        contains('Order #${initial.orders[1].customerDisplayNumber}:'),
+      );
       controller.logout();
       await tester.pumpAndSettle();
       expect(fake.disposed, true);

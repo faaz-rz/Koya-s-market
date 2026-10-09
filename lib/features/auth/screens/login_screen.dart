@@ -14,6 +14,7 @@ import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/koyas_button.dart';
 import '../../../core/widgets/koyas_logo.dart';
+import '../../../core/widgets/appearance_selector.dart';
 import '../data/auth_repository.dart';
 import '../data/otp_send_limiter.dart';
 import '../../store/providers/store_provider.dart';
@@ -342,6 +343,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    const Align(
+                      alignment: Alignment.centerRight,
+                      child: AppearanceButton(),
+                    ),
                     Row(
                       children: [
                         const Expanded(

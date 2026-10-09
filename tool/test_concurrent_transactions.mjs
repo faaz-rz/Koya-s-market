@@ -304,6 +304,8 @@ try {
   await runRequestProtocolChecks({ owner, transaction, anotherUser, admin, check });
   const {runCustomerDeliveryChecks} = await import('./customer_delivery_database_test.mjs');
   await runCustomerDeliveryChecks({owner,transaction,fixture,anotherUser,admin,place,check});
+  const {runCustomerOrderNumberChecks} = await import('./customer_order_numbers_database_test.mjs');
+  await runCustomerOrderNumberChecks({owner,transaction,fixture,anotherUser,admin,place,check});
   console.log('All concurrency and sync checks passed. No remote database was contacted.');
 } finally {
   await Promise.all([...clients].map(c => c.end().catch(() => {})));

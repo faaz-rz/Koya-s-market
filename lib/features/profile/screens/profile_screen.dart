@@ -14,6 +14,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/koyas_surface.dart';
+import '../../../core/widgets/appearance_selector.dart';
 import '../../checkout/models/checkout_models.dart';
 import '../models/customer_profile.dart';
 import '../../store/data/supabase_store_repository.dart';
@@ -525,6 +526,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   padding: EdgeInsets.zero,
                   child: Column(
                     children: [
+                      const AppearanceSetting(),
+                      const Divider(height: 1),
                       const Padding(
                         padding: EdgeInsets.all(16),
                         child: CustomerAlertSettings(),

@@ -13,6 +13,7 @@ import '../../orders/models/order.dart';
 import '../../products/models/category.dart';
 import '../../products/models/product.dart';
 import '../../products/models/product_image_upload.dart';
+import '../../products/bundled_product_images.dart';
 import '../../profile/models/customer_profile.dart';
 import '../providers/store_provider.dart';
 import 'customer_catalog_categories.dart';
@@ -255,7 +256,7 @@ class SupabaseStoreRepository {
               .where((row) => categoryVisuals.containsKey(row['category_id']))
               .map((row) {
                 final imagePath = row['image_path'] as String?;
-                return Product(
+                final product = Product(
                   id: row['id'] as String,
                   categoryId: row['category_id'] as String,
                   name: row['name'] as String,
@@ -285,6 +286,9 @@ class SupabaseStoreRepository {
                   featured: row['featured'] as bool? ?? false,
                   active: row['active'] as bool? ?? true,
                   available: row['available'] as bool? ?? true,
+                );
+                return product.copyWith(
+                  imageAsset: BundledProductImages.assetFor(product),
                 );
               })
               .toList(growable: false);
@@ -826,6 +830,7 @@ class SupabaseStoreRepository {
     return CustomerOrder(
       id: row['id'] as String,
       reference: 'KOY${row['order_number']}',
+      customerOrderNumber: (row['customer_order_number'] as num?)?.toInt(),
       items: itemRows
           .map(
             (item) => OrderItemSnapshot(

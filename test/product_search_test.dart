@@ -9,6 +9,32 @@ import 'package:koyas_supermarket/features/store/data/generated_product_catalog.
 void main() {
   final products = GeneratedProductCatalog.products;
 
+  testWidgets(
+    'double tapping search closes the keyboard and preserves the query',
+    (tester) async {
+      await tester.pumpWidget(
+        const ProviderScope(child: MaterialApp(home: ProductListingScreen())),
+      );
+      await tester.pumpAndSettle();
+      final search = find.byKey(const Key('product-search'));
+      await tester.enterText(search, 'milk');
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(tester.widget<TextField>(search).focusNode!.hasFocus, true);
+      await tester.tap(search);
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tap(search);
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(search).focusNode!.hasFocus, false);
+      expect(tester.testTextInput.isVisible, false);
+      expect(tester.widget<TextField>(search).controller!.text, 'milk');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.tap(search);
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(search).focusNode!.hasFocus, true);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
   test('intent search finds washing and laundry products', () {
     final results = ProductSearch.search(products: products, query: 'washing');
     final names = results.map((product) => product.name).toList();

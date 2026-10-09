@@ -3,6 +3,7 @@ import '../../../core/widgets/four_dot_loader.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../../core/widgets/appearance_selector.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -555,6 +556,7 @@ class _DashboardContent extends ConsumerWidget {
                     ),
                     const SizedBox(width: AppSpacing.sm),
                   ],
+                  const AppearanceButton(),
                   IconButton.filledTonal(
                     tooltip: 'Sign out',
                     onPressed: onSignOut,
@@ -2515,6 +2517,13 @@ class _AdminOrderRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.labelLarge,
                 ),
+                if (order.customerOrderNumber != null)
+                  Text(
+                    'Customer order #${order.customerDisplayNumber}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.of(context).inkSecondary,
+                    ),
+                  ),
                 Text(
                   _contactSummary,
                   maxLines: 2,

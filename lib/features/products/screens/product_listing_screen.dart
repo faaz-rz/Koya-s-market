@@ -49,6 +49,7 @@ class _ProductListingScreenState extends ConsumerState<ProductListingScreen> {
   String _query = '';
   bool _searchFocused = false;
   Timer? _debounce;
+  Timer? _searchTapTimer;
 
   List<Product>? _cachedProducts;
   String? _cachedQuery;
@@ -65,6 +66,7 @@ class _ProductListingScreenState extends ConsumerState<ProductListingScreen> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _searchTapTimer?.cancel();
     _searchFocus
       ..removeListener(_onFocusChanged)
       ..dispose();
@@ -75,6 +77,18 @@ class _ProductListingScreenState extends ConsumerState<ProductListingScreen> {
   void _onFocusChanged() {
     if (mounted && _searchFocused != _searchFocus.hasFocus) {
       setState(() => _searchFocused = _searchFocus.hasFocus);
+    }
+  }
+
+  void _onSearchTapped() {
+    if (_searchTapTimer?.isActive == true) {
+      _searchTapTimer?.cancel();
+      _searchTapTimer = null;
+      _searchFocus.unfocus();
+    } else {
+      _searchTapTimer = Timer(const Duration(milliseconds: 300), () {
+        _searchTapTimer = null;
+      });
     }
   }
 
@@ -210,6 +224,11 @@ class _ProductListingScreenState extends ConsumerState<ProductListingScreen> {
                     enableSuggestions: true,
                     onChanged: _onSearchChanged,
                     onSubmitted: _commitSearch,
+                    // A deliberate double tap dismisses the keyboard without
+                    // clearing the query or changing the catalogue results.
+                    onTapAlwaysCalled: true,
+                    onTap: _onSearchTapped,
+                    onTapOutside: (_) => _searchFocus.unfocus(),
                     decoration: InputDecoration(
                       hintText: 'Search atta, milk, brands and more',
                       prefixIcon: const Icon(Icons.search_rounded),

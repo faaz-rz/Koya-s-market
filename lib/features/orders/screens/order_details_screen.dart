@@ -94,7 +94,7 @@ class OrderDetailsScreen extends ConsumerWidget {
           onPressed: () => _goBack(context),
           icon: const Icon(Icons.arrow_back_rounded),
         ),
-        title: Text('Order #${order.displayReference.replaceFirst('KOY', '')}'),
+        title: Text('Order #${order.customerDisplayNumber}'),
         actions: [
           IconButton(
             tooltip: 'Go to home',
@@ -269,7 +269,9 @@ class _OrderDetails extends StatelessWidget {
                     width: 42,
                     height: 42,
                     decoration: BoxDecoration(
-                      color: ProductVisual.colorFor(item.visualKey),
+                      color: AppColors.of(context).illustrationTint(
+                        ProductVisual.colorFor(item.visualKey),
+                      ),
                       borderRadius: BorderRadius.circular(AppRadii.md),
                     ),
                     child: Icon(

@@ -11,6 +11,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/config/app_environment.dart';
 import '../core/theme/app_theme.dart';
+import '../core/theme/appearance_provider.dart';
 import '../core/widgets/customer_backdrop.dart';
 import '../core/widgets/network_status_banner.dart';
 import '../features/store/data/supabase_store_repository.dart';
@@ -116,7 +117,7 @@ class _KoyasAppState extends ConsumerState<KoyasApp> {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.customer,
       darkTheme: AppTheme.customerDark,
-      themeMode: ThemeMode.system,
+      themeMode: ref.watch(appearanceProvider),
       builder: (context, child) => NetworkStatusBanner(
         child: CustomerOrderAlerts(
           child: StoreRealtimeSync(

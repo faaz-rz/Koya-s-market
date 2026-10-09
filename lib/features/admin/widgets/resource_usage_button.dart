@@ -1,5 +1,6 @@
 import '../../../core/widgets/four_dot_loader.dart';
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Explicit, on-demand diagnostic; never adds queries to the live polling loop.
@@ -58,7 +59,9 @@ class ResourceUsageButton extends StatelessWidget {
                           const SizedBox(height: 6),
                           LinearProgressIndicator(
                             value: ratio.clamp(0, 1),
-                            color: ratio >= .75 ? Colors.orange : null,
+                            color: ratio >= .75
+                                ? AppColors.of(context).warning
+                                : null,
                           ),
                           if (ratio >= .75)
                             const Text(
