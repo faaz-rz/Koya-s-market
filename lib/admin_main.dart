@@ -18,7 +18,7 @@ Future<void> main() async {
     return;
   }
   // Staff sessions live only in the current tab. Refreshing or closing the
-  // browser requires a fresh email OTP and authenticator code.
+  // browser requires a fresh email OTP. There is no inactivity lock.
   await BackendBootstrap.initialize(persistAuthSession: false);
   runApp(const ProviderScope(child: KoyasAdminApp()));
 }

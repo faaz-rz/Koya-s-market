@@ -54,17 +54,17 @@ required for code verification. See [Supabase redirect URLs](https://supabase.co
 
 Test a first signup, returning login, resend and expired code using an address
 outside your Supabase team. Complete one disposable customer's deletion with no
-active orders. Delivery, hosted MFA and the authenticated deletion flow still
+active orders. Delivery, staff email sign-in and the authenticated deletion flow still
 require this real-device verification; the automated tests use mocked Auth HTTP
 and isolated PostgreSQL.
 
 ## Staff access
 
 The first staff email supplied for this deployment is preapproved in the private
-staff-email approvals table. Enter it on **Staff sign in**, verify its email code, then set up a six-digit
-authenticator app when prompted. Verification consumes the approval and creates
-the staff role. Every privileged database action also requires the authenticator
-session (AAL2). The private approval table cannot be read or changed by customers.
+staff-email approvals table. Enter it on **Staff sign in** and verify its email code. Verification consumes
+the approval and creates the staff role. Every privileged database action checks
+that this role is still active. No authenticator step is required. The private
+approval table cannot be read or changed by customers.
 
 For the second staff member, replace the two example values below and run this
 once in **SQL Editor**. Approve only a person you intend to give store access:
@@ -74,7 +74,7 @@ insert into koyas_private.staff_email_approvals(email, display_name)
 values (lower(trim('SECOND_STAFF_EMAIL')), 'Second staff member');
 ```
 
-That person then signs in and verifies email and their authenticator. Pending
+That person then signs in and verifies their email code. Pending
 approvals are one-use: repeating a verification cannot reactivate revoked staff.
 To cancel an unused approval, delete its row where `granted_at is null`.
 To revoke an existing staff role immediately:
@@ -157,7 +157,6 @@ In **Cloudflare → Workers & Pages → Create → Pages**, connect the GitHub r
 | Root directory | Repository root |
 | `SUPABASE_URL` | `https://vorhfltcohtwtehngzay.supabase.co` |
 | `SUPABASE_ANON_KEY` | Project's public publishable key from API Keys |
-| `ADMIN_IDLE_TIMEOUT_MINUTES` | `15` |
 
 Do not enable `ENABLE_ADMIN_DEMO`. Legal pages and security headers are included
 in the web bundle. The HTTPS web app uses `/privacy` and `/delete-account` at its
@@ -253,8 +252,8 @@ rejected join attempts do not postpone the backup read.
 Healthy live sync retains a 60-second safety check. The signed-in staff tab can
 receive live events while hidden, but a closed/suspended browser, computer sleep,
 network loss or session expiry cannot deliver these open-dashboard notifications.
-MFA, the configured idle lock, authorization checks and atomic checkout are
-unchanged. No SMS, paid audio service or notification vendor is added.
+Active staff authorization and atomic checkout remain enforced; staff MFA and
+the inactivity lock were removed at the store owner’s request. No SMS, paid audio service or notification vendor is added.
 
 Verify on two devices: keep the enabled staff dashboard open, place a customer
 order, check its arrival/banner/chime, navigate to Inventory, place another,
@@ -302,7 +301,7 @@ location**. Location is requested only for that foreground action and the user
 can continue with a typed address. The saved record contains latitude,
 longitude, estimated accuracy and capture time. The checkout order copies this
 pin into an immutable snapshot, so later address edits cannot move an existing
-delivery. Staff with MFA see a **Directions to delivery pin** link in order
+delivery. Approved staff see a **Directions to delivery pin** link in order
 details. Confirm the written address and landmark when the accuracy is
 approximate; GPS is never an exact guarantee. Account deletion removes saved
 and order pins.

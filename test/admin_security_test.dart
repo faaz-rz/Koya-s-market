@@ -9,22 +9,25 @@ import 'package:koyas_supermarket/admin/widgets/admin_session_guard.dart';
 import 'package:koyas_supermarket/features/store/providers/store_provider.dart';
 
 void main() {
-  test('admin database privileges require active staff and MFA AAL2', () {
-    final migration = File(
-      'supabase/migrations/202608220002_admin_mfa_security.sql',
-    ).readAsStringSync();
+  test(
+    'admin database privileges require signed-in active staff without an authenticator',
+    () {
+      final migration = File(
+        'supabase/migrations/20261009132149_staff_email_access_without_mfa.sql',
+      ).readAsStringSync();
 
-    expect(migration, contains("auth.jwt() ->> 'aal'"));
-    expect(migration, contains("= 'aal2'"));
-    expect(migration, contains('active = true'));
-    expect(migration, contains('where user_id = auth.uid()'));
-    expect(
-      migration,
-      contains(
-        'grant execute on function public.is_admin() to anon, authenticated',
-      ),
-    );
-  });
+      expect(migration, contains('auth.uid() is not null'));
+      expect(migration, isNot(contains("= 'aal2'")));
+      expect(migration, contains('active = true'));
+      expect(migration, contains('where user_id = auth.uid()'));
+      expect(
+        migration,
+        contains(
+          'grant execute on function public.is_admin() to authenticated, service_role',
+        ),
+      );
+    },
+  );
 
   test('admin product writes are validated, audited, and RPC-only', () {
     final migration = File(
@@ -57,7 +60,7 @@ void main() {
     expect(repository, isNot(contains("from('products').update")));
   });
 
-  test('order pricing is MFA-admin-only, validated, and audited', () {
+  test('order pricing is staff-only, validated, and audited', () {
     final offerMigration = File(
       'supabase/migrations/202608240001_admin_delivery_and_offers.sql',
     ).readAsStringSync();
@@ -188,7 +191,7 @@ void main() {
     );
   });
 
-  test('store admin state comes from the MFA-aware database function', () {
+  test('store admin state comes from the server-owned staff check', () {
     final repository = File(
       'lib/features/store/data/supabase_store_repository.dart',
     ).readAsStringSync();
@@ -293,7 +296,7 @@ void main() {
     expect(noStoreSources, contains('/flutter_bootstrap.js'));
   });
 
-  testWidgets('admin inactivity lock clears the store and returns to login', (
+  testWidgets('admin remains signed in after prolonged inactivity', (
     tester,
   ) async {
     final container = ProviderContainer();
@@ -308,7 +311,6 @@ void main() {
         GoRoute(
           path: '/dashboard',
           builder: (_, _) => const AdminSessionGuard(
-            idleTimeout: Duration(milliseconds: 50),
             child: Scaffold(body: Text('Protected dashboard')),
           ),
         ),
@@ -330,11 +332,13 @@ void main() {
     );
     expect(find.text('Protected dashboard'), findsOneWidget);
 
-    await tester.pump(const Duration(milliseconds: 80));
+    await tester.pump(const Duration(hours: 24));
     await tester.pumpAndSettle();
 
-    expect(find.text('expired'), findsOneWidget);
-    expect(container.read(storeProvider).isAuthenticated, isFalse);
-    expect(container.read(storeProvider).isAdminAccount, isFalse);
+    expect(find.text('Protected dashboard'), findsOneWidget);
+    expect(find.text('expired'), findsNothing);
+    expect(container.read(storeProvider).isAuthenticated, isTrue);
+    expect(container.read(storeProvider).isAdminAccount, isTrue);
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 }

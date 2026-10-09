@@ -16,12 +16,11 @@ import '../../features/auth/data/otp_send_limiter.dart';
 import '../../features/store/data/supabase_store_repository.dart';
 import '../../features/store/providers/store_provider.dart';
 
-enum _AdminLoginStep { email, emailOtp, authenticator, enrollment }
+enum _AdminLoginStep { email, emailOtp }
 
 class AdminLoginScreen extends ConsumerStatefulWidget {
   const AdminLoginScreen({
     this.accessDenied = false,
-    this.mfaRequired = false,
     this.sessionExpired = false,
     this.authRepository,
     this.loadStore,
@@ -29,7 +28,6 @@ class AdminLoginScreen extends ConsumerStatefulWidget {
   });
 
   final bool accessDenied;
-  final bool mfaRequired;
   final bool sessionExpired;
   final AuthRepository? authRepository;
   final Future<RemoteStoreBundle> Function()? loadStore;
@@ -46,18 +44,12 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
   bool _loading = false;
   bool _messageIsError = false;
   String? _message;
-  String? _mfaFactorId;
-  String? _mfaSecret;
   Timer? _resendTimer;
   int _resendSeconds = 0;
 
   bool get _remote =>
       widget.authRepository != null || AppEnvironment.hasSupabaseConfig;
   AuthRepository get _auth => widget.authRepository ?? AuthRepository();
-
-  bool get _isMfaStep =>
-      _step == _AdminLoginStep.authenticator ||
-      _step == _AdminLoginStep.enrollment;
 
   @override
   void initState() {
@@ -66,10 +58,8 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
       _setInitialMessage('This account is not approved for staff access.');
     } else if (widget.sessionExpired) {
       _setInitialMessage(
-        'The dashboard was locked after inactivity. Sign in again to continue.',
+        'Your staff session expired. Sign in again to continue.',
       );
-    } else if (widget.mfaRequired) {
-      _message = 'Enter your authenticator code to finish signing in.';
     }
 
     if (_remote && !widget.accessDenied && _auth.currentUser != null) {
@@ -104,11 +94,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
           'This account is not approved for staff access.',
         );
       }
-      if (auth.hasAal2Session) {
-        await _openDashboard(auth);
-      } else {
-        await _prepareMfa(auth);
-      }
+      await _openDashboard(auth);
     } catch (error) {
       _showError(error);
     } finally {
@@ -118,11 +104,9 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
 
   Future<void> _continue() async {
     if (_loading) return;
-    // A code may have succeeded before a later allowlist/MFA/store request
+    // A code may have succeeded before a later staff-access/store request
     // failed. Resume that session instead of replaying a consumed email code.
-    if (_remote &&
-        _auth.currentUser != null &&
-        (!_isMfaStep || _auth.hasAal2Session)) {
+    if (_remote && _auth.currentUser != null) {
       await _resumeSignedInAdmin();
       return;
     }
@@ -171,19 +155,6 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
             );
           }
           _otpController.clear();
-          await _prepareMfa(auth);
-        case _AdminLoginStep.authenticator:
-        case _AdminLoginStep.enrollment:
-          final factorId = _mfaFactorId;
-          if (factorId == null) {
-            throw const AuthException(
-              'Authenticator setup expired. Sign in again.',
-            );
-          }
-          await auth.verifyAdminMfa(
-            factorId: factorId,
-            code: _otpController.text,
-          );
           await _openDashboard(auth);
       }
     } catch (error) {
@@ -193,38 +164,14 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
     }
   }
 
-  Future<void> _prepareMfa(AuthRepository auth) async {
-    final userId = auth.currentUser?.id;
-    final challenge = await auth.prepareAdminMfa();
-    if (!mounted) return;
-    if (userId == null || auth.currentUser?.id != userId) {
-      throw const AuthException('Your session changed. Sign in again.');
-    }
-    setState(() {
-      _mfaFactorId = challenge.factorId;
-      _mfaSecret = challenge.enrollmentSecret;
-      _step = challenge.isEnrollment
-          ? _AdminLoginStep.enrollment
-          : _AdminLoginStep.authenticator;
-      _message = challenge.isEnrollment
-          ? 'Authenticator setup is required for this staff account.'
-          : 'Enter the current code from your authenticator app.';
-      _messageIsError = false;
-    });
-  }
-
   Future<void> _openDashboard(AuthRepository auth) async {
     final userId = auth.currentUser?.id;
-    if (!auth.hasAal2Session) {
-      throw const AuthException('Authenticator verification is required.');
-    }
     final bundle =
         await (widget.loadStore ?? SupabaseStoreRepository().loadStore)();
     if (!mounted) return;
     if (userId == null ||
         auth.currentUser?.id != userId ||
-        bundle.profile.id != userId ||
-        !auth.hasAal2Session) {
+        bundle.profile.id != userId) {
       throw const AuthException('Your session changed. Sign in again.');
     }
     if (!bundle.isAdmin) {
@@ -244,8 +191,6 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
       StoreValidationException() => error.message,
       AuthException(statusCode: '429') =>
         'Too many attempts. Wait a few minutes and try again.',
-      AuthException() when _isMfaStep =>
-        'That authenticator code was not accepted. Check the code and try again.',
       AuthException() when _step == _AdminLoginStep.emailOtp =>
         'That email code was not accepted or has expired. Request a new code.',
       _ => 'Could not sign in. Check the details and try again.',
@@ -253,13 +198,6 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
     setState(() {
       _message = connectionFailureMessage(error, message);
       _messageIsError = true;
-      if (_remote && _isMfaStep && _auth.currentUser == null) {
-        _step = _AdminLoginStep.email;
-        _mfaFactorId = null;
-        _mfaSecret = null;
-        _otpController.clear();
-        _message = 'Your session expired. Request a new email code to sign in.';
-      }
     });
   }
 
@@ -311,8 +249,6 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
       if (mounted) {
         setState(() {
           _step = _AdminLoginStep.email;
-          _mfaFactorId = null;
-          _mfaSecret = null;
           _message = null;
           _messageIsError = false;
         });
@@ -330,11 +266,10 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
           ? 'Open staff dashboard demo'
           : 'Production configuration required';
     }
+    if (_auth.currentUser != null) return 'Open staff dashboard';
     return switch (_step) {
       _AdminLoginStep.email => 'Send secure code',
       _AdminLoginStep.emailOtp => 'Verify email',
-      _AdminLoginStep.authenticator => 'Verify and open dashboard',
-      _AdminLoginStep.enrollment => 'Finish secure setup',
     };
   }
 
@@ -401,49 +336,10 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                             return null;
                           },
                         ),
-                        if (_step == _AdminLoginStep.enrollment) ...[
-                          const SizedBox(height: AppSpacing.lg),
-                          Container(
-                            padding: const EdgeInsets.all(AppSpacing.lg),
-                            decoration: BoxDecoration(
-                              color: AppColors.of(context).brandSoft,
-                              borderRadius: BorderRadius.circular(AppRadii.lg),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Set up an authenticator',
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.titleMedium,
-                                ),
-                                const SizedBox(height: AppSpacing.sm),
-                                const Text(
-                                  'In Google Authenticator, Microsoft Authenticator, or another TOTP app, add an account manually. Use this setup key:',
-                                ),
-                                const SizedBox(height: AppSpacing.md),
-                                SelectableText(
-                                  _mfaSecret ?? '',
-                                  key: const Key('admin-mfa-secret'),
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(letterSpacing: 1.5),
-                                ),
-                                const SizedBox(height: AppSpacing.sm),
-                                const Text(
-                                  'Choose time-based and 6 digits, then enter the current code below. Keep this key private.',
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                        if (_step == _AdminLoginStep.emailOtp ||
-                            _isMfaStep) ...[
+                        if (_step == _AdminLoginStep.emailOtp) ...[
                           const SizedBox(height: AppSpacing.lg),
                           TextFormField(
-                            key: Key(
-                              _isMfaStep ? 'admin-mfa-code' : 'admin-otp',
-                            ),
+                            key: const Key('admin-otp'),
                             controller: _otpController,
                             enabled: !_loading,
                             maxLength: 6,
@@ -453,9 +349,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                             ],
                             autofillHints: const [AutofillHints.oneTimeCode],
                             decoration: InputDecoration(
-                              labelText: _isMfaStep
-                                  ? 'Authenticator code'
-                                  : 'Email verification code',
+                              labelText: 'Email verification code',
                               prefixIcon: const Icon(Icons.password_rounded),
                             ),
                             validator: (value) =>
@@ -523,7 +417,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                             Expanded(
                               child: Text(
                                 configured
-                                    ? 'Approved staff, email verification, and an authenticator code are all required. The dashboard locks after inactivity.'
+                                    ? 'Sign in with your approved staff email and its verification code. The dashboard stays open until you sign out.'
                                     : AppEnvironment.allowAdminDemo
                                     ? 'Demo mode uses sample data and cannot change the live store.'
                                     : 'This release is locked because Supabase production configuration is missing.',

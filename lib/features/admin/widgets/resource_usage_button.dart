@@ -34,7 +34,7 @@ class ResourceUsageButton extends StatelessWidget {
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
                     return const Text(
-                      'Could not check usage. Confirm your staff MFA session and database migrations, then try again.',
+                      'Could not check usage. Confirm your staff access and database migrations, then try again.',
                     );
                   }
                   if (!snapshot.hasData) {

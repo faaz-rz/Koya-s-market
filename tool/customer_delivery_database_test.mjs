@@ -26,7 +26,7 @@ export async function runCustomerDeliveryChecks({owner,transaction,fixture,anoth
     const removed = await save(user,address({address_id:a.id,delivery_pin:null}),retained.revision);
     assert.equal(removed.delivery_pin,null);
   });
-  await check('order pins are immutable address snapshots, visible only to owner/MFA staff, and erased on account deletion', async () => {
+  await check('order pins are immutable address snapshots, visible only to owner/active staff, and erased on account deletion', async () => {
     const f = await fixture(5);
     await owner.query("insert into public.serviceable_pincodes(pincode) values('500008') on conflict do nothing");
     const slot = randomUUID();
@@ -40,7 +40,7 @@ export async function runCustomerDeliveryChecks({owner,transaction,fixture,anoth
     const read = async(user,aal='aal1') => (await transaction(user,c=>c.query('select delivery_pin from public.orders where id=$1',[order]),'authenticated',aal)).rows;
     assert.deepEqual((await read(f.user))[0].delivery_pin,pin);
     assert.equal((await read(await anotherUser())).length,0);
-    assert.equal((await read(admin)).length,0);
+    assert.deepEqual((await read(admin))[0].delivery_pin,pin);
     assert.deepEqual((await read(admin,'aal2'))[0].delivery_pin,pin);
     for (const status of ['confirmed','preparing','ready_for_dispatch','out_for_delivery']) {
       await transaction(admin,c=>c.query('select public.update_order_status($1,$2)',[order,status]));

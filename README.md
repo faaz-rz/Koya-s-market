@@ -35,8 +35,7 @@ Customer screens:
 
 Staff dashboard:
 
-- Separate responsive website with staff-only email OTP, mandatory TOTP
-  authenticator MFA, and admin-only routing
+- Separate responsive website with staff-only email OTP and admin-only routing
 - Responsive navigation with separate Overview, Analytics, Pricing, Orders,
   and Inventory pages instead of one long dashboard
 - Today, active, pickup, completed, daily-paid, monthly-paid, low-stock, and
@@ -54,7 +53,7 @@ Staff dashboard:
 - Inventory add/edit controls for price, offer price, unit, category, featured
   products, and JPEG/PNG/WebP product-picture upload or replacement
 - Debounced staff live updates and cached, conditional customer refreshes
-- In-memory staff sessions, a 15-minute inactivity lock, periodic admin-access
+- In-memory staff sessions without an inactivity lock, periodic admin-access
   revalidation, secure sign-out, and no customer-shopping routes
 
 Production backend:
@@ -76,7 +75,7 @@ Production backend:
 - Audited, server-validated product and stock changes; administrator-owned
   image paths; automatic product availability synchronization; and validated
   order-status transitions
-- Deny-by-default database function execution, MFA-aware staff authorization,
+- Deny-by-default database function execution, active-staff authorization,
   minimal access to customer personal data, exact payment reconciliation, and
   atomic notification-queue claims
 
@@ -144,7 +143,7 @@ repeated snapshots do not sound again. Reconnect catches newly missed orders.
 If notifications or audio are blocked, in-app alerts and ordering still work.
 Keep the staff tab open and signed in; these are open-dashboard alerts, not
 closed-browser push. OS/browser sleep can suspend delivery until reconnect.
-The existing MFA, idle lock and sign-out guards remain enforced.
+Active staff authorization and sign-out guards remain enforced; no authenticator or inactivity lock is required.
 
 To create a catalogue item, select **Add product** in the staff inventory,
 choose an optional picture, complete the product details, and save. Pictures
@@ -204,8 +203,7 @@ Supabase values only:
 ```sh
 flutter build web --release -t lib/admin_main.dart \
   --dart-define=SUPABASE_URL=https://YOUR_PROJECT.supabase.co \
-  --dart-define=SUPABASE_ANON_KEY=YOUR_PUBLISHABLE_KEY \
-  --dart-define=ADMIN_IDLE_TIMEOUT_MINUTES=15
+  --dart-define=SUPABASE_ANON_KEY=YOUR_PUBLISHABLE_KEY
 ```
 
 Deploy the generated `build/web` directory to a static web host and configure
@@ -228,17 +226,15 @@ Never put the Supabase service-role key or Razorpay secrets in the website.
    values ('AUTH_USER_UUID', 'Store manager');
    ```
 
-   The admin login does not create accounts automatically. On the first login,
-   the staff member must add the displayed setup key to Google Authenticator,
-   Microsoft Authenticator, or another TOTP app and verify its six-digit code.
-   Every admin RLS policy and RPC requires the resulting Supabase AAL2 session,
-   so the second factor cannot be bypassed by calling the API directly. Do not
-   expose a service-role key in Flutter or in the web host.
+   Staff sign-in verifies the approved email with a six-digit code. Every
+   privileged policy and RPC checks the active staff membership in the database.
+   No authenticator is required and inactivity does not lock the dashboard.
+   Do not expose a service-role key in Flutter or the web host.
 4. For the first store release, deploy only the authenticated `delete-account`
    function. Razorpay and notification functions remain reserved for a later
    audited release and must not be deployed/scheduled yet.
 5. Follow [DEPLOYMENT_RUNBOOK.md](DEPLOYMENT_RUNBOOK.md) for production SMTP,
-   OTP templates, staff MFA, reviewer access, Vercel, legal URLs, and final
+   OTP templates, staff access, reviewer access, Vercel, legal URLs, and final
    platform builds.
 
 For production Auth, configure a trusted custom SMTP provider, review Supabase
@@ -464,7 +460,7 @@ Primary implementation entry points:
 - `lib/admin/router/admin_router.dart` — staff-only web navigation
 - `supabase/migrations/202608050001_koyas_schema.sql` — schema, RLS, and RPCs
 - `supabase/migrations/202608230001_admin_security_hardening.sql` — least-
-  privilege admin writes, MFA-aware product saving, and product-image ownership
+  privilege admin writes, staff-authorized product saving, and product-image ownership
 - `supabase/migrations/202608230002_notification_claims.sql` — atomic worker
   claims that prevent concurrent duplicate notification dispatch
 - `supabase/migrations/202608270002_customer_security_hardening.sql` — customer

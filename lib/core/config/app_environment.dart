@@ -37,10 +37,6 @@ abstract final class AppEnvironment {
   static const enablePlayReviewLogin = bool.fromEnvironment(
     'ENABLE_PLAY_REVIEW_LOGIN',
   );
-  static const adminIdleTimeoutMinutes = int.fromEnvironment(
-    'ADMIN_IDLE_TIMEOUT_MINUTES',
-    defaultValue: 15,
-  );
   static const enableAdminDemo = bool.fromEnvironment('ENABLE_ADMIN_DEMO');
 
   static bool get hasSupabaseConfig =>
@@ -89,7 +85,4 @@ abstract final class AppEnvironment {
   /// opts into sample data. Production deployments must never set this flag.
   static bool get allowAdminDemo =>
       !hasSupabaseConfig && (!kReleaseMode || enableAdminDemo);
-
-  static Duration get adminIdleTimeout =>
-      Duration(minutes: adminIdleTimeoutMinutes.clamp(5, 60));
 }

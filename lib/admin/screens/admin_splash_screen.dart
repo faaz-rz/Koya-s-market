@@ -54,14 +54,8 @@ class _AdminSplashScreenState extends ConsumerState<AdminSplashScreen> {
         if (mounted) context.go('/login?reason=unauthorized');
         return;
       }
-      if (!auth.hasAal2Session) {
-        if (mounted) context.go('/login?reason=mfa');
-        return;
-      }
       final bundle = await SupabaseStoreRepository().loadStore();
-      if (!mounted ||
-          auth.currentUser?.id != bundle.profile.id ||
-          !auth.hasAal2Session) {
+      if (!mounted || auth.currentUser?.id != bundle.profile.id) {
         return;
       }
       if (!bundle.isAdmin) {

@@ -2,26 +2,26 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 export async function runRequestProtocolChecks({ owner, transaction, anotherUser, admin, check }) {
-  await check('approving an existing verified customer grants staff once without bypassing MFA', async () => {
+  await check('approving an existing verified customer grants active staff once after email verification', async () => {
     const user = randomUUID(), email = `existing-${randomUUID()}@example.test`;
     await owner.query('insert into auth.users(id,email,email_confirmed_at) values ($1,$2,now())', [user, email]);
     assert.equal((await owner.query('select count(*)::int n from public.admins where user_id=$1', [user])).rows[0].n, 0);
     await owner.query('insert into koyas_private.staff_email_approvals(email,display_name) values ($1,$2)', [email, 'Existing verified staff']);
     assert.equal((await owner.query('select granted_user_id from koyas_private.staff_email_approvals where email=$1', [email])).rows[0].granted_user_id, user);
-    assert.equal((await transaction(user, c => c.query('select public.is_admin() as allowed'), 'authenticated', 'aal1')).rows[0].allowed, false);
+    assert.equal((await transaction(user, c => c.query('select public.is_admin() as allowed'), 'authenticated', 'aal1')).rows[0].allowed, true);
     assert.equal((await transaction(user, c => c.query('select public.is_admin() as allowed'))).rows[0].allowed, true);
     await owner.query('update public.admins set active=false where user_id=$1', [user]);
     await owner.query('insert into koyas_private.staff_email_approvals(email,display_name) values ($1,$2) on conflict do nothing', [email, 'Repeated approval']);
     assert.equal((await owner.query('select active from public.admins where user_id=$1', [user])).rows[0].active, false);
   });
-  await check('staff email approval requires verified email, is private, consumes once, and still requires MFA', async () => {
+  await check('staff email approval requires verified email, is private, consumes once, and accepts verified staff at AAL1', async () => {
     const user = randomUUID(), other = randomUUID(), email = `staff-${randomUUID()}@example.test`;
     await owner.query('insert into koyas_private.staff_email_approvals(email, display_name) values ($1,$2)', [email, 'Approved staff']);
     await owner.query('insert into auth.users(id,email) values ($1,$2)', [user, email.toUpperCase()]);
     assert.equal((await owner.query('select count(*)::int n from public.admins where user_id=$1', [user])).rows[0].n, 0);
     await owner.query('update auth.users set email_confirmed_at=now() where id=$1', [user]);
     assert.equal((await owner.query('select display_name from public.admins where user_id=$1', [user])).rows[0].display_name, 'Approved staff');
-    assert.equal((await transaction(user, c => c.query('select public.is_admin() as allowed'), 'authenticated', 'aal1')).rows[0].allowed, false);
+    assert.equal((await transaction(user, c => c.query('select public.is_admin() as allowed'), 'authenticated', 'aal1')).rows[0].allowed, true);
     assert.equal((await transaction(user, c => c.query('select public.is_admin() as allowed'))).rows[0].allowed, true);
     await assert.rejects(transaction(user, c => c.query('select * from koyas_private.staff_email_approvals')), { code: '42501' });
     await assert.rejects(transaction(user, c => c.query("insert into koyas_private.staff_email_approvals(email,display_name) values('attacker@example.test','Attacker')")), { code: '42501' });
@@ -33,7 +33,7 @@ export async function runRequestProtocolChecks({ owner, transaction, anotherUser
     await owner.query('insert into auth.users(id,email,email_confirmed_at) values ($1,$2,now())', [other, email]);
     assert.equal((await owner.query('select count(*)::int n from public.admins where user_id=$1', [other])).rows[0].n, 0);
   });
-  await check('staff allowlist reads work before MFA and expose only the caller; direct writes and anonymous reads fail', async () => {
+  await check('staff allowlist reads work with email-only sessions and expose only the caller; direct writes and anonymous reads fail', async () => {
     const user = await anotherUser();
     const own = await transaction(admin, c => c.query('select user_id from public.admins'), 'authenticated', 'aal1');
     assert.deepEqual(own.rows, [{ user_id: admin }]);
@@ -138,7 +138,7 @@ export async function runRequestProtocolChecks({ owner, transaction, anotherUser
   await check('configuration receipts and unversioned writes are inaccessible to clients', async () => {
     const user = await anotherUser();
     await assert.rejects(transaction(user, c => configuration(c, pricing(), 0)), /Admin access required/);
-    await assert.rejects(transaction(admin, c => configuration(c, pricing(), 0), 'authenticated', 'aal1'), /Admin access required/);
+    await assert.rejects(transaction(await anotherUser(), c => configuration(c, pricing(), 0), 'authenticated', 'aal1'), /Admin access required/);
     await assert.rejects(transaction(admin, c => c.query('select public.admin_update_order_pricing(0,0,0)')), { code: '42501' });
     await assert.rejects(transaction(user, c => c.query('select * from public.configuration_requests')), { code: '42501' });
     await assert.rejects(transaction(user, c => c.query("update public.profiles set full_name='Bypass' where id=$1", [user])), { code: '42501' });

@@ -1,5 +1,8 @@
 # Android build 18 verification — 7 October 2026
 
+For the latest staff sign-in and session behavior, see
+[build 22 staff access](STAFF_ACCESS_22.md).
+
 For the latest light/dark styling and visual checks, see
 [build 21 visual refresh](VISUAL_REFRESH_21.md).
 

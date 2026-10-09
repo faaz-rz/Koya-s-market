@@ -13,7 +13,7 @@ measurement or a guarantee of free hosting.
   fingerprints are returned. Empty replacements remove archived/deleted rows.
   Fingerprints and content come from one SQL snapshot; late commits cannot be
   skipped by a timestamp watermark. Product revisions and order-item triggers
-  invalidate changed content. Staff visibility is MFA-aware and user-scoped.
+  invalidate changed content. Staff visibility is staff-authorized and user-scoped.
 - Public catalogue rows can survive restart for up to 30 days, with a bounded
   disposable disk/browser cache. The server validates fingerprints before use.
   Orders, addresses, profiles and staff billing fields are never persisted there.
@@ -31,7 +31,7 @@ measurement or a guarantee of free hosting.
   when disconnected, with 0–1 second jitter and at most 30 seconds of backoff.
   Hidden customer apps pause/unsubscribe. A signed-in staff tab retains its live
   channel while hidden to receive order alerts, subject to browser suspension
-  and the existing idle lock. Customer failures back off up to 10 minutes. Live updates
+  without an inactivity lock. Customer failures back off up to 10 minutes. Live updates
   consume Realtime connections/messages and event-triggered snapshot traffic;
   include foreground customers in usage planning. Checkout always rechecks
   authoritative prices, stock and offers transactionally.
@@ -134,7 +134,7 @@ These results do not certify physical phones, hosted capacity or email delivery.
 4. Separately repeat checkout/last-item/two-admin/refresh races through hosted
    PostgREST with staging fixtures, and observe real customer and staff Realtime. Verify
    small Android/iPhone devices, weak networks, background/resume, app restart,
-   browser cache, image replacement, MFA expiry and email delivery. The HTTP
+   browser cache, image replacement, staff access revocation and email delivery. The HTTP
    runner is not a checkout or visual device test. Check CPU/DB metrics and
    billing dashboards during the run; it still consumes staging quotas.
 

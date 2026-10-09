@@ -37,7 +37,7 @@ async function connect() {
   await client.query("set statement_timeout='15s'");
   return client;
 }
-async function transaction(user, fn, role = 'authenticated', aal = 'aal2') {
+async function transaction(user, fn, role = 'authenticated', aal = 'aal1') {
   const client = await connect();
   try {
     await client.query('begin');
@@ -280,11 +280,20 @@ try {
   await check('authorization prevents stale-write API bypasses and unauthorized receipts', async () => {
     const f = await fixture();
     await assert.rejects(transaction(f.user, c => mutate(c, { action: 'adjust_stock', target_product_id: f.product, stock_delta: 1 })));
-    await assert.rejects(transaction(admin, c => mutate(c, { action: 'adjust_stock', target_product_id: f.product, stock_delta: 1 }), 'authenticated', 'aal1'), { code: 'P0001', message: 'Admin access required' });
+    await transaction(admin, c => mutate(c, { action: 'adjust_stock', target_product_id: f.product, stock_delta: 1 }), 'authenticated', 'aal1');
+    assert.equal(await stock(f.product), 11);
+    await owner.query('update public.admins set active=false where user_id=$1', [admin]);
+    try {
+      for (const aal of ['aal1', 'aal2']) {
+        await assert.rejects(transaction(admin, c => mutate(c, { action: 'adjust_stock', target_product_id: f.product, stock_delta: 1 }), 'authenticated', aal), { code: 'P0001', message: 'Admin access required' });
+      }
+    } finally {
+      await owner.query('update public.admins set active=true where user_id=$1', [admin]);
+    }
     await assert.rejects(transaction(admin, c => c.query('select public.admin_set_product_stock($1,50)', [f.product])), { code: '42501' });
     await assert.rejects(transaction(admin, c => c.query('select * from public.admin_inventory_requests')), { code: '42501' });
     await assert.rejects(transaction(admin, c => c.query('update public.products set stock_quantity=500 where id=$1', [f.product])), { code: '42501' });
-    assert.equal(await stock(f.product), 10);
+    assert.equal(await stock(f.product), 11);
   });
   const { runSyncChecks } = await import('./store_sync_load_test.mjs');
   await runSyncChecks({ owner, transaction, fixture, anotherUser, admin, category, place, mutate, check,

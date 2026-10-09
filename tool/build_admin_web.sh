@@ -52,8 +52,7 @@ fi
   --dart-define="SUPABASE_URL=$SUPABASE_URL" \
   --dart-define="SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" \
   --dart-define="PRIVACY_POLICY_URL=${PRIVACY_POLICY_URL:-}" \
-  --dart-define="ACCOUNT_DELETION_URL=${ACCOUNT_DELETION_URL:-}" \
-  --dart-define="ADMIN_IDLE_TIMEOUT_MINUTES=${ADMIN_IDLE_TIMEOUT_MINUTES:-15}"
+  --dart-define="ACCOUNT_DELETION_URL=${ACCOUNT_DELETION_URL:-}"
 
 # Old local/cached Flutter bundles may retain the removed wildcard rewrite.
 # Cloudflare handles SPA navigation natively; the rewrite loops on index.html.

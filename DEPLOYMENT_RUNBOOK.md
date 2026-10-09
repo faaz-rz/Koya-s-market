@@ -109,8 +109,8 @@ below is an alternative for an existing confirmed Auth user.
    ```
 
 3. Open the deployed staff site and sign in with the staff email OTP.
-4. On first sign-in, add the displayed setup key to a time-based, six-digit
-   authenticator app and enter its current code. Keep the TOTP seed private.
+4. Email verification and an active staff role are sufficient; no authenticator
+   enrollment or code is required.
 5. To remove staff access immediately:
 
    ```sql
@@ -170,7 +170,6 @@ Flutter 3.47.1 SDK when needed, builds `lib/admin_main.dart`, serves
    SUPABASE_ANON_KEY=YOUR_PUBLIC_PUBLISHABLE_KEY
    PRIVACY_POLICY_URL=https://YOUR_VERCEL_PROJECT.vercel.app/privacy
    ACCOUNT_DELETION_URL=https://YOUR_VERCEL_PROJECT.vercel.app/delete-account
-   ADMIN_IDLE_TIMEOUT_MINUTES=15
    ```
 
 5. Do not add `ENABLE_ADMIN_DEMO`; production admin builds must fail closed.
@@ -274,10 +273,10 @@ under `app_store/` and `play_store/` for the store forms and listing assets.
 ### Staff sign-in and security
 
 1. Open the Vercel/custom-domain root, enter the approved staff email, then the
-   email OTP and authenticator code.
-2. The browser session is intentionally in-memory and locks after 15 minutes of
-   inactivity. Never share the TOTP setup seed or approve personal accounts as
-   administrators.
+   email OTP.
+2. The browser session is intentionally in-memory. There is no inactivity lock.
+   Closing/reloading the tab requires email sign-in again. Approve only intended
+   store staff.
 3. Use **Sign out** at the end of each shift and deactivate a lost/compromised
    staff account in `public.admins` immediately.
 

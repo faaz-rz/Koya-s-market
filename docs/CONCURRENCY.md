@@ -20,7 +20,7 @@ existing migrations, first in staging. It does not reset prices, stock or pictur
   A stale edit returns `PT409`; it cannot silently restore sold stock.
 - Stock +/- controls are atomic deltas. Each staff mutation has a request UUID
   and transactionally stored receipt. Repeated requests cannot apply the delta
-  twice or create a second product. Receipts are private; active-admin/MFA checks
+  twice or create a second product. Receipts are private; active-staff checks
   remain required.
 - Cancellation/rejection lock the order and products; identical transition
   retries cannot double-restore stock. Expiry workers claim whole batches with
@@ -99,7 +99,7 @@ and role/RPC bypass attempts. This is a correctness suite, not a capacity benchm
 
 1. Apply migrations to staging and deploy the matching clients. Never expose a
    service-role key in either client.
-2. Repeat two-device/two-admin scenarios using actual Supabase Auth/MFA,
+2. Repeat two-device/two-admin scenarios using actual Supabase email Auth,
    PostgREST, Storage and Realtime, including deliberately dropped responses.
 3. Test physical Android/iPhone devices and target browsers. Widget tests and
    web compilation do not replace device/integration testing.

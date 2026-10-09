@@ -33,7 +33,6 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
           final reason = state.uri.queryParameters['reason'];
           return AdminLoginScreen(
             accessDenied: reason == 'unauthorized',
-            mfaRequired: reason == 'mfa',
             sessionExpired: reason == 'expired',
           );
         },

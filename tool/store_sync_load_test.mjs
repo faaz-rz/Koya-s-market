@@ -69,8 +69,17 @@ export async function runSyncChecks({ owner, transaction, fixture, anotherUser, 
     assert.equal(customer.catalogue.length, 64); assert.equal(customer.orders.length, 64);
     assert.ok(customer.catalogue.flatMap(b => b.rows).every(row => row[14] === true && row.slice(16).every(v => v === null)));
     assert.ok(customer.orders.flatMap(b => b.rows).every(row => row.user_id === f.user));
-    const noMfa = await transaction(admin, c => sync(c, fingerprints(staff)), 'authenticated', 'aal1');
-    assert.equal(noMfa.is_admin, false); assert.equal(noMfa.orders.flatMap(b => b.rows).length, 0);
+    const emailOnly = await transaction(admin, c => sync(c, fingerprints(staff)), 'authenticated', 'aal1');
+    assert.equal(emailOnly.is_admin, true);
+    await owner.query('update public.admins set active=false where user_id=$1', [admin]);
+    try {
+      const revoked = await transaction(admin, c => sync(c, fingerprints(staff)), 'authenticated', 'aal1');
+      assert.equal(revoked.is_admin, false);
+      assert.ok(revoked.orders.flatMap(b => b.rows).every(row => row.user_id === admin));
+      assert.ok(revoked.catalogue.flatMap(b => b.rows).every(row => row[14] === true && row.slice(16).every(v => v === null)));
+    } finally {
+      await owner.query('update public.admins set active=true where user_id=$1', [admin]);
+    }
     await assert.rejects(transaction(null, c => sync(c)), { code: 'P0001' });
     await assert.rejects(transaction(f.user, c => c.query('select public.admin_resource_usage()')), { code: 'P0001' });
     await assert.rejects(transaction(f.user, c => sync(c, { catalogue: { 70: 'wrong' } })), { code: 'P0001' });

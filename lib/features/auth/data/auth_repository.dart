@@ -39,15 +39,6 @@ class AccountDeletionChallenge {
   final Duration retryAfter;
 }
 
-class AdminMfaChallenge {
-  const AdminMfaChallenge({required this.factorId, this.enrollmentSecret});
-
-  final String factorId;
-  final String? enrollmentSecret;
-
-  bool get isEnrollment => enrollmentSecret != null;
-}
-
 class AuthRepository {
   AuthRepository({
     SupabaseClient? client,
@@ -69,10 +60,6 @@ class AuthRepository {
   }
 
   User? get currentUser => _client.auth.currentUser;
-
-  bool get hasAal2Session =>
-      _client.auth.mfa.getAuthenticatorAssuranceLevel().currentLevel ==
-      AuthenticatorAssuranceLevels.aal2;
 
   int otpResendSeconds(String email) => _sendLimiter.remainingSeconds(email);
 
@@ -126,54 +113,6 @@ class AuthRepository {
         .maybeSingle()
         .timeout(requestTimeout);
     return row != null && currentUser?.id == user.id;
-  }
-
-  Future<AdminMfaChallenge> prepareAdminMfa() async {
-    if (currentUser == null) {
-      throw const AuthException('Sign in again before setting up MFA.');
-    }
-
-    final factors = await _client.auth.mfa.listFactors().timeout(
-      requestTimeout,
-    );
-    if (factors.totp.isNotEmpty) {
-      return AdminMfaChallenge(factorId: factors.totp.first.id);
-    }
-
-    // An interrupted first-time setup leaves an unverified factor whose
-    // secret cannot be retrieved. Remove it before issuing a fresh secret.
-    for (final factor in factors.all.where(
-      (factor) =>
-          factor.factorType == FactorType.totp &&
-          factor.status == FactorStatus.unverified,
-    )) {
-      await _client.auth.mfa.unenroll(factor.id).timeout(requestTimeout);
-    }
-
-    final response = await _client.auth.mfa
-        .enroll(
-          factorType: FactorType.totp,
-          issuer: 'Koya Stores Admin',
-          friendlyName: 'Koya Stores staff authenticator',
-        )
-        .timeout(requestTimeout);
-    final secret = response.totp?.secret;
-    if (secret == null || secret.isEmpty) {
-      throw const AuthException('Could not create an authenticator secret.');
-    }
-    return AdminMfaChallenge(factorId: response.id, enrollmentSecret: secret);
-  }
-
-  Future<void> verifyAdminMfa({
-    required String factorId,
-    required String code,
-  }) async {
-    await _client.auth.mfa
-        .challengeAndVerify(factorId: factorId, code: code.trim())
-        .timeout(requestTimeout);
-    if (!hasAal2Session) {
-      throw const AuthException('Authenticator verification was incomplete.');
-    }
   }
 
   Future<void> signOut() async {
