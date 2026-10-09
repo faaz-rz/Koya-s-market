@@ -250,11 +250,13 @@ class AddressEditorFormState extends State<AddressEditorForm> {
           controller: _name,
           enabled: !widget.saving,
           maxLength: 120,
-          validator: _required,
+          validator: (value) => (value?.trim().runes.length ?? 0) < 2
+              ? 'Enter the recipient name (at least 2 characters)'
+              : null,
           textInputAction: TextInputAction.next,
           autofillHints: const [AutofillHints.name],
           decoration: const InputDecoration(
-            labelText: 'Recipient name',
+            labelText: 'Recipient name (required)',
             counterText: '',
             errorMaxLines: 2,
           ),
@@ -265,17 +267,22 @@ class AddressEditorFormState extends State<AddressEditorForm> {
           focusNode: _focus[const Key('address-phone')],
           controller: _phone,
           enabled: !widget.saving,
-          maxLength: 40,
+          maxLength: 32,
           keyboardType: TextInputType.phone,
           textInputAction: TextInputAction.next,
           autofillHints: const [AutofillHints.telephoneNumber],
-          validator: (v) =>
-              RegExp(r'^[+0-9 ()-]{10,40}$').hasMatch(v?.trim() ?? '') &&
-                  (v?.replaceAll(RegExp(r'\D'), '').length ?? 0) >= 10
-              ? null
-              : 'Enter a valid phone number',
+          validator: (value) {
+            final phone = value?.trim() ?? '';
+            if (phone.isEmpty) return 'Enter a contact number';
+            final digits = phone.replaceAll(RegExp(r'\D'), '').length;
+            return RegExp(r'^\+?[0-9 ()-]{10,32}$').hasMatch(phone) &&
+                    digits >= 10 &&
+                    digits <= 15
+                ? null
+                : 'Enter a valid contact number (10–15 digits)';
+          },
           decoration: const InputDecoration(
-            labelText: 'Phone',
+            labelText: 'Contact number (required)',
             counterText: '',
             errorMaxLines: 2,
           ),

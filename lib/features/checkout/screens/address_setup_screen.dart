@@ -1,5 +1,3 @@
-import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,7 +7,6 @@ import '../../../core/utils/transaction_request.dart';
 import '../../../core/widgets/koyas_button.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../notifications/widgets/customer_order_alerts.dart';
-import '../../notifications/providers/customer_order_alerts.dart' as alerts;
 import '../../store/data/supabase_store_repository.dart';
 import '../../store/providers/store_provider.dart';
 import '../models/checkout_models.dart';
@@ -22,10 +19,6 @@ final firstAddressSaverProvider =
           : (address) async => address,
     );
 
-final firstLoginNotificationPromptProvider = Provider<bool>(
-  (ref) => AppEnvironment.hasSupabaseConfig && !kIsWeb,
-);
-
 class AddressSetupScreen extends ConsumerStatefulWidget {
   const AddressSetupScreen({super.key});
   @override
@@ -37,17 +30,6 @@ class _AddressSetupScreenState extends ConsumerState<AddressSetupScreen> {
   bool _locating = false;
   final _form = GlobalKey<AddressEditorFormState>();
   String? _error;
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !ref.read(firstLoginNotificationPromptProvider)) return;
-      final controller = ref.read(alerts.customerOrderAlertsProvider.notifier);
-      controller.observe(ref.read(storeProvider));
-      unawaited(controller.promptForFirstLogin());
-    });
-  }
-
   Future<void> _save(CustomerAddress address) async {
     if (_saving) return;
     final user = ref.read(storeProvider).profile?.id;
@@ -103,7 +85,6 @@ class _AddressSetupScreenState extends ConsumerState<AddressSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final profile = ref.watch(storeProvider.select((s) => s.profile));
     final textScale = MediaQuery.textScalerOf(context).scale(20) / 20;
     final compactActions =
         MediaQuery.sizeOf(context).width < 360 || textScale > 1.5;
@@ -161,8 +142,6 @@ class _AddressSetupScreenState extends ConsumerState<AddressSetupScreen> {
                       onLocatingChanged: (busy) =>
                           setState(() => _locating = busy),
                       onSave: _save,
-                      initialName: profile?.name ?? '',
-                      initialPhone: profile?.phone ?? '',
                       saving: _saving,
                       makeDefault: true,
                       saveLabel: 'Save address and continue',

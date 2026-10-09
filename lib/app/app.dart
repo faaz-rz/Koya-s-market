@@ -3,6 +3,7 @@ import '../features/cart/providers/cart_persistence.dart';
 import '../features/notifications/providers/push_session.dart';
 import '../features/notifications/services/push_session_lifecycle.dart';
 import '../features/notifications/widgets/customer_order_alerts.dart';
+import '../features/notifications/providers/startup_notification_permission.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -34,6 +35,9 @@ class _KoyasAppState extends ConsumerState<KoyasApp> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      unawaited(
+        ref.read(startupNotificationPermissionProvider.notifier).start(),
+      );
       ref.read(cartPersistenceProvider);
       final push = ref.read(pushSessionProvider);
       PushSessionLifecycle.beforeSignOut = push.beforeSignOut;

@@ -6,6 +6,7 @@ import '../../orders/widgets/order_status_ui.dart';
 import '../../store/providers/store_provider.dart';
 import '../providers/customer_order_alerts.dart';
 import '../providers/push_session.dart';
+import '../providers/startup_notification_permission.dart';
 
 class CustomerOrderAlerts extends ConsumerStatefulWidget {
   const CustomerOrderAlerts({required this.child, super.key});
@@ -52,6 +53,13 @@ class _CustomerOrderAlertsState extends ConsumerState<CustomerOrderAlerts>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(startupNotificationPermissionProvider, (_, next) {
+      if (next.ready) {
+        ref
+            .read(customerOrderAlertsProvider.notifier)
+            .applyStartupPermission(next);
+      }
+    });
     ref.listen(
       storeProvider,
       (_, next) => ref.read(customerOrderAlertsProvider.notifier).observe(next),

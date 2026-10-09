@@ -11,8 +11,10 @@ import 'package:koyas_supermarket/features/store/providers/store_provider.dart';
 import 'package:koyas_supermarket/features/notifications/services/push_preferences.dart';
 import 'package:koyas_supermarket/features/notifications/services/customer_alert_platform.dart';
 import 'package:koyas_supermarket/features/notifications/providers/customer_order_alerts.dart';
+import 'package:koyas_supermarket/features/notifications/providers/startup_notification_permission.dart';
 import 'customer_order_alerts_test.dart' show FakeAlerts;
 import 'push_session_test.dart' show TestPreferences;
+import 'startup_notification_permission_test.dart' show MemoryPermissionStorage;
 
 class NewCustomerStore extends StoreController {
   void firstCustomer() {
@@ -38,7 +40,12 @@ Future<ProviderContainer> open(
     overrides: [
       storeProvider.overrideWith(NewCustomerStore.new),
       firstAddressSaverProvider.overrideWithValue(save),
-      firstLoginNotificationPromptProvider.overrideWithValue(askNotifications),
+      startupNotificationPromptEnabledProvider.overrideWithValue(
+        askNotifications,
+      ),
+      startupNotificationStorageProvider.overrideWithValue(
+        MemoryPermissionStorage(),
+      ),
       pushPreferencesProvider.overrideWithValue(
         notificationPreferences ?? TestPreferences(),
       ),
@@ -71,13 +78,20 @@ Future<void> fill(WidgetTester tester) async {
     '12 Market Road',
   );
   await tester.enterText(find.byKey(const Key('address-pincode')), '500008');
+  for (final entry in {
+    'address-name': 'Test Customer',
+    'address-phone': '9876543210',
+  }.entries) {
+    await tester.ensureVisible(find.byKey(Key(entry.key)));
+    await tester.enterText(find.byKey(Key(entry.key)), entry.value);
+  }
   await tester.ensureVisible(find.byKey(const Key('save-address')));
   await tester.pumpAndSettle();
 }
 
 void main() {
   testWidgets(
-    'first sign-in asks for notifications once; declining leaves address setup and shopping usable',
+    'startup asks for notifications once; declining leaves address setup and shopping usable',
     (tester) async {
       final fake = FakeAlerts()..permission = false;
       final preferences = TestPreferences();
@@ -90,7 +104,7 @@ void main() {
       );
       expect(fake.enableRequests, 1);
       expect(preferences.values['demo-customer']!.prompted, true);
-      await c.read(customerOrderAlertsProvider.notifier).promptForFirstLogin();
+      await c.read(startupNotificationPermissionProvider.notifier).start();
       expect(fake.enableRequests, 1);
       await fill(tester);
       await tester.tap(find.byKey(const Key('save-address')));
@@ -100,6 +114,62 @@ void main() {
         '/home',
       );
       expect(c.read(customerOrderAlertsProvider).enabled, false);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+  testWidgets(
+    'new addresses require an entered recipient name and valid contact even when the profile has both',
+    (tester) async {
+      var saves = 0;
+      await open(
+        tester,
+        save: (a) async {
+          saves++;
+          return a;
+        },
+      );
+      for (final key in ['address-name', 'address-phone']) {
+        expect(
+          tester.widget<TextFormField>(find.byKey(Key(key))).controller!.text,
+          isEmpty,
+        );
+      }
+      await tester.enterText(
+        find.byKey(const Key('address-line')),
+        '12 Market Road',
+      );
+      await tester.enterText(
+        find.byKey(const Key('address-pincode')),
+        '500008',
+      );
+      await tester.tap(find.byKey(const Key('save-address')));
+      await tester.pumpAndSettle();
+      expect(saves, 0);
+      expect(
+        find.text('Enter the recipient name (at least 2 characters)'),
+        findsOneWidget,
+      );
+      expect(find.text('Enter a contact number'), findsOneWidget);
+      await tester.ensureVisible(find.byKey(const Key('address-name')));
+      await tester.enterText(
+        find.byKey(const Key('address-name')),
+        'Test Customer',
+      );
+      await tester.ensureVisible(find.byKey(const Key('address-phone')));
+      await tester.enterText(
+        find.byKey(const Key('address-phone')),
+        '123456789',
+      );
+      await tester.tap(find.byKey(const Key('save-address')));
+      await tester.pumpAndSettle();
+      expect(saves, 0);
+      await tester.enterText(
+        find.byKey(const Key('address-phone')),
+        '+91 98765 43210',
+      );
+      await tester.tap(find.byKey(const Key('save-address')));
+      await tester.pumpAndSettle();
+      expect(saves, 1);
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );

@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:koyas_supermarket/app/app.dart';
 import 'package:koyas_supermarket/app/router/app_router.dart';
 import 'package:koyas_supermarket/core/theme/app_theme.dart';
-import 'package:koyas_supermarket/features/checkout/screens/address_setup_screen.dart';
+import 'package:koyas_supermarket/features/notifications/providers/startup_notification_permission.dart';
 import 'package:koyas_supermarket/features/notifications/services/push_preferences.dart';
 import 'package:koyas_supermarket/features/products/models/product.dart';
 import 'package:koyas_supermarket/features/products/product_variants.dart';
@@ -34,7 +34,7 @@ Future<ProviderContainer> address(WidgetTester tester, double scale) async {
   final c = ProviderContainer(
     overrides: [
       storeProvider.overrideWith(AuditStore.new),
-      firstLoginNotificationPromptProvider.overrideWithValue(false),
+      startupNotificationPromptEnabledProvider.overrideWithValue(false),
       pushPreferencesProvider.overrideWithValue(TestPreferences()),
     ],
   );
@@ -85,16 +85,13 @@ void main() {
         matching: find.byType(EditableText),
       );
       expect(tester.widget<EditableText>(editable).focusNode.hasFocus, true);
-      expect(
-        find.text('Enter a valid phone number').hitTestable(),
-        findsOneWidget,
-      );
+      expect(find.text('Enter a contact number').hitTestable(), findsOneWidget);
       await tester.enterText(
         find.byKey(const Key('address-phone')),
         '9876543210',
       );
       await tester.pumpAndSettle();
-      expect(find.text('Enter a valid phone number'), findsNothing);
+      expect(find.text('Enter a contact number'), findsNothing);
       FocusManager.instance.primaryFocus?.unfocus();
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('save-address')));

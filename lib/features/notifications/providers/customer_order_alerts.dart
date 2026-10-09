@@ -6,6 +6,7 @@ import '../../store/providers/store_provider.dart';
 import '../services/customer_alert_platform.dart';
 import '../services/push_preferences.dart';
 import 'push_session.dart';
+import 'startup_notification_permission.dart';
 
 /// Initial history is silent; a status is announced once per signed-in session.
 class CustomerStatusTracker {
@@ -57,6 +58,7 @@ class CustomerOrderAlerts extends Notifier<CustomerAlertState> {
   String? _user;
   int _generation = 0;
   int _enableAttempt = 0;
+  int? _startupGeneration;
   Timer? _batch;
   final _queued = <String, CustomerOrder>{};
   void Function(String)? onOpenOrder;
@@ -83,9 +85,13 @@ class CustomerOrderAlerts extends Notifier<CustomerAlertState> {
       _tracker = CustomerStatusTracker();
       _user = user;
       state = const CustomerAlertState();
-      if (user != null) unawaited(restore());
+      if (user != null && !ref.read(startupNotificationPromptEnabledProvider)) {
+        unawaited(restore());
+      }
     }
     if (user == null) return;
+    final startup = ref.read(startupNotificationPermissionProvider);
+    if (startup.ready) unawaited(applyStartupPermission(startup));
     final updates = _tracker.observe(store.orders);
     final active = state.updates
         .where(
@@ -129,6 +135,12 @@ class CustomerOrderAlerts extends Notifier<CustomerAlertState> {
   Future<void> restore() async {
     final user = _user, generation = _generation;
     if (user == null || state.enabling) return;
+    // Startup owns the initial native permission check. Initialize the account
+    // presenter afterwards so its notification-tap callback remains active.
+    if (ref.read(startupNotificationPromptEnabledProvider) &&
+        !ref.read(startupNotificationPermissionProvider).ready) {
+      return;
+    }
     final attempt = ++_enableAttempt;
     try {
       final preference = await ref.read(pushPreferencesProvider).read(user);
@@ -167,9 +179,18 @@ class CustomerOrderAlerts extends Notifier<CustomerAlertState> {
     await platform.openSettings().catchError((Object _) => false);
   }
 
-  Future<void> promptForFirstLogin() async {
+  Future<void> applyStartupPermission(
+    StartupNotificationPermissionState permission,
+  ) async {
     final user = _user, generation = _generation;
-    if (user == null || state.enabling) return;
+    final attempt = _enableAttempt;
+    if (!permission.ready ||
+        user == null ||
+        state.enabling ||
+        _startupGeneration == generation) {
+      return;
+    }
+    _startupGeneration = generation;
     try {
       final preferences = ref.read(pushPreferencesProvider);
       final saved = await preferences
@@ -177,21 +198,30 @@ class CustomerOrderAlerts extends Notifier<CustomerAlertState> {
           .timeout(const Duration(seconds: 5));
       if (!ref.mounted ||
           generation != _generation ||
-          saved.prompted ||
-          saved.enabled) {
+          attempt != _enableAttempt ||
+          state.enabling) {
         return;
       }
-      await preferences
-          .write(
-            user,
-            PushPreference(
-              enabled: saved.enabled,
-              sound: saved.sound,
-              prompted: true,
-            ),
-          )
-          .timeout(const Duration(seconds: 5));
-      if (ref.mounted && generation == _generation) await enable();
+      if (saved.enabled) {
+        await restore();
+        return;
+      }
+      if (saved.prompted && !permission.newConsent) return;
+      if (!permission.granted) {
+        await preferences
+            .write(user, PushPreference(sound: saved.sound, prompted: true))
+            .timeout(const Duration(seconds: 5));
+        return;
+      }
+      if (ref.mounted && generation == _generation) {
+        state = CustomerAlertState(
+          updates: state.updates,
+          enabled: state.enabled,
+          sound: saved.sound,
+          note: state.note,
+        );
+        await enable(requestPermission: false);
+      }
     } catch (_) {}
   }
 
@@ -229,7 +259,7 @@ class CustomerOrderAlerts extends Notifier<CustomerAlertState> {
     }
   }
 
-  Future<void> enable() async {
+  Future<void> enable({bool requestPermission = true}) async {
     if (_user == null || state.enabling) return;
     ++_enableAttempt;
     final generation = _generation;
@@ -241,7 +271,9 @@ class CustomerOrderAlerts extends Notifier<CustomerAlertState> {
       enabling: true,
       sound: state.sound,
     );
-    final enabled = await platform.enable().catchError((Object _) => false);
+    final enabled =
+        await (requestPermission ? platform.enable() : platform.restore())
+            .catchError((Object _) => false);
     if (!ref.mounted || generation != _generation) return;
     if (enabled &&
         !ref.read(pushSessionStatusProvider).available &&
@@ -257,7 +289,9 @@ class CustomerOrderAlerts extends Notifier<CustomerAlertState> {
       } catch (_) {}
     }
     final background = enabled
-        ? await ref.read(pushSessionProvider).enable()
+        ? await ref
+              .read(pushSessionProvider)
+              .enable(requestPermission: requestPermission)
         : false;
     if (!ref.mounted || generation != _generation) return;
     state = CustomerAlertState(

@@ -169,10 +169,12 @@ class PushSession {
     return ready && _current(user, generation);
   }
 
-  Future<bool> enable() {
+  Future<bool> enable({bool requestPermission = true}) {
     final user = _user, generation = _generation;
     if (user == null || !gateway.available) return Future.value(false);
-    final attempt = _operations.then((_) => _enable(user, generation));
+    final attempt = _operations.then(
+      (_) => _enable(user, generation, requestPermission: requestPermission),
+    );
     _operations = attempt.then<void>((_) {});
     return attempt;
   }
@@ -208,10 +210,14 @@ class PushSession {
     return _operations;
   }
 
-  Future<bool> _enable(String user, int generation) async {
+  Future<bool> _enable(
+    String user,
+    int generation, {
+    required bool requestPermission,
+  }) async {
     try {
       if (!_current(user, generation) ||
-          !await gateway.permission(request: true) ||
+          !await gateway.permission(request: requestPermission) ||
           !_current(user, generation)) {
         return false;
       }
