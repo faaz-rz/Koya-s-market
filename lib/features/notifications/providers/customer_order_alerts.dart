@@ -206,6 +206,7 @@ class CustomerOrderAlerts extends Notifier<CustomerAlertState> {
         await restore();
         return;
       }
+      if (!permission.permissionKnown) return;
       if (saved.prompted && !permission.newConsent) return;
       if (!permission.granted) {
         await preferences

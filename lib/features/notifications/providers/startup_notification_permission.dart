@@ -43,8 +43,9 @@ class StartupNotificationPermissionState {
     this.ready = false,
     this.granted = false,
     this.newConsent = false,
+    this.permissionKnown = true,
   });
-  final bool ready, granted, newConsent;
+  final bool ready, granted, newConsent, permissionKnown;
 }
 
 final startupNotificationPromptEnabledProvider = Provider<bool>(
@@ -106,6 +107,12 @@ class StartupNotificationPermission
       );
     } catch (_) {
       // Device/preference failures never block sign-in or address entry.
+      if (ref.mounted && !state.ready) {
+        state = const StartupNotificationPermissionState(
+          ready: true,
+          permissionKnown: false,
+        );
+      }
     }
   }
 }

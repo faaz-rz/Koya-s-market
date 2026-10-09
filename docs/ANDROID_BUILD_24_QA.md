@@ -17,7 +17,9 @@ flow, since browsers require a user gesture.
 Account notification presentation initializes after the startup permission
 check, keeping the order-open callback active. Saved sound/mute choices remain
 intact. Late permission responses after logout do not attach a device to the
-old account. Declining notifications does not block shopping.
+old account. A device-preference failure still restores an existing opt-in and
+does not treat the failure as a permission denial. Declining notifications does
+not block shopping.
 
 New-address setup no longer prefills name/contact from the profile. Customers
 must enter the recipient name and contact number. The shared form rejects blank
@@ -28,7 +30,7 @@ details. Location autofill fills location fields only.
 
 ## Verification
 
-- 311 Flutter tests pass; analysis reports no issues.
+- 312 Flutter tests pass; analysis reports no issues.
 - Tests cover signed-out startup permission, account activation without another
   OS prompt, existing addresses, decline across launches, returning-customer
   notification callback sequencing, mute retention and late logout responses.

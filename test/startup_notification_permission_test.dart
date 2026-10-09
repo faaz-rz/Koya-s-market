@@ -42,6 +42,12 @@ class WaitingPermissionCheck extends FakeAlerts {
   Future<bool> restore() => result.future;
 }
 
+class UnavailablePermissionStorage extends MemoryPermissionStorage {
+  @override
+  Future<SavedNotificationPermission> read() async =>
+      throw StateError('Device preferences unavailable');
+}
+
 ProviderContainer setup(
   FirstLaunchAlerts platform,
   MemoryPermissionStorage storage, {
@@ -61,6 +67,36 @@ ProviderContainer setup(
 );
 
 void main() {
+  testWidgets(
+    'a startup preference failure does not suppress an existing notification opt-in',
+    (tester) async {
+      final platform = FakeAlerts();
+      final preferences = TestPreferences()
+        ..values['demo-customer'] = const PushPreference(enabled: true);
+      final c = ProviderContainer(
+        overrides: [
+          startupNotificationPromptEnabledProvider.overrideWithValue(true),
+          startupNotificationStorageProvider.overrideWithValue(
+            UnavailablePermissionStorage(),
+          ),
+          customerAlertPlatformFactoryProvider.overrideWithValue(
+            () => platform,
+          ),
+          pushPreferencesProvider.overrideWithValue(preferences),
+        ],
+      );
+      addTearDown(c.dispose);
+      c.read(storeProvider.notifier).loginDemo();
+      await tester.pumpWidget(
+        UncontrolledProviderScope(container: c, child: const KoyasApp()),
+      );
+      await tester.pumpAndSettle();
+      expect(c.read(customerOrderAlertsProvider).enabled, true);
+      expect(platform.enableRequests, 0);
+      expect(preferences.values['demo-customer']!.enabled, true);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
   testWidgets(
     'returning customer notification presenter initializes after the startup permission check',
     (tester) async {
