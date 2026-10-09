@@ -296,7 +296,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                               : 'Pay by cash or UPI when your order is delivered.',
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: AppColors.inkSecondary),
+                              ?.copyWith(
+                                color: AppColors.of(context).inkSecondary,
+                              ),
                         ),
                       ],
                     ),
@@ -348,9 +350,9 @@ class _PaymentMethods extends ConsumerWidget {
         const SizedBox(height: AppSpacing.sm),
         Text(
           'No online payment is required while placing this order.',
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(color: AppColors.inkSecondary),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: AppColors.of(context).inkSecondary,
+          ),
         ),
         const SizedBox(height: AppSpacing.xxl),
         ...methods.map(
@@ -367,12 +369,15 @@ class _PaymentMethods extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.md),
-        const KoyasSurface(
-          color: AppColors.infoSoft,
-          borderColor: AppColors.infoSoft,
+        KoyasSurface(
+          color: AppColors.of(context).infoSoft,
+          borderColor: AppColors.of(context).infoSoft,
           child: Row(
             children: [
-              Icon(Icons.verified_user_outlined, color: AppColors.info),
+              Icon(
+                Icons.verified_user_outlined,
+                color: AppColors.of(context).info,
+              ),
               SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Text(
@@ -491,7 +496,7 @@ class _SummaryLine extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 20, color: AppColors.brand600),
+        Icon(icon, size: 20, color: AppColors.of(context).brand600),
         const SizedBox(width: AppSpacing.md),
         Expanded(
           child: Column(
@@ -501,9 +506,9 @@ class _SummaryLine extends StatelessWidget {
               const SizedBox(height: AppSpacing.xs),
               Text(
                 subtitle,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: AppColors.inkSecondary),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.of(context).inkSecondary,
+                ),
               ),
             ],
           ),

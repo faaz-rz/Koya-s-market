@@ -126,8 +126,8 @@ class _ProductVariantSheetState extends ConsumerState<_ProductVariantSheet> {
                   tooltip: 'Cancel selection',
                   onPressed: () => Navigator.of(context).pop(),
                   style: IconButton.styleFrom(
-                    backgroundColor: AppColors.ink,
-                    foregroundColor: AppColors.surface,
+                    backgroundColor: AppColors.of(context).ink,
+                    foregroundColor: AppColors.of(context).surface,
                     minimumSize: const Size(48, 48),
                   ),
                   icon: const Icon(Icons.close_rounded),
@@ -135,7 +135,7 @@ class _ProductVariantSheetState extends ConsumerState<_ProductVariantSheet> {
                 const SizedBox(height: 12),
                 Expanded(
                   child: Material(
-                    color: AppColors.surface,
+                    color: AppColors.of(context).surface,
                     clipBehavior: Clip.antiAlias,
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(28),
@@ -248,8 +248,8 @@ class _ProductVariantSheetState extends ConsumerState<_ProductVariantSheet> {
                                 liveRegion: true,
                                 child: Text(
                                   _error!,
-                                  style: const TextStyle(
-                                    color: AppColors.error,
+                                  style: TextStyle(
+                                    color: AppColors.of(context).error,
                                   ),
                                 ),
                               ),
@@ -333,9 +333,9 @@ class _VariantCard extends StatelessWidget {
       key: Key('variant-option-${product.id}'),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        border: Border.all(color: AppColors.outline),
+        border: Border.all(color: AppColors.of(context).outline),
         borderRadius: BorderRadius.circular(20),
-        color: AppColors.surface,
+        color: AppColors.of(context).surface,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -353,7 +353,7 @@ class _VariantCard extends StatelessWidget {
             Container(
               key: Key('variant-quantity-${product.id}'),
               decoration: BoxDecoration(
-                color: AppColors.brand600,
+                color: AppColors.of(context).brand600,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -369,8 +369,8 @@ class _VariantCard extends StatelessWidget {
                       fit: BoxFit.scaleDown,
                       child: Text(
                         '$quantity',
-                        style: const TextStyle(
-                          color: AppColors.surface,
+                        style: TextStyle(
+                          color: AppColors.of(context).surface,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -394,9 +394,9 @@ class _VariantCard extends StatelessWidget {
           if (product.discountPercent > 0)
             Text(
               '${product.discountPercent}% OFF',
-              style: Theme.of(
-                context,
-              ).textTheme.labelLarge?.copyWith(color: AppColors.offer),
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: AppColors.of(context).offer,
+              ),
             ),
           Wrap(
             spacing: 6,
@@ -410,7 +410,7 @@ class _VariantCard extends StatelessWidget {
                 Text(
                   formatPrice(product.pricePaise),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.inkTertiary,
+                    color: AppColors.of(context).inkTertiary,
                     decoration: TextDecoration.lineThrough,
                   ),
                 ),
@@ -437,8 +437,8 @@ class _CounterButton extends StatelessWidget {
     tooltip: tooltip,
     onPressed: onPressed,
     constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-    color: AppColors.surface,
-    disabledColor: AppColors.brand300,
+    color: AppColors.of(context).surface,
+    disabledColor: AppColors.of(context).brand300,
     icon: Icon(icon, size: 20),
   );
 }

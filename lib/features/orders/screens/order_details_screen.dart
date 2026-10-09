@@ -84,7 +84,9 @@ class OrderDetailsScreen extends ConsumerWidget {
     final canCancel =
         order.status == OrderStatus.placed ||
         order.status == OrderStatus.confirmed;
-    final statusColor = order.customerStatusColor;
+    final statusColor = AppColors.of(
+      context,
+    ).resolve(order.customerStatusColor);
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -130,7 +132,7 @@ class OrderDetailsScreen extends ConsumerWidget {
                             order.status == OrderStatus.readyForPickup
                                 ? Icons.storefront_rounded
                                 : Icons.shopping_bag_rounded,
-                            color: Colors.white,
+                            color: AppColors.of(context).onBrand,
                           ),
                         ),
                         const SizedBox(width: AppSpacing.lg),
@@ -197,9 +199,11 @@ class OrderDetailsScreen extends ConsumerWidget {
             AppSpacing.lg,
             AppSpacing.lg,
           ),
-          decoration: const BoxDecoration(
-            color: AppColors.surface,
-            border: Border(top: BorderSide(color: AppColors.outline)),
+          decoration: BoxDecoration(
+            color: AppColors.of(context).surface,
+            border: Border(
+              top: BorderSide(color: AppColors.of(context).outline),
+            ),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -246,7 +250,7 @@ class _OrderDetails extends StatelessWidget {
                 pickup
                     ? Icons.storefront_outlined
                     : Icons.delivery_dining_outlined,
-                color: AppColors.brand600,
+                color: AppColors.of(context).brand600,
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(child: Text(fulfilmentDetails)),
@@ -299,7 +303,7 @@ class _OrderDetails extends StatelessWidget {
                       ? 'Free gift'
                       : '−${formatPrice(order.offerDiscountPaise)}',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.success,
+                    color: AppColors.of(context).success,
                     fontWeight: FontWeight.w700,
                   ),
                 ),

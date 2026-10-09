@@ -80,9 +80,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             top: false,
             child: Container(
               padding: const EdgeInsets.all(AppSpacing.lg),
-              decoration: const BoxDecoration(
-                color: AppColors.surface,
-                border: Border(top: BorderSide(color: AppColors.outline)),
+              decoration: BoxDecoration(
+                color: AppColors.of(context).surface,
+                border: Border(
+                  top: BorderSide(color: AppColors.of(context).outline),
+                ),
               ),
               child: quantity == 0
                   ? SizedBox(
@@ -129,9 +131,12 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(AppRadii.xxl),
                     child: Container(
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [AppColors.mint, AppColors.brandSoft],
+                          colors: [
+                            AppColors.of(context).mint,
+                            AppColors.of(context).brandSoft,
+                          ],
                         ),
                       ),
                       padding: const EdgeInsets.all(AppSpacing.xl),
@@ -179,7 +184,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                 Text(
                   selectedSize,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: AppColors.inkSecondary,
+                    color: AppColors.of(context).inkSecondary,
                   ),
                 ),
                 if (product.brand.isNotEmpty ||
@@ -191,7 +196,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       if (product.subcategory.isNotEmpty) product.subcategory,
                     ].join(' · '),
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.inkSecondary,
+                      color: AppColors.of(context).inkSecondary,
                     ),
                   ),
                 ],
@@ -205,7 +210,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   Text(
                     '${family.variants.length} options available',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.inkSecondary,
+                      color: AppColors.of(context).inkSecondary,
                     ),
                   ),
                   const SizedBox(height: AppSpacing.md),
@@ -243,7 +248,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       Text(
                         formatPrice(product.pricePaise),
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: AppColors.inkTertiary,
+                          color: AppColors.of(context).inkTertiary,
                           decoration: TextDecoration.lineThrough,
                         ),
                       ),
@@ -253,13 +258,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           vertical: 5,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.errorSoft,
+                          color: AppColors.of(context).errorSoft,
                           borderRadius: BorderRadius.circular(AppRadii.full),
                         ),
                         child: Text(
                           '${product.discountPercent}% OFF',
                           style: Theme.of(context).textTheme.labelMedium
-                              ?.copyWith(color: AppColors.offer),
+                              ?.copyWith(color: AppColors.of(context).offer),
                         ),
                       ),
                     ],
@@ -287,7 +292,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   Text(
                     product.imageAttribution,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.inkTertiary,
+                      color: AppColors.of(context).inkTertiary,
                     ),
                   ),
                 ],
@@ -357,10 +362,14 @@ class _PackSizeCard extends StatelessWidget {
           width: 148 + _extraScale(context) * 76,
           padding: const EdgeInsets.all(AppSpacing.md),
           decoration: BoxDecoration(
-            color: selected ? AppColors.brandSoft : AppColors.surface,
+            color: selected
+                ? AppColors.of(context).brandSoft
+                : AppColors.of(context).surface,
             borderRadius: BorderRadius.circular(AppRadii.lg),
             border: Border.all(
-              color: selected ? AppColors.brand600 : AppColors.outline,
+              color: selected
+                  ? AppColors.of(context).brand600
+                  : AppColors.of(context).outline,
               width: 2,
             ),
           ),
@@ -375,15 +384,17 @@ class _PackSizeCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: selected ? AppColors.brand700 : AppColors.ink,
+                        color: selected
+                            ? AppColors.of(context).brand700
+                            : AppColors.of(context).ink,
                       ),
                     ),
                   ),
                   if (selected)
-                    const Icon(
+                    Icon(
                       Icons.check_circle_rounded,
                       size: 18,
-                      color: AppColors.brand600,
+                      color: AppColors.of(context).brand600,
                     ),
                 ],
               ),
@@ -397,17 +408,17 @@ class _PackSizeCard extends StatelessWidget {
                   '${formatPrice(product.pricePaise)} · ${product.discountPercent}% OFF',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: AppColors.offer),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.of(context).offer,
+                  ),
                 )
               else
                 Text(
                   product.isAvailable ? 'In stock' : 'Out of stock',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: product.isAvailable
-                        ? AppColors.inkSecondary
-                        : AppColors.error,
+                        ? AppColors.of(context).inkSecondary
+                        : AppColors.of(context).error,
                   ),
                 ),
             ],
@@ -435,9 +446,9 @@ class _ProductIdentity extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.canvas,
+        color: AppColors.of(context).canvas,
         borderRadius: BorderRadius.circular(AppRadii.lg),
-        border: Border.all(color: AppColors.outline),
+        border: Border.all(color: AppColors.of(context).outline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -445,9 +456,9 @@ class _ProductIdentity extends StatelessWidget {
           for (var index = 0; index < rows.length; index++) ...[
             Text(
               rows[index].$1,
-              style: Theme.of(
-                context,
-              ).textTheme.labelSmall?.copyWith(color: AppColors.inkTertiary),
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: AppColors.of(context).inkTertiary,
+              ),
             ),
             Text(rows[index].$2, style: Theme.of(context).textTheme.bodyMedium),
             if (index != rows.length - 1) const SizedBox(height: AppSpacing.sm),
@@ -476,11 +487,11 @@ class _FeatureRow extends StatelessWidget {
         Container(
           width: 48,
           height: 48,
-          decoration: const BoxDecoration(
-            color: AppColors.brandSoft,
+          decoration: BoxDecoration(
+            color: AppColors.of(context).brandSoft,
             shape: BoxShape.circle,
           ),
-          child: Icon(icon, color: AppColors.brand700),
+          child: Icon(icon, color: AppColors.of(context).brand700),
         ),
         const SizedBox(width: AppSpacing.md),
         Expanded(
@@ -490,9 +501,9 @@ class _FeatureRow extends StatelessWidget {
               Text(title, style: Theme.of(context).textTheme.titleMedium),
               Text(
                 detail,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: AppColors.inkSecondary),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.of(context).inkSecondary,
+                ),
               ),
             ],
           ),

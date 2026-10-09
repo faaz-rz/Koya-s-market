@@ -290,7 +290,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           refreshing: _refreshing,
         );
         return Scaffold(
-          backgroundColor: AppColors.canvas,
+          backgroundColor: AppColors.of(context).canvas,
           body: SafeArea(
             child: desktop
                 ? Row(
@@ -535,7 +535,9 @@ class _DashboardContent extends ConsumerWidget {
                               ? '${section.description} ${DateFormat('EEEE, d MMMM').format(now)}.'
                               : section.description,
                           style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: AppColors.inkSecondary),
+                              ?.copyWith(
+                                color: AppColors.of(context).inkSecondary,
+                              ),
                         ),
                       ],
                     ),
@@ -1178,49 +1180,53 @@ class _OverviewSection extends StatelessWidget {
               label: 'Orders today',
               value: '$ordersToday',
               icon: Icons.today_rounded,
-              color: AppColors.info,
+              color: AppColors.of(context).info,
             ),
             _MetricCard(
               label: 'Active orders',
               value: '$activeCount',
               icon: Icons.receipt_long_rounded,
-              color: AppColors.brand600,
+              color: AppColors.of(context).brand600,
             ),
             _MetricCard(
               label: 'Paid today',
               value: formatPrice(todayRevenue),
               icon: Icons.trending_up_rounded,
-              color: AppColors.success,
+              color: AppColors.of(context).success,
             ),
             _MetricCard(
               label: 'Pickup queue',
               value: '$pickupOrders',
               icon: Icons.storefront_outlined,
-              color: AppColors.offer,
+              color: AppColors.of(context).offer,
             ),
             _MetricCard(
               label: 'Completed',
               value: '$completedOrders',
               icon: Icons.task_alt_rounded,
-              color: AppColors.success,
+              color: AppColors.of(context).success,
             ),
             _MetricCard(
               label: 'Paid this month',
               value: formatPrice(monthRevenue),
               icon: Icons.calendar_month_outlined,
-              color: AppColors.brand600,
+              color: AppColors.of(context).brand600,
             ),
             _MetricCard(
               label: 'Low stock',
               value: '$lowStockCount items',
               icon: Icons.inventory_2_outlined,
-              color: lowStockCount > 0 ? AppColors.warning : AppColors.success,
+              color: lowStockCount > 0
+                  ? AppColors.of(context).warning
+                  : AppColors.of(context).success,
             ),
             _MetricCard(
               label: 'Out of stock',
               value: '$outOfStockCount items',
               icon: Icons.remove_shopping_cart_outlined,
-              color: outOfStockCount > 0 ? AppColors.error : AppColors.success,
+              color: outOfStockCount > 0
+                  ? AppColors.of(context).error
+                  : AppColors.of(context).success,
             ),
           ],
         );
@@ -1440,8 +1446,8 @@ class _BrandFilterDialogState extends State<_BrandFilterDialog> {
                                 ? Icons.check_circle_rounded
                                 : Icons.circle_outlined,
                             color: selected
-                                ? AppColors.brand700
-                                : AppColors.inkTertiary,
+                                ? AppColors.of(context).brand700
+                                : AppColors.of(context).inkTertiary,
                           ),
                           title: Text(option.label),
                           trailing: Text('${option.productCount}'),
@@ -1702,7 +1708,7 @@ class _CategoryInventoryState extends State<_CategoryInventory> {
                       ? 'Browse every category or choose one to manage its products.'
                       : 'Managing ${selectedCategory.name}. New products will be added here.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.inkSecondary,
+                    color: AppColors.of(context).inkSecondary,
                   ),
                 ),
               ],
@@ -1757,13 +1763,13 @@ class _CategoryInventoryState extends State<_CategoryInventory> {
                 key: const Key('admin-category-all'),
                 label: Text('All (${catalogueProducts.length})'),
                 selected: selectedCategoryId == null,
-                selectedColor: AppColors.brandSoft,
-                backgroundColor: AppColors.surface,
+                selectedColor: AppColors.of(context).brandSoft,
+                backgroundColor: AppColors.of(context).surface,
                 showCheckmark: false,
                 labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
                   color: selectedCategoryId == null
-                      ? AppColors.brand700
-                      : AppColors.ink,
+                      ? AppColors.of(context).brand700
+                      : AppColors.of(context).ink,
                   fontWeight: FontWeight.w700,
                 ),
                 onSelected: (_) => setState(() {
@@ -1799,13 +1805,13 @@ class _CategoryInventoryState extends State<_CategoryInventory> {
                     ),
                   ),
                   selected: selectedCategoryId == category.id,
-                  selectedColor: AppColors.brandSoft,
-                  backgroundColor: AppColors.surface,
+                  selectedColor: AppColors.of(context).brandSoft,
+                  backgroundColor: AppColors.of(context).surface,
                   showCheckmark: false,
                   labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
                     color: selectedCategoryId == category.id
-                        ? AppColors.brand700
-                        : AppColors.ink,
+                        ? AppColors.of(context).brand700
+                        : AppColors.of(context).ink,
                     fontWeight: FontWeight.w700,
                   ),
                   onSelected: (_) => setState(() {
@@ -1895,18 +1901,18 @@ class _CategoryInventoryState extends State<_CategoryInventory> {
               avatar: const Icon(Icons.sell_outlined, size: 18),
               label: Text('${visibleProducts.length} products'),
               onPressed: () => setState(() => _stockFilter = 'All'),
-              backgroundColor: AppColors.surface,
-              labelStyle: Theme.of(
-                context,
-              ).textTheme.labelLarge?.copyWith(color: AppColors.ink),
+              backgroundColor: AppColors.of(context).surface,
+              labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: AppColors.of(context).ink,
+              ),
             ),
             Chip(
               avatar: const Icon(Icons.inventory_outlined, size: 18),
               label: Text('$visibleUnits total units'),
-              backgroundColor: AppColors.surface,
-              labelStyle: Theme.of(
-                context,
-              ).textTheme.labelLarge?.copyWith(color: AppColors.ink),
+              backgroundColor: AppColors.of(context).surface,
+              labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: AppColors.of(context).ink,
+              ),
             ),
             ActionChip(
               key: const Key('admin-low-stock-summary'),
@@ -1916,29 +1922,29 @@ class _CategoryInventoryState extends State<_CategoryInventory> {
                     : Icons.warning_amber_rounded,
                 size: 18,
                 color: visibleLowStock == 0
-                    ? AppColors.success
-                    : AppColors.warning,
+                    ? AppColors.of(context).success
+                    : AppColors.of(context).warning,
               ),
               label: Text('$visibleLowStock low stock'),
               onPressed: () => setState(() => _stockFilter = 'Low stock'),
-              backgroundColor: AppColors.surface,
-              labelStyle: Theme.of(
-                context,
-              ).textTheme.labelLarge?.copyWith(color: AppColors.ink),
+              backgroundColor: AppColors.of(context).surface,
+              labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: AppColors.of(context).ink,
+              ),
             ),
             ActionChip(
               key: const Key('admin-out-of-stock-summary'),
-              avatar: const Icon(
+              avatar: Icon(
                 Icons.remove_shopping_cart_outlined,
                 size: 18,
-                color: AppColors.error,
+                color: AppColors.of(context).error,
               ),
               label: Text('$visibleOutOfStock out of stock'),
               onPressed: () => setState(() => _stockFilter = 'Out of stock'),
-              backgroundColor: AppColors.surface,
-              labelStyle: Theme.of(
-                context,
-              ).textTheme.labelLarge?.copyWith(color: AppColors.ink),
+              backgroundColor: AppColors.of(context).surface,
+              labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: AppColors.of(context).ink,
+              ),
             ),
           ],
         ),
@@ -1946,9 +1952,9 @@ class _CategoryInventoryState extends State<_CategoryInventory> {
         if (visibleProducts.length > displayedProducts.length) ...[
           Text(
             'Showing the first ${displayedProducts.length} of ${visibleProducts.length} products. Search to narrow the list.',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: AppColors.inkSecondary),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppColors.of(context).inkSecondary,
+            ),
           ),
           const SizedBox(height: AppSpacing.md),
         ],
@@ -2051,9 +2057,9 @@ class _StockEditorDialogState extends State<_StockEditorDialog> {
             children: [
               Text(
                 'Enter the total quantity currently available for sale.',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: AppColors.inkSecondary),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.of(context).inkSecondary,
+                ),
               ),
               const SizedBox(height: AppSpacing.lg),
               TextFormField(
@@ -2137,19 +2143,19 @@ class _InventoryProductRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final stockColor = !product.active
-        ? AppColors.inkSecondary
+        ? AppColors.of(context).inkSecondary
         : product.stockQuantity == 0
-        ? AppColors.error
+        ? AppColors.of(context).error
         : product.stockQuantity <= 12
-        ? AppColors.warning
-        : AppColors.success;
+        ? AppColors.of(context).warning
+        : AppColors.of(context).success;
     final stockBackground = !product.active
-        ? AppColors.surfaceMuted
+        ? AppColors.of(context).surfaceMuted
         : product.stockQuantity == 0
-        ? AppColors.errorSoft
+        ? AppColors.of(context).errorSoft
         : product.stockQuantity <= 12
-        ? AppColors.warningSoft
-        : AppColors.successSoft;
+        ? AppColors.of(context).warningSoft
+        : AppColors.of(context).successSoft;
     final details = Row(
       children: [
         SizedBox(
@@ -2170,9 +2176,9 @@ class _InventoryProductRow extends StatelessWidget {
               const SizedBox(height: AppSpacing.xs),
               Text(
                 '${product.unit} · ${formatPrice(product.effectivePricePaise)}',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: AppColors.inkSecondary),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.of(context).inkSecondary,
+                ),
               ),
               if (product.brand.isNotEmpty ||
                   product.subcategory.isNotEmpty) ...[
@@ -2182,9 +2188,9 @@ class _InventoryProductRow extends StatelessWidget {
                     if (product.brand.isNotEmpty) product.brand,
                     if (product.subcategory.isNotEmpty) product.subcategory,
                   ].join(' · '),
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: AppColors.inkTertiary),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.of(context).inkTertiary,
+                  ),
                 ),
               ],
               if ((product.billingName.isNotEmpty &&
@@ -2202,9 +2208,9 @@ class _InventoryProductRow extends StatelessWidget {
                     if (product.barcode.isNotEmpty)
                       'Barcode: ${product.barcode}',
                   ].join(' · '),
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: AppColors.inkTertiary),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.of(context).inkTertiary,
+                  ),
                 ),
               ],
             ],
@@ -2400,7 +2406,7 @@ class _MetricCard extends StatelessWidget {
                 Text(
                   label,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.inkSecondary,
+                    color: AppColors.of(context).inkSecondary,
                   ),
                 ),
               ],
@@ -2486,7 +2492,7 @@ class _AdminOrderRow extends StatelessWidget {
                 Text(
                   DateFormat('h:mm a').format(order.createdAt),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.inkSecondary,
+                    color: AppColors.of(context).inkSecondary,
                   ),
                 ),
               ],
@@ -2514,7 +2520,7 @@ class _AdminOrderRow extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.inkSecondary,
+                    color: AppColors.of(context).inkSecondary,
                   ),
                 ),
               ],
@@ -2526,13 +2532,15 @@ class _AdminOrderRow extends StatelessWidget {
               vertical: AppSpacing.sm,
             ),
             decoration: BoxDecoration(
-              color: order.status.color.withValues(alpha: 0.1),
+              color: AppColors.of(
+                context,
+              ).resolve(order.status.color).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(AppRadii.full),
             ),
             child: Text(
               order.status.label,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: order.status.color,
+                color: AppColors.of(context).resolve(order.status.color),
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -2543,13 +2551,17 @@ class _AdminOrderRow extends StatelessWidget {
               vertical: AppSpacing.sm,
             ),
             decoration: BoxDecoration(
-              color: order.paymentStatus.adminColor.withValues(alpha: 0.1),
+              color: AppColors.of(
+                context,
+              ).resolve(order.paymentStatus.adminColor).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(AppRadii.full),
             ),
             child: Text(
               order.paymentStatus.adminLabel,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: order.paymentStatus.adminColor,
+                color: AppColors.of(
+                  context,
+                ).resolve(order.paymentStatus.adminColor),
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -2600,15 +2612,15 @@ class _AdminOrderRow extends StatelessWidget {
           else if (!canAdvance)
             Text(
               'Complete',
-              style: Theme.of(
-                context,
-              ).textTheme.labelLarge?.copyWith(color: AppColors.inkTertiary),
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: AppColors.of(context).inkTertiary,
+              ),
             )
           else
             Text(
               'Record payment before completion',
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: AppColors.warning,
+                color: AppColors.of(context).warning,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -2699,7 +2711,9 @@ class _AdminOrderDetailsDialogState
                         Text(
                           '${order.status.label} · ${DateFormat('d MMM y, h:mm a').format(order.createdAt)}',
                           style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: AppColors.inkSecondary),
+                              ?.copyWith(
+                                color: AppColors.of(context).inkSecondary,
+                              ),
                         ),
                       ],
                     ),
@@ -2857,7 +2871,7 @@ class _AdminOrderDetailsDialogState
                         liveRegion: true,
                         child: Text(
                           _printError!,
-                          style: const TextStyle(color: AppColors.error),
+                          style: TextStyle(color: AppColors.of(context).error),
                         ),
                       ),
                     ),
@@ -2904,16 +2918,16 @@ class _AdminOrderDetailSection extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColors.canvas,
+        color: AppColors.of(context).canvas,
         borderRadius: BorderRadius.circular(AppRadii.lg),
-        border: Border.all(color: AppColors.outline),
+        border: Border.all(color: AppColors.of(context).outline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              Icon(icon, size: 20, color: AppColors.brand600),
+              Icon(icon, size: 20, color: AppColors.of(context).brand600),
               const SizedBox(width: AppSpacing.sm),
               Text(title, style: Theme.of(context).textTheme.titleMedium),
             ],
@@ -2943,9 +2957,9 @@ class _AdminOrderDetailField extends StatelessWidget {
             width: 145,
             child: Text(
               label,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: AppColors.inkSecondary),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.of(context).inkSecondary,
+              ),
             ),
           ),
           Expanded(child: SelectableText(value)),
@@ -3028,7 +3042,7 @@ class _AdminAnalyticsPanel extends StatelessWidget {
                   Text(
                     _periodLabel,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.inkSecondary,
+                      color: AppColors.of(context).inkSecondary,
                     ),
                   ),
                 ],
@@ -3067,37 +3081,37 @@ class _AdminAnalyticsPanel extends StatelessWidget {
                     label: 'Sales value',
                     value: formatPrice(analytics.salesPaise),
                     icon: Icons.payments_outlined,
-                    color: AppColors.success,
+                    color: AppColors.of(context).success,
                   ),
                   _AnalyticsMetric(
                     label: 'Orders',
                     value: '${analytics.orderCount}',
                     icon: Icons.receipt_long_outlined,
-                    color: AppColors.info,
+                    color: AppColors.of(context).info,
                   ),
                   _AnalyticsMetric(
                     label: 'Items sold',
                     value: '${analytics.itemsSold}',
                     icon: Icons.shopping_basket_outlined,
-                    color: AppColors.brand600,
+                    color: AppColors.of(context).brand600,
                   ),
                   _AnalyticsMetric(
                     label: 'Average order',
                     value: formatPrice(analytics.averageOrderPaise),
                     icon: Icons.calculate_outlined,
-                    color: AppColors.brand700,
+                    color: AppColors.of(context).brand700,
                   ),
                   _AnalyticsMetric(
                     label: 'Delivery fees',
                     value: formatPrice(analytics.deliveryFeesPaise),
                     icon: Icons.delivery_dining_outlined,
-                    color: AppColors.offer,
+                    color: AppColors.of(context).offer,
                   ),
                   _AnalyticsMetric(
                     label: 'Offers given',
                     value: formatPrice(analytics.discountsPaise),
                     icon: Icons.local_offer_outlined,
-                    color: AppColors.warning,
+                    color: AppColors.of(context).warning,
                   ),
                 ],
               );
@@ -3135,16 +3149,16 @@ class _AdminAnalyticsPanel extends StatelessWidget {
           const SizedBox(height: AppSpacing.xs),
           Text(
             'Ranked by total quantity ordered during this period.',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: AppColors.inkSecondary),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppColors.of(context).inkSecondary,
+            ),
           ),
           const SizedBox(height: AppSpacing.lg),
           if (analytics.topProducts.isEmpty)
             Container(
               padding: const EdgeInsets.all(AppSpacing.xxl),
               decoration: BoxDecoration(
-                color: AppColors.surfaceMuted,
+                color: AppColors.of(context).surfaceMuted,
                 borderRadius: BorderRadius.circular(AppRadii.lg),
               ),
               child: const Text(
@@ -3196,7 +3210,7 @@ class _AnalyticsMetric extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColors.surfaceMuted,
+        color: AppColors.of(context).surfaceMuted,
         borderRadius: BorderRadius.circular(AppRadii.lg),
       ),
       child: Row(
@@ -3227,7 +3241,7 @@ class _AnalyticsMetric extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.inkSecondary,
+                    color: AppColors.of(context).inkSecondary,
                   ),
                 ),
               ],
@@ -3263,14 +3277,14 @@ class _TopProductAnalyticsRow extends StatelessWidget {
             width: 34,
             height: 34,
             alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              color: AppColors.brandSoft,
+            decoration: BoxDecoration(
+              color: AppColors.of(context).brandSoft,
               shape: BoxShape.circle,
             ),
             child: Text(
               '$rank',
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: AppColors.brand700,
+                color: AppColors.of(context).brand700,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -3294,7 +3308,7 @@ class _TopProductAnalyticsRow extends StatelessWidget {
                     Text(
                       '${product.quantity} units',
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: AppColors.brand700,
+                        color: AppColors.of(context).brand700,
                       ),
                     ),
                   ],
@@ -3303,13 +3317,15 @@ class _TopProductAnalyticsRow extends StatelessWidget {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(AppRadii.full),
                   child: ColoredBox(
-                    color: AppColors.surfaceMuted,
+                    color: AppColors.of(context).surfaceMuted,
                     child: FractionallySizedBox(
                       alignment: Alignment.centerLeft,
                       widthFactor: product.quantity / maxQuantity,
-                      child: const SizedBox(
+                      child: SizedBox(
                         height: 7,
-                        child: ColoredBox(color: AppColors.brand600),
+                        child: ColoredBox(
+                          color: AppColors.of(context).brand600,
+                        ),
                       ),
                     ),
                   ),
@@ -3318,7 +3334,7 @@ class _TopProductAnalyticsRow extends StatelessWidget {
                 Text(
                   '${product.orderCount} $orderLabel · ${product.unit} · ${formatPrice(product.salesPaise)} sales',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.inkSecondary,
+                    color: AppColors.of(context).inkSecondary,
                   ),
                 ),
               ],
@@ -3357,8 +3373,8 @@ class _OrderPricingCard extends StatelessWidget {
               Chip(
                 label: Text(free ? 'Free' : 'Paid'),
                 backgroundColor: free
-                    ? AppColors.successSoft
-                    : AppColors.brandSoft,
+                    ? AppColors.of(context).successSoft
+                    : AppColors.of(context).brandSoft,
               ),
             ],
           ),
@@ -3367,18 +3383,18 @@ class _OrderPricingCard extends StatelessWidget {
             store.minimumOrderPaise == 0
                 ? 'No minimum order is active.'
                 : 'Minimum order: ${formatPrice(store.minimumOrderPaise)}.',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: AppColors.inkSecondary),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppColors.of(context).inkSecondary,
+            ),
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
             free
                 ? 'Free delivery is active for every customer order.'
                 : '${formatPrice(store.baseDeliveryChargePaise)} per delivery, free for orders of ${formatPrice(store.freeDeliveryThresholdPaise)} or more.',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: AppColors.inkSecondary),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppColors.of(context).inkSecondary,
+            ),
           ),
           const SizedBox(height: AppSpacing.lg),
           OutlinedButton.icon(
@@ -3431,9 +3447,9 @@ class _OfferManagementCard extends StatelessWidget {
             offers.isEmpty
                 ? 'No offers are active. Products stay at their regular price until staff creates an offer.'
                 : 'Only staff-created offers are shown to customers.',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: AppColors.inkSecondary),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppColors.of(context).inkSecondary,
+            ),
           ),
           if (offers.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.md),
@@ -3458,9 +3474,9 @@ class _OfferManagementCard extends StatelessWidget {
             if (offers.length > 3)
               Text(
                 '+${offers.length - 3} more active offers',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: AppColors.inkSecondary),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.of(context).inkSecondary,
+                ),
               ),
           ],
           const SizedBox(height: AppSpacing.lg),
@@ -3544,9 +3560,9 @@ class _CartOfferManagementCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           Text(
             'Control customer codes, minimum basket values, discounts, free products, schedules, and usage limits.',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: AppColors.inkSecondary),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppColors.of(context).inkSecondary,
+            ),
           ),
           if (offers.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.md),
@@ -3556,15 +3572,15 @@ class _CartOfferManagementCard extends StatelessWidget {
                 contentPadding: EdgeInsets.zero,
                 leading: CircleAvatar(
                   backgroundColor: offer.active
-                      ? AppColors.successSoft
-                      : AppColors.surfaceMuted,
+                      ? AppColors.of(context).successSoft
+                      : AppColors.of(context).surfaceMuted,
                   child: Icon(
                     offer.hasFreeProduct
                         ? Icons.card_giftcard_rounded
                         : Icons.percent_rounded,
                     color: offer.active
-                        ? AppColors.success
-                        : AppColors.inkTertiary,
+                        ? AppColors.of(context).success
+                        : AppColors.of(context).inkTertiary,
                   ),
                 ),
                 title: Text('${offer.code} · ${offer.title}'),
@@ -3666,9 +3682,9 @@ class _OrderPricingDialogState extends State<_OrderPricingDialog> {
             children: [
               Text(
                 'Set the minimum order and delivery pricing applied at checkout. Use ₹0 for no minimum order.',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: AppColors.inkSecondary),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.of(context).inkSecondary,
+                ),
               ),
               const SizedBox(height: AppSpacing.md),
               TextFormField(
@@ -3901,9 +3917,9 @@ class _OfferEditorDialogState extends State<_OfferEditorDialog> {
               const SizedBox(height: AppSpacing.xs),
               Text(
                 'Regular price: ${formatPrice(widget.product.pricePaise)}',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: AppColors.inkSecondary),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.of(context).inkSecondary,
+                ),
               ),
               const SizedBox(height: AppSpacing.lg),
               TextFormField(
@@ -3932,7 +3948,7 @@ class _OfferEditorDialogState extends State<_OfferEditorDialog> {
                 Text(
                   'Customers will see $percent% OFF and pay ${formatPrice(parsed!)}.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.success,
+                    color: AppColors.of(context).success,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -4373,9 +4389,9 @@ class _CartOfferEditorDialogState extends State<_CartOfferEditorDialog> {
                   const SizedBox(height: AppSpacing.sm),
                   Text(
                     _benefitError!,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: AppColors.error),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.of(context).error,
+                    ),
                   ),
                 ],
                 const SizedBox(height: AppSpacing.lg),
@@ -4725,9 +4741,9 @@ class _ProductEditorDialogState extends State<_ProductEditorDialog> {
                   constraints: const BoxConstraints(minHeight: 180),
                   padding: const EdgeInsets.all(AppSpacing.sm),
                   decoration: BoxDecoration(
-                    color: AppColors.canvas,
+                    color: AppColors.of(context).canvas,
                     borderRadius: BorderRadius.circular(AppRadii.lg),
-                    border: Border.all(color: AppColors.outline),
+                    border: Border.all(color: AppColors.of(context).outline),
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: _selectedImage != null
@@ -4811,7 +4827,7 @@ class _ProductEditorDialogState extends State<_ProductEditorDialog> {
                     child: Text(
                       '${_selectedImage!.fileName} · ${(_selectedImage!.bytes.length / 1024).ceil()} KB',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.inkSecondary,
+                        color: AppColors.of(context).inkSecondary,
                       ),
                     ),
                   ),
@@ -4822,9 +4838,9 @@ class _ProductEditorDialogState extends State<_ProductEditorDialog> {
                     alignment: Alignment.centerLeft,
                     child: Text(
                       _imageError!,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(color: AppColors.error),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.of(context).error,
+                      ),
                     ),
                   ),
                 ],

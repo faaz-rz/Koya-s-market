@@ -10,16 +10,30 @@ class CustomerBackdrop extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.mint, AppColors.canvas, AppColors.peach],
-          stops: [0, 0.52, 1],
+      decoration: BoxDecoration(color: colors.canvas),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: RadialGradient(
+            center: const Alignment(-1.1, -0.9),
+            radius: 1.5,
+            colors: [colors.mint, colors.mint.withValues(alpha: 0)],
+            stops: const [0, 0.85],
+          ),
+        ),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              center: const Alignment(1.2, 0.9),
+              radius: 1.2,
+              colors: [colors.peach, colors.peach.withValues(alpha: 0)],
+              stops: const [0, 0.8],
+            ),
+          ),
+          child: child,
         ),
       ),
-      child: child,
     );
   }
 }

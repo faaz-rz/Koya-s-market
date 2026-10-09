@@ -26,12 +26,13 @@ class KoyasSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: color,
+        color: colors.resolve(color),
         borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: borderColor),
-        boxShadow: elevated ? AppShadows.medium : AppShadows.low,
+        border: Border.all(color: colors.resolve(borderColor)),
+        boxShadow: AppShadows.of(context, elevated: elevated),
       ),
       child: Material(
         type: MaterialType.transparency,

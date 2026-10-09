@@ -67,7 +67,7 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                       Text(
                         'View your order details or quickly reorder your essentials.',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.inkSecondary,
+                          color: AppColors.of(context).inkSecondary,
                         ),
                       ),
                       const SizedBox(height: AppSpacing.lg),

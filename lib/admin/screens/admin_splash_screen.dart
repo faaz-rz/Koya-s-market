@@ -88,7 +88,7 @@ class _AdminSplashScreenState extends ConsumerState<AdminSplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.brand500,
+      backgroundColor: AppColors.of(context).brand500,
       body: SafeArea(
         child: Center(
           child: Column(
@@ -112,7 +112,7 @@ class _AdminSplashScreenState extends ConsumerState<AdminSplashScreen> {
               Text(
                 'STAFF OPERATIONS',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppColors.heritageIvory,
+                  color: AppColors.of(context).heritageIvory,
                   letterSpacing: 3,
                 ),
               ),
@@ -123,9 +123,9 @@ class _AdminSplashScreenState extends ConsumerState<AdminSplashScreen> {
                   child: Text(
                     _error!,
                     textAlign: TextAlign.center,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: AppColors.surface),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.of(context).surface,
+                    ),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.lg),
@@ -136,9 +136,9 @@ class _AdminSplashScreenState extends ConsumerState<AdminSplashScreen> {
                 ),
               ],
               if (_loading)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.all(AppSpacing.lg),
-                  child: FourDotLoader(color: AppColors.surface),
+                  child: FourDotLoader(color: AppColors.of(context).surface),
                 ),
             ],
           ),

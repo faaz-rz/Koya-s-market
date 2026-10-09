@@ -14,7 +14,7 @@ class NetworkStatusBanner extends StatelessWidget {
       children: [
         if (offline)
           Material(
-            color: AppColors.warningSoft,
+            color: AppColors.of(context).warningSoft,
             child: SafeArea(
               bottom: false,
               child: Padding(
@@ -26,10 +26,10 @@ class NetworkStatusBanner extends StatelessWidget {
                   liveRegion: true,
                   child: Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.wifi_off_rounded,
                         size: 20,
-                        color: AppColors.warning,
+                        color: AppColors.of(context).warning,
                       ),
                       const SizedBox(width: 10),
                       Expanded(

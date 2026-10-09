@@ -56,7 +56,7 @@ class HomeScreen extends ConsumerWidget {
                     Text(
                       'Pickup from Koya Stores or get your order delivered today.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.inkSecondary,
+                        color: AppColors.of(context).inkSecondary,
                       ),
                     ),
                     const SizedBox(height: AppSpacing.lg),
@@ -166,7 +166,7 @@ class _HomeHeader extends StatelessWidget {
               'Koya Stores',
               key: const Key('home-store-title'),
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: AppColors.brand700,
+                color: AppColors.of(context).brand700,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -190,17 +190,17 @@ class _HomeHeader extends StatelessWidget {
                     horizontal: 6,
                     vertical: 2,
                   ),
-                  decoration: const BoxDecoration(
-                    color: AppColors.offer,
+                  decoration: BoxDecoration(
+                    color: AppColors.of(context).offer,
                     borderRadius: BorderRadius.all(
                       Radius.circular(AppRadii.full),
                     ),
                   ),
                   child: Text(
                     '$cartCount',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.labelMedium?.copyWith(color: AppColors.surface),
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: AppColors.of(context).surface,
+                    ),
                   ),
                 ),
               ),
@@ -220,13 +220,21 @@ class _HomeOffer extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 140),
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.brandSoft, AppColors.peach],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
+        gradient: LinearGradient(
+          colors: [
+            AppColors.of(context).brandSoft,
+            AppColors.of(context).mint,
+            AppColors.of(context).peach,
+          ],
+          stops: const [0, 0.6, 1],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(AppRadii.xxl),
-        boxShadow: AppShadows.medium,
+        border: Border.all(
+          color: AppColors.of(context).surface.withValues(alpha: 0.7),
+        ),
+        boxShadow: AppShadows.of(context, elevated: true),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -236,23 +244,23 @@ class _HomeOffer extends StatelessWidget {
             children: [
               Text(
                 'SHOP YOUR WAY',
-                style: Theme.of(
-                  context,
-                ).textTheme.labelMedium?.copyWith(color: AppColors.brand700),
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: AppColors.of(context).brand700,
+                ),
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
                 'Free pickup,\nevery day',
-                style: Theme.of(
-                  context,
-                ).textTheme.headlineMedium?.copyWith(color: AppColors.ink),
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: AppColors.of(context).ink,
+                ),
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
                 'We will notify you when it is ready',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: AppColors.inkSecondary),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.of(context).inkSecondary,
+                ),
               ),
             ],
           );

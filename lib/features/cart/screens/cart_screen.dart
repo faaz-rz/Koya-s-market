@@ -136,9 +136,9 @@ class _CartItems extends ConsumerWidget {
       children: [
         Text(
           '${store.cartCount} ${store.cartCount == 1 ? 'item' : 'items'}',
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(color: AppColors.inkSecondary),
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            color: AppColors.of(context).inkSecondary,
+          ),
         ),
         const SizedBox(height: AppSpacing.md),
         ...store.cartItems.map(
@@ -166,14 +166,14 @@ class _CartItems extends ConsumerWidget {
                       Text(
                         item.product.unit,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.inkSecondary,
+                          color: AppColors.of(context).inkSecondary,
                         ),
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       Text(
                         formatPrice(item.totalPaise),
                         style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(color: AppColors.brand700),
+                            ?.copyWith(color: AppColors.of(context).brand700),
                       ),
                     ],
                   );
@@ -230,7 +230,9 @@ class _CartItems extends ConsumerWidget {
                             Text(
                               item.product.unit,
                               style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(color: AppColors.inkSecondary),
+                                  ?.copyWith(
+                                    color: AppColors.of(context).inkSecondary,
+                                  ),
                             ),
                             const SizedBox(height: AppSpacing.sm),
                             Row(
@@ -335,13 +337,13 @@ class _OrderSummary extends ConsumerWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
-                color: AppColors.warningSoft,
+                color: AppColors.of(context).warningSoft,
                 borderRadius: BorderRadius.circular(AppRadii.md),
               ),
               child: Text(
                 'Add ${formatPrice(shortfall)} more to reach the ${formatPrice(store.minimumOrderPaise)} minimum.',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.warning,
+                  color: AppColors.of(context).warning,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -358,9 +360,9 @@ class _OrderSummary extends ConsumerWidget {
           Center(
             child: Text(
               'Free pickup · Secure checkout',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: AppColors.inkSecondary),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.of(context).inkSecondary,
+              ),
             ),
           ),
         ],

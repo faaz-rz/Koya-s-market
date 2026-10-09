@@ -187,12 +187,12 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: AppColors.errorSoft,
+                color: AppColors.of(context).errorSoft,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.person_remove_outlined,
-                color: AppColors.error,
+                color: AppColors.of(context).error,
                 size: 22,
               ),
             ),
@@ -212,7 +212,7 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
                   Text(
                     'This action is permanent.',
                     style: textTheme.bodySmall?.copyWith(
-                      color: AppColors.inkSecondary,
+                      color: AppColors.of(context).inkSecondary,
                     ),
                   ),
                 ],
@@ -229,7 +229,7 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
               Text(
                 'Your profile and saved addresses will be removed. Completed orders are kept without your personal details.',
                 style: textTheme.bodyMedium?.copyWith(
-                  color: AppColors.inkSecondary,
+                  color: AppColors.of(context).inkSecondary,
                   height: 1.5,
                 ),
               ),
@@ -237,19 +237,21 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.warningSoft,
+                  color: AppColors.of(context).warningSoft,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   'Finish or cancel active orders before continuing.',
-                  style: textTheme.bodySmall?.copyWith(color: AppColors.ink),
+                  style: textTheme.bodySmall?.copyWith(
+                    color: AppColors.of(context).ink,
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
               Text(
                 'Step $stage of 2 · ${stage == 1 ? 'Confirm your request' : 'Verify your email'}',
                 style: textTheme.labelLarge?.copyWith(
-                  color: AppColors.brand700,
+                  color: AppColors.of(context).brand700,
                 ),
               ),
               const SizedBox(height: 12),
@@ -310,7 +312,7 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
                   child: Text(
                     'Code sent to ${_challenge!.emailHint}. Use the latest code within 10 minutes.',
                     style: textTheme.bodySmall?.copyWith(
-                      color: AppColors.inkSecondary,
+                      color: AppColors.of(context).inkSecondary,
                     ),
                   ),
                 ),
@@ -349,7 +351,7 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
                           ? '${_error ?? 'Please wait.'} Retry in ${verify}s.'
                           : _error!,
                       style: textTheme.bodySmall?.copyWith(
-                        color: AppColors.error,
+                        color: AppColors.of(context).error,
                       ),
                     ),
                   ),
@@ -373,7 +375,7 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
               key: const Key('delete-account-final'),
               onPressed: canDelete ? _delete : null,
               style: FilledButton.styleFrom(
-                backgroundColor: AppColors.error,
+                backgroundColor: AppColors.of(context).error,
                 minimumSize: const Size(0, 48),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -383,7 +385,7 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (_deleting) ...[
-                    const FourDotLoader(size: 22, color: AppColors.error),
+                    FourDotLoader(size: 22, color: AppColors.of(context).error),
                     const SizedBox(width: 8),
                   ],
                   Flexible(

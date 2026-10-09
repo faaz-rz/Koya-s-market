@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 class ConfigurationErrorApp extends StatelessWidget {
   const ConfigurationErrorApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: Scaffold(
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: ThemeMode.system,
+      home: const Scaffold(
         body: SafeArea(
           child: Center(
             child: Padding(

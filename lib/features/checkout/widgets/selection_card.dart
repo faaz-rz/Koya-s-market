@@ -34,10 +34,14 @@ class SelectionCard extends StatelessWidget {
             : const Duration(milliseconds: 180),
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: selected ? AppColors.brandSoft : AppColors.surface,
+          color: selected
+              ? AppColors.of(context).brandSoft
+              : AppColors.of(context).surface,
           borderRadius: BorderRadius.circular(AppRadii.xl),
           border: Border.all(
-            color: selected ? AppColors.brand500 : AppColors.outline,
+            color: selected
+                ? AppColors.of(context).brand500
+                : AppColors.of(context).outline,
             width: 1.5,
           ),
         ),
@@ -61,8 +65,8 @@ class SelectionCard extends StatelessWidget {
                             ? Icons.check_circle_rounded
                             : Icons.radio_button_unchecked_rounded,
                         color: selected
-                            ? AppColors.brand600
-                            : AppColors.inkTertiary,
+                            ? AppColors.of(context).brand600
+                            : AppColors.of(context).inkTertiary,
                       );
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -74,15 +78,15 @@ class SelectionCard extends StatelessWidget {
                             height: 52,
                             decoration: BoxDecoration(
                               color: selected
-                                  ? AppColors.brand500
-                                  : AppColors.surfaceMuted,
+                                  ? AppColors.of(context).brand500
+                                  : AppColors.of(context).surfaceMuted,
                               borderRadius: BorderRadius.circular(AppRadii.lg),
                             ),
                             child: Icon(
                               icon,
                               color: selected
-                                  ? Colors.white
-                                  : AppColors.inkSecondary,
+                                  ? AppColors.of(context).onBrand
+                                  : AppColors.of(context).inkSecondary,
                             ),
                           ),
                           const SizedBox(width: AppSpacing.md),
@@ -100,7 +104,11 @@ class SelectionCard extends StatelessWidget {
                                 Text(
                                   subtitle,
                                   style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(color: AppColors.inkSecondary),
+                                      ?.copyWith(
+                                        color: AppColors.of(
+                                          context,
+                                        ).inkSecondary,
+                                      ),
                                 ),
                               ],
                             ),

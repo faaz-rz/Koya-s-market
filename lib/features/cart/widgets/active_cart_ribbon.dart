@@ -63,9 +63,9 @@ class ActiveCartRibbon extends ConsumerWidget {
                   child: Semantics(
                     label: largeText ? 'View cart' : null,
                     child: Material(
-                      color: AppColors.brand700,
+                      color: AppColors.of(context).brand700,
                       elevation: 8,
-                      shadowColor: AppColors.ink,
+                      shadowColor: AppColors.of(context).shadow,
                       borderRadius: BorderRadius.circular(AppRadii.lg),
                       clipBehavior: Clip.antiAlias,
                       child: InkWell(
@@ -82,16 +82,16 @@ class ActiveCartRibbon extends ConsumerWidget {
                                 width: 42,
                                 height: 42,
                                 decoration: BoxDecoration(
-                                  color: AppColors.surface.withValues(
-                                    alpha: 0.16,
-                                  ),
+                                  color: AppColors.of(
+                                    context,
+                                  ).surface.withValues(alpha: 0.16),
                                   borderRadius: BorderRadius.circular(
                                     AppRadii.md,
                                   ),
                                 ),
-                                child: const Icon(
+                                child: Icon(
                                   Icons.shopping_bag_rounded,
-                                  color: AppColors.surface,
+                                  color: AppColors.of(context).surface,
                                 ),
                               ),
                               const SizedBox(width: AppSpacing.md),
@@ -108,7 +108,9 @@ class ActiveCartRibbon extends ConsumerWidget {
                                           .textTheme
                                           .labelLarge
                                           ?.copyWith(
-                                            color: AppColors.surface,
+                                            color: AppColors.of(
+                                              context,
+                                            ).surface,
                                             fontWeight: FontWeight.w800,
                                           ),
                                     ),
@@ -119,9 +121,9 @@ class ActiveCartRibbon extends ConsumerWidget {
                                           .textTheme
                                           .bodySmall
                                           ?.copyWith(
-                                            color: AppColors.surface.withValues(
-                                              alpha: 0.82,
-                                            ),
+                                            color: AppColors.of(
+                                              context,
+                                            ).surface.withValues(alpha: 0.82),
                                           ),
                                     ),
                                   ],
@@ -133,14 +135,14 @@ class ActiveCartRibbon extends ConsumerWidget {
                                   'View cart',
                                   style: Theme.of(context).textTheme.labelLarge
                                       ?.copyWith(
-                                        color: AppColors.surface,
+                                        color: AppColors.of(context).surface,
                                         fontWeight: FontWeight.w800,
                                       ),
                                 ),
                               const SizedBox(width: AppSpacing.xs),
-                              const Icon(
+                              Icon(
                                 Icons.arrow_forward_ios_rounded,
-                                color: AppColors.surface,
+                                color: AppColors.of(context).surface,
                                 size: 16,
                               ),
                             ],

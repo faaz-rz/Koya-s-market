@@ -197,8 +197,8 @@ class _ProductListingScreenState extends ConsumerState<ProductListingScreen> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(AppRadii.lg),
                     boxShadow: _searchFocused
-                        ? AppShadows.medium
-                        : AppShadows.low,
+                        ? AppShadows.of(context, elevated: true)
+                        : AppShadows.of(context),
                   ),
                   child: TextField(
                     key: const Key('product-search'),
@@ -343,10 +343,10 @@ class _SearchDiscovery extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           Material(
-            color: AppColors.surface,
+            color: AppColors.of(context).surface,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppRadii.lg),
-              side: const BorderSide(color: AppColors.outline),
+              side: BorderSide(color: AppColors.of(context).outline),
             ),
             clipBehavior: Clip.antiAlias,
             child: Column(
@@ -444,14 +444,14 @@ class _SearchSuggestions extends StatelessWidget {
       ),
       children: [
         Material(
-          color: AppColors.brandSoft,
+          color: AppColors.of(context).brandSoft,
           borderRadius: BorderRadius.circular(AppRadii.lg),
           clipBehavior: Clip.antiAlias,
           child: ListTile(
             key: const Key('search-all-results'),
-            leading: const CircleAvatar(
-              backgroundColor: AppColors.surface,
-              foregroundColor: AppColors.brand700,
+            leading: CircleAvatar(
+              backgroundColor: AppColors.of(context).surface,
+              foregroundColor: AppColors.of(context).brand700,
               child: Icon(Icons.search_rounded),
             ),
             title: Text('Search for "$query"'),
@@ -465,10 +465,10 @@ class _SearchSuggestions extends StatelessWidget {
           const _SectionHeading(title: 'Suggested for you'),
           const SizedBox(height: AppSpacing.sm),
           Material(
-            color: AppColors.surface,
+            color: AppColors.of(context).surface,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppRadii.lg),
-              side: const BorderSide(color: AppColors.outline),
+              side: BorderSide(color: AppColors.of(context).outline),
             ),
             clipBehavior: Clip.antiAlias,
             child: Column(
@@ -521,14 +521,14 @@ class _SuggestionTile extends StatelessWidget {
         child: product == null
             ? DecoratedBox(
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceMuted,
+                  color: AppColors.of(context).surfaceMuted,
                   borderRadius: BorderRadius.circular(AppRadii.md),
                 ),
                 child: Icon(
                   suggestion.kind == ProductSearchSuggestionKind.brand
                       ? Icons.sell_outlined
                       : Icons.category_outlined,
-                  color: AppColors.brand700,
+                  color: AppColors.of(context).brand700,
                 ),
               )
             : ClipRRect(
@@ -602,7 +602,7 @@ class _SearchResults extends StatelessWidget {
                   description,
                   key: const Key('product-result-count'),
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.inkSecondary,
+                    color: AppColors.of(context).inkSecondary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -651,10 +651,10 @@ class _CategoryDiscoveryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.surface,
+      color: AppColors.of(context).surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadii.lg),
-        side: const BorderSide(color: AppColors.outline),
+        side: BorderSide(color: AppColors.of(context).outline),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(

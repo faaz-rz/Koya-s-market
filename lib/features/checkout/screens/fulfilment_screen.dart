@@ -43,7 +43,7 @@ class FulfilmentScreen extends ConsumerWidget {
                   Text(
                     'Pick up at your convenience or have your groceries delivered.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.inkSecondary,
+                      color: AppColors.of(context).inkSecondary,
                     ),
                   ),
                   const SizedBox(height: AppSpacing.xxl),
@@ -72,9 +72,9 @@ class FulfilmentScreen extends ConsumerWidget {
                     onTap: () => _select(context, ref, FulfilmentType.delivery),
                   ),
                   const SizedBox(height: AppSpacing.xxl),
-                  const KoyasSurface(
-                    color: AppColors.surfaceMuted,
-                    borderColor: AppColors.surfaceMuted,
+                  KoyasSurface(
+                    color: AppColors.of(context).surfaceMuted,
+                    borderColor: AppColors.of(context).surfaceMuted,
                     child: Row(
                       children: [
                         Icon(Icons.location_on_outlined),

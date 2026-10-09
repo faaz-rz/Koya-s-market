@@ -68,7 +68,7 @@ class ProductCard extends ConsumerWidget {
                     dimension: actionSize,
                     child: Icon(
                       Icons.remove_shopping_cart_outlined,
-                      color: AppColors.inkTertiary,
+                      color: AppColors.of(context).inkTertiary,
                       size: compact ? 18 : 20,
                     ),
                   ),
@@ -89,8 +89,8 @@ class ProductCard extends ConsumerWidget {
                     fixedSize: Size.square(actionSize),
                     padding: EdgeInsets.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    backgroundColor: AppColors.brand600,
-                    foregroundColor: AppColors.surface,
+                    backgroundColor: AppColors.of(context).brand600,
+                    foregroundColor: AppColors.of(context).surface,
                   ),
                   icon: Badge.count(
                     count: quantity,
@@ -113,8 +113,8 @@ class ProductCard extends ConsumerWidget {
                     fixedSize: Size.square(actionSize),
                     padding: EdgeInsets.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    backgroundColor: AppColors.brand600,
-                    foregroundColor: AppColors.surface,
+                    backgroundColor: AppColors.of(context).brand600,
+                    foregroundColor: AppColors.of(context).surface,
                   ),
                   icon: Icon(Icons.add_rounded, size: compact ? 20 : 22),
                 ),
@@ -127,7 +127,7 @@ class ProductCard extends ConsumerWidget {
           child: KoyasSurface(
             onTap: () => context.push('/product/${product.id}'),
             radius: compact ? AppRadii.lg : AppRadii.xxl,
-            borderColor: AppColors.surface,
+            borderColor: AppColors.of(context).outline.withValues(alpha: 0.6),
             padding: EdgeInsets.all(compact ? AppSpacing.sm : AppSpacing.md),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -165,10 +165,10 @@ class ProductCard extends ConsumerWidget {
                               .toggleFavorite(product.id),
                           style: compact
                               ? IconButton.styleFrom(
-                                  backgroundColor: AppColors.surface.withValues(
-                                    alpha: 0.88,
-                                  ),
-                                  foregroundColor: AppColors.offer,
+                                  backgroundColor: AppColors.of(
+                                    context,
+                                  ).surface.withValues(alpha: 0.88),
+                                  foregroundColor: AppColors.of(context).offer,
                                   minimumSize: Size.zero,
                                   fixedSize: const Size.square(48),
                                   padding: EdgeInsets.zero,
@@ -176,10 +176,10 @@ class ProductCard extends ConsumerWidget {
                                       MaterialTapTargetSize.shrinkWrap,
                                 )
                               : IconButton.styleFrom(
-                                  backgroundColor: AppColors.surface.withValues(
-                                    alpha: 0.88,
-                                  ),
-                                  foregroundColor: AppColors.offer,
+                                  backgroundColor: AppColors.of(
+                                    context,
+                                  ).surface.withValues(alpha: 0.88),
+                                  foregroundColor: AppColors.of(context).offer,
                                 ),
                           icon: Icon(
                             favorite
@@ -203,7 +203,7 @@ class ProductCard extends ConsumerWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.labelMedium?.copyWith(
-                              color: AppColors.brand700,
+                              color: AppColors.of(context).brand700,
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
                             ),
@@ -230,7 +230,7 @@ class ProductCard extends ConsumerWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: AppColors.inkSecondary,
+                        color: AppColors.of(context).inkSecondary,
                         fontSize: 10,
                       ),
                     ),
@@ -242,7 +242,7 @@ class ProductCard extends ConsumerWidget {
                       product.brand,
                       maxLines: 2,
                       style: theme.textTheme.labelMedium?.copyWith(
-                        color: AppColors.brand700,
+                        color: AppColors.of(context).brand700,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -260,7 +260,7 @@ class ProductCard extends ConsumerWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppColors.inkSecondary,
+                      color: AppColors.of(context).inkSecondary,
                     ),
                   ),
                 ],
@@ -289,7 +289,7 @@ class ProductCard extends ConsumerWidget {
                                   Text(
                                     formatPrice(priceProduct.pricePaise),
                                     style: theme.textTheme.bodySmall?.copyWith(
-                                      color: AppColors.inkTertiary,
+                                      color: AppColors.of(context).inkTertiary,
                                       fontSize: compact ? 9 : null,
                                       decoration: TextDecoration.lineThrough,
                                     ),
@@ -358,13 +358,13 @@ class _Badge extends StatelessWidget {
         vertical: compact ? 3 : 5,
       ),
       decoration: BoxDecoration(
-        color: AppColors.offer,
+        color: AppColors.of(context).offer,
         borderRadius: BorderRadius.circular(AppRadii.full),
       ),
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelMedium?.copyWith(
-          color: AppColors.surface,
+          color: AppColors.of(context).surface,
           fontSize: compact ? 8 : null,
         ),
       ),

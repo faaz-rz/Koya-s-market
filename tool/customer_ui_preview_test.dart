@@ -20,8 +20,10 @@ class PreviewStore extends StoreController {
 
 void main() {
   for (final viewport in [
-    (width: 390.0, scale: 1.0),
-    (width: 320.0, scale: 2.0),
+    (width: 390.0, scale: 1.0, brightness: Brightness.light),
+    (width: 320.0, scale: 2.0, brightness: Brightness.light),
+    (width: 390.0, scale: 1.0, brightness: Brightness.dark),
+    (width: 320.0, scale: 2.0, brightness: Brightness.dark),
   ]) {
     testWidgets('customer UI at ${viewport.width}px, text ${viewport.scale}', (
       tester,
@@ -36,9 +38,12 @@ void main() {
       tester.view.physicalSize = Size(viewport.width, 844);
       tester.view.devicePixelRatio = 1;
       tester.platformDispatcher.textScaleFactorTestValue = viewport.scale;
+      tester.platformDispatcher.platformBrightnessTestValue =
+          viewport.brightness;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
 
       final container = ProviderContainer(
         overrides: [storeProvider.overrideWith(PreviewStore.new)],
@@ -58,7 +63,9 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      final prefix = '${viewport.width.toInt()}-${viewport.scale.toInt()}x';
+      final prefix =
+          '${viewport.width.toInt()}-${viewport.scale.toInt()}x'
+          '${viewport.brightness == Brightness.dark ? '-dark' : ''}';
       await _capture(tester, capture, '$prefix-home');
       router.go('/categories');
       await tester.pumpAndSettle();
@@ -97,12 +104,14 @@ void main() {
       for (final route in [
         (path: '/cart', name: 'cart'),
         (path: '/checkout/fulfilment', name: 'fulfilment'),
+        (path: '/checkout/delivery', name: 'delivery'),
         (path: '/checkout/payment', name: 'payment'),
         (
           path: '/order/confirmation/${store.orders.first.id}',
           name: 'confirmed',
         ),
         (path: '/orders', name: 'orders'),
+        (path: '/order/${store.orders.first.id}', name: 'order-details'),
         (path: '/profile', name: 'profile'),
       ]) {
         router.go(route.path);

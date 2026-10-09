@@ -21,7 +21,7 @@ class QuantityStepper extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppColors.brandSoft,
+        color: AppColors.of(context).brandSoft,
         borderRadius: BorderRadius.circular(AppRadii.full),
       ),
       child: Row(

@@ -115,6 +115,8 @@ class _KoyasAppState extends ConsumerState<KoyasApp> {
       title: 'Koya Stores',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.customer,
+      darkTheme: AppTheme.customerDark,
+      themeMode: ThemeMode.system,
       builder: (context, child) => NetworkStatusBanner(
         child: CustomerOrderAlerts(
           child: StoreRealtimeSync(

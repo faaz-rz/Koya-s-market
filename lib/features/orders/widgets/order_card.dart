@@ -21,7 +21,9 @@ class OrderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final first = order.items.first;
     final itemNames = order.items.map((item) => item.name).join(', ');
-    final statusColor = order.customerStatusColor;
+    final statusColor = AppColors.of(
+      context,
+    ).resolve(order.customerStatusColor);
     return KoyasSurface(
       elevated: true,
       child: Column(
@@ -36,12 +38,14 @@ class OrderCard extends StatelessWidget {
                 width: 54,
                 height: 54,
                 decoration: BoxDecoration(
-                  color: ProductVisual.colorFor(first.visualKey),
+                  color: AppColors.of(
+                    context,
+                  ).illustrationTint(ProductVisual.colorFor(first.visualKey)),
                   borderRadius: BorderRadius.circular(AppRadii.lg),
                 ),
                 child: Icon(
                   ProductVisual.iconFor(first.visualKey),
-                  color: AppColors.inkSecondary,
+                  color: AppColors.of(context).inkSecondary,
                 ),
               );
               final details = Column(
@@ -55,7 +59,7 @@ class OrderCard extends StatelessWidget {
                   Text(
                     DateFormat('d MMM yyyy · h:mm a').format(order.createdAt),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.inkSecondary,
+                      color: AppColors.of(context).inkSecondary,
                     ),
                   ),
                 ],
@@ -115,7 +119,7 @@ class OrderCard extends StatelessWidget {
                     ? Icons.storefront_outlined
                     : Icons.delivery_dining_outlined,
                 size: 18,
-                color: AppColors.inkSecondary,
+                color: AppColors.of(context).inkSecondary,
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
@@ -124,7 +128,7 @@ class OrderCard extends StatelessWidget {
                       ? 'Store pickup'
                       : 'Home delivery · ${order.slotLabel}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.inkSecondary,
+                    color: AppColors.of(context).inkSecondary,
                   ),
                 ),
               ),

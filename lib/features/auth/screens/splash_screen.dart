@@ -72,7 +72,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.brand500,
+      backgroundColor: AppColors.of(context).brand500,
       body: SafeArea(
         child: Center(
           child: Column(
@@ -99,9 +99,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                   child: Text(
                     _error!,
                     textAlign: TextAlign.center,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: AppColors.surface),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.of(context).surface,
+                    ),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.lg),
@@ -112,9 +112,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                 ),
               ],
               if (_routing)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.all(AppSpacing.lg),
-                  child: FourDotLoader(color: AppColors.surface),
+                  child: FourDotLoader(color: AppColors.of(context).surface),
                 ),
             ],
           ),

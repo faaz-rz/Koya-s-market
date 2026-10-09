@@ -81,7 +81,7 @@ class ProductVisual extends StatelessWidget {
       return ClipRRect(
         borderRadius: BorderRadius.circular(radius),
         child: ColoredBox(
-          color: AppColors.surface,
+          color: AppColors.photoCanvas,
           child: Image.memory(
             imageBytes,
             cacheWidth: UsagePolicy.imageDecodePixels,
@@ -100,7 +100,7 @@ class ProductVisual extends StatelessWidget {
       return ClipRRect(
         borderRadius: BorderRadius.circular(radius),
         child: ColoredBox(
-          color: AppColors.surface,
+          color: AppColors.photoCanvas,
           child: Image.asset(
             imageAsset,
             cacheWidth: UsagePolicy.imageDecodePixels,
@@ -166,12 +166,14 @@ class _Fallback extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: ProductVisual.colorFor(visualKey),
+      color: AppColors.of(
+        context,
+      ).illustrationTint(ProductVisual.colorFor(visualKey)),
       child: Center(
         child: Icon(
           ProductVisual.iconFor(visualKey),
           size: iconSize,
-          color: AppColors.ink.withValues(alpha: 0.72),
+          color: AppColors.of(context).ink.withValues(alpha: 0.72),
         ),
       ),
     );

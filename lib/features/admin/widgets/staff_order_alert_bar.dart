@@ -42,7 +42,9 @@ class StaffOrderAlertBar extends ConsumerWidget {
                 avatar: Icon(
                   live ? Icons.sensors_rounded : Icons.sync_rounded,
                   size: 18,
-                  color: live ? AppColors.success : AppColors.warning,
+                  color: live
+                      ? AppColors.of(context).success
+                      : AppColors.of(context).warning,
                 ),
                 label: Text(status),
               ),
@@ -97,9 +99,9 @@ class StaffOrderAlertBar extends ConsumerWidget {
                   spacing: 12,
                   runSpacing: 8,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.notifications_active_rounded,
-                      color: AppColors.success,
+                      color: AppColors.of(context).success,
                     ),
                     Text(
                       alerts.pending.length == 1

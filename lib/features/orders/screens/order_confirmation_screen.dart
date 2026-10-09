@@ -62,14 +62,14 @@ class OrderConfirmationScreen extends ConsumerWidget {
                   Container(
                     width: 104,
                     height: 104,
-                    decoration: const BoxDecoration(
-                      color: AppColors.successSoft,
+                    decoration: BoxDecoration(
+                      color: AppColors.of(context).successSoft,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.check_rounded,
                       size: 54,
-                      color: AppColors.success,
+                      color: AppColors.of(context).success,
                     ),
                   ),
                   const SizedBox(height: AppSpacing.xxl),
@@ -82,7 +82,7 @@ class OrderConfirmationScreen extends ConsumerWidget {
                     'Thanks, ${store.profile?.name.split(' ').first ?? 'shopper'}. We have received your order.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: AppColors.inkSecondary,
+                      color: AppColors.of(context).inkSecondary,
                     ),
                   ),
                   const SizedBox(height: AppSpacing.xxxl),
@@ -170,9 +170,9 @@ class _ConfirmationRow extends StatelessWidget {
     return KoyasValueRow(
       label: label,
       value: value,
-      labelStyle: Theme.of(
-        context,
-      ).textTheme.bodyMedium?.copyWith(color: AppColors.inkSecondary),
+      labelStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+        color: AppColors.of(context).inkSecondary,
+      ),
       valueStyle: Theme.of(context).textTheme.titleSmall,
     );
   }

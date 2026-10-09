@@ -28,9 +28,9 @@ class ProductLoadingSkeleton extends StatelessWidget {
                   : AppSpacing.md,
             ),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: AppColors.of(context).surface,
               borderRadius: BorderRadius.circular(AppRadii.xl),
-              border: Border.all(color: AppColors.outline),
+              border: Border.all(color: AppColors.of(context).outline),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -64,7 +64,7 @@ class _SkeletonBlock extends StatelessWidget {
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: AppColors.surfaceMuted,
+        color: AppColors.of(context).surfaceMuted,
         borderRadius: BorderRadius.circular(radius),
       ),
     );

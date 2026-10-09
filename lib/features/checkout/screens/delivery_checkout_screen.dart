@@ -166,8 +166,8 @@ class _DeliveryCheckoutScreenState
                                   ? Icons.check_circle_rounded
                                   : Icons.radio_button_unchecked_rounded,
                               color: address.id == store.selectedAddressId
-                                  ? AppColors.brand600
-                                  : AppColors.inkTertiary,
+                                  ? AppColors.of(context).brand600
+                                  : AppColors.of(context).inkTertiary,
                             ),
                             const SizedBox(height: AppSpacing.xs),
                             Text(
@@ -175,8 +175,8 @@ class _DeliveryCheckoutScreenState
                               style: Theme.of(context).textTheme.labelSmall
                                   ?.copyWith(
                                     color: available
-                                        ? AppColors.success
-                                        : AppColors.error,
+                                        ? AppColors.of(context).success
+                                        : AppColors.of(context).error,
                                   ),
                             ),
                           ],
@@ -201,13 +201,13 @@ class _DeliveryCheckoutScreenState
                       width: double.infinity,
                       padding: const EdgeInsets.all(AppSpacing.md),
                       decoration: BoxDecoration(
-                        color: AppColors.errorSoft,
+                        color: AppColors.of(context).errorSoft,
                         borderRadius: BorderRadius.circular(AppRadii.md),
                       ),
                       child: Text(
                         'We do not deliver to PIN ${selectedAddress.pincode} yet. Choose another address.',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.error,
+                          color: AppColors.of(context).error,
                           fontWeight: FontWeight.w700,
                         ),
                       ),

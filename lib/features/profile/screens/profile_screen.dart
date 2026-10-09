@@ -365,15 +365,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       Container(
                         width: 68,
                         height: 68,
-                        decoration: const BoxDecoration(
-                          color: AppColors.brandSoft,
+                        decoration: BoxDecoration(
+                          color: AppColors.of(context).brandSoft,
                           shape: BoxShape.circle,
                         ),
                         child: Center(
                           child: Text(
                             _initials(profile?.name ?? 'Guest'),
                             style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(color: AppColors.brand700),
+                                ?.copyWith(
+                                  color: AppColors.of(context).brand700,
+                                ),
                           ),
                         ),
                       ),
@@ -390,13 +392,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             Text(
                               profile?.email ?? 'Not signed in',
                               style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(color: AppColors.inkSecondary),
+                                  ?.copyWith(
+                                    color: AppColors.of(context).inkSecondary,
+                                  ),
                             ),
                             if (profile?.phone.isNotEmpty == true)
                               Text(
                                 profile!.phone,
                                 style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: AppColors.inkSecondary),
+                                    ?.copyWith(
+                                      color: AppColors.of(context).inkSecondary,
+                                    ),
                               ),
                           ],
                         ),
@@ -422,9 +428,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     child: KoyasSurface(
                       child: Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.location_on_outlined,
-                            color: AppColors.brand600,
+                            color: AppColors.of(context).brand600,
                           ),
                           const SizedBox(width: AppSpacing.md),
                           Expanded(
@@ -450,7 +456,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 Text(
                                   address.formatted,
                                   style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(color: AppColors.inkSecondary),
+                                      ?.copyWith(
+                                        color: AppColors.of(
+                                          context,
+                                        ).inkSecondary,
+                                      ),
                                 ),
                               ],
                             ),
@@ -468,8 +478,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     store.serviceablePincodes.contains(
                                       address.pincode,
                                     )
-                                    ? AppColors.success
-                                    : AppColors.error,
+                                    ? AppColors.of(context).success
+                                    : AppColors.of(context).error,
                               ),
                               PopupMenuButton<String>(
                                 tooltip: 'Address options',
@@ -561,9 +571,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ListTile(
                         key: const Key('profile-delete-account'),
                         enabled: !_deletingAccount,
-                        leading: const Icon(
+                        leading: Icon(
                           Icons.delete_forever_outlined,
-                          color: AppColors.error,
+                          color: AppColors.of(context).error,
                         ),
                         title: const Text('Delete account'),
                         subtitle: const Text(
@@ -618,9 +628,9 @@ class _AppVersionLabelState extends State<_AppVersionLabel> {
       future: _version,
       builder: (context, snapshot) => Text(
         'Koya Stores · Version ${snapshot.data ?? '…'}',
-        style: Theme.of(
-          context,
-        ).textTheme.bodySmall?.copyWith(color: AppColors.inkTertiary),
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: AppColors.of(context).inkTertiary,
+        ),
       ),
     );
   }

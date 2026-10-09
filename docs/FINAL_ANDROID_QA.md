@@ -1,5 +1,8 @@
 # Android build 18 verification — 7 October 2026
 
+For the latest light/dark styling and visual checks, see
+[build 21 visual refresh](VISUAL_REFRESH_21.md).
+
 For the latest regression and UI audit, see
 [Android build 20 verification](ANDROID_BUILD_20_QA.md). This build 18 report is
 historical; later notification and Cloudflare checks are recorded in the newer

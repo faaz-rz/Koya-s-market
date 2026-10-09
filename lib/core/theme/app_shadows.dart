@@ -1,6 +1,16 @@
 import 'package:flutter/material.dart';
+import 'app_colors.dart';
 
 abstract final class AppShadows {
+  static List<BoxShadow> of(BuildContext context, {bool elevated = false}) => [
+    BoxShadow(
+      color: AppColors.of(context).shadow,
+      offset: Offset(0, elevated ? 8 : 4),
+      blurRadius: elevated ? 28 : 18,
+      spreadRadius: -6,
+    ),
+  ];
+
   static const low = [
     BoxShadow(
       color: Color(0x0922352B),

@@ -35,8 +35,8 @@ class CheckoutProgress extends StatelessWidget {
                     height: 4,
                     decoration: BoxDecoration(
                       color: index <= currentStep
-                          ? AppColors.brand500
-                          : AppColors.outline,
+                          ? AppColors.of(context).brand500
+                          : AppColors.of(context).outline,
                       borderRadius: BorderRadius.circular(AppRadii.full),
                     ),
                   ),
@@ -45,8 +45,8 @@ class CheckoutProgress extends StatelessWidget {
                     labels[index],
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: index <= currentStep
-                          ? AppColors.brand700
-                          : AppColors.inkTertiary,
+                          ? AppColors.of(context).brand700
+                          : AppColors.of(context).inkTertiary,
                       fontWeight: FontWeight.w700,
                     ),
                   ),

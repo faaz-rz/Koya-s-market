@@ -48,10 +48,14 @@ class OfferRedemptionPanel extends ConsumerWidget {
       key: const Key('customer-offer-panel'),
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: applied == null ? AppColors.surfaceMuted : AppColors.successSoft,
+        color: applied == null
+            ? AppColors.of(context).surfaceMuted
+            : AppColors.of(context).successSoft,
         borderRadius: BorderRadius.circular(AppRadii.lg),
         border: Border.all(
-          color: applied == null ? AppColors.outline : AppColors.success,
+          color: applied == null
+              ? AppColors.of(context).outline
+              : AppColors.of(context).success,
         ),
       ),
       child: selected == null
@@ -98,8 +102,8 @@ class OfferRedemptionPanel extends ConsumerWidget {
                           ? Icons.info_outline_rounded
                           : Icons.check_circle_rounded,
                       color: applied == null
-                          ? AppColors.warning
-                          : AppColors.success,
+                          ? AppColors.of(context).warning
+                          : AppColors.of(context).success,
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
@@ -114,7 +118,9 @@ class OfferRedemptionPanel extends ConsumerWidget {
                             Text(
                               reason,
                               style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(color: AppColors.warning),
+                                  ?.copyWith(
+                                    color: AppColors.of(context).warning,
+                                  ),
                             ),
                         ],
                       ),
@@ -134,7 +140,7 @@ class OfferRedemptionPanel extends ConsumerWidget {
                       child: Text(
                         'You save ${formatPrice(store.offerDiscountPaise)} with this offer.',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.success,
+                          color: AppColors.of(context).success,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -145,7 +151,7 @@ class OfferRedemptionPanel extends ConsumerWidget {
                       child: Text(
                         'Free: ${applied.freeQuantity} × ${freeProduct.name}',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.success,
+                          color: AppColors.of(context).success,
                           fontWeight: FontWeight.w700,
                         ),
                       ),

@@ -16,6 +16,8 @@ class KoyasAdminApp extends ConsumerWidget {
       title: 'Koya Stores Admin',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: ThemeMode.system,
       builder: (context, child) => NetworkStatusBanner(
         child: AdminOrderAlerts(child: child ?? const SizedBox.shrink()),
       ),

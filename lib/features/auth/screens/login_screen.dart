@@ -378,7 +378,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     Text(
                       'Sign in to shop, schedule pickup or arrange home delivery.',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppColors.inkSecondary,
+                        color: AppColors.of(context).inkSecondary,
                       ),
                     ),
                     const SizedBox(height: AppSpacing.xxxl),
@@ -462,8 +462,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
                                 color: _messageIsError
-                                    ? AppColors.error
-                                    : AppColors.success,
+                                    ? AppColors.of(context).error
+                                    : AppColors.of(context).success,
                               ),
                         ),
                       ),
@@ -511,7 +511,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       Container(
                         padding: const EdgeInsets.all(AppSpacing.lg),
                         decoration: BoxDecoration(
-                          color: AppColors.brandSoft,
+                          color: AppColors.of(context).brandSoft,
                           borderRadius: BorderRadius.circular(AppRadii.lg),
                         ),
                         child: const Row(

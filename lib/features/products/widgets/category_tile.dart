@@ -176,7 +176,7 @@ class CategoryTile extends StatelessWidget {
           onTap: onTap,
           radius: AppRadii.xxl,
           padding: const EdgeInsets.all(AppSpacing.md),
-          borderColor: AppColors.surface,
+          borderColor: AppColors.of(context).surface,
           child: Row(
             children: [
               CategoryPicture(
@@ -192,10 +192,10 @@ class CategoryTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
-              const Icon(
+              Icon(
                 Icons.chevron_right_rounded,
                 size: 20,
-                color: AppColors.brand700,
+                color: AppColors.of(context).brand700,
               ),
             ],
           ),
@@ -208,9 +208,11 @@ class CategoryTile extends StatelessWidget {
         onTap: onTap,
         padding: EdgeInsets.all(compact ? AppSpacing.xs : AppSpacing.lg),
         color: compact
-            ? AppColors.surface.withValues(alpha: 0.7)
-            : AppColors.surface,
-        borderColor: compact ? Colors.transparent : AppColors.outline,
+            ? AppColors.of(context).surface.withValues(alpha: 0.7)
+            : AppColors.of(context).surface,
+        borderColor: compact
+            ? Colors.transparent
+            : AppColors.of(context).outline,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -257,7 +259,7 @@ class CategoryPicture extends StatelessWidget {
     final asset = CategoryTile.imageAssetFor(visualKey);
     final fallback = Icon(
       CategoryTile.iconFor(visualKey),
-      color: AppColors.ink,
+      color: AppColors.of(context).ink,
       size: (height / 2).clamp(16, 38),
     );
     return ExcludeSemantics(
@@ -267,8 +269,10 @@ class CategoryPicture extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: asset.startsWith('assets/product_images/')
-              ? AppColors.surface
-              : CategoryTile.colorFor(visualKey),
+              ? AppColors.photoCanvas
+              : AppColors.of(
+                  context,
+                ).illustrationTint(CategoryTile.colorFor(visualKey)),
           borderRadius: BorderRadius.circular(radius),
         ),
         padding: EdgeInsets.all(padding),

@@ -29,8 +29,8 @@ abstract final class AppTypography {
       fontFamily: _family,
       fontSize: 18,
       height: 1.33,
-      fontWeight: FontWeight.w600,
-      letterSpacing: -0.1,
+      fontWeight: FontWeight.w700,
+      letterSpacing: -0.3,
     ),
     titleMedium: TextStyle(
       fontFamily: _family,
@@ -54,7 +54,7 @@ abstract final class AppTypography {
       fontFamily: _family,
       fontSize: 14,
       height: 1.43,
-      fontWeight: FontWeight.w600,
+      fontWeight: FontWeight.w700,
       letterSpacing: 0.1,
     ),
     labelMedium: TextStyle(

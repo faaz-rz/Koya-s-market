@@ -342,7 +342,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
   Widget build(BuildContext context) {
     final configured = _remote;
     return Scaffold(
-      backgroundColor: AppColors.canvas,
+      backgroundColor: AppColors.of(context).canvas,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -351,9 +351,9 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
               constraints: const BoxConstraints(maxWidth: 500),
               child: Card(
                 elevation: 0,
-                color: AppColors.surface,
+                color: AppColors.of(context).surface,
                 shape: RoundedRectangleBorder(
-                  side: const BorderSide(color: AppColors.outline),
+                  side: BorderSide(color: AppColors.of(context).outline),
                   borderRadius: BorderRadius.circular(AppRadii.xxl),
                 ),
                 child: Padding(
@@ -373,7 +373,9 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                         Text(
                           'Manage Koya Stores orders, products and stock from your browser.',
                           style: Theme.of(context).textTheme.bodyLarge
-                              ?.copyWith(color: AppColors.inkSecondary),
+                              ?.copyWith(
+                                color: AppColors.of(context).inkSecondary,
+                              ),
                         ),
                         const SizedBox(height: AppSpacing.xxl),
                         TextFormField(
@@ -404,7 +406,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                           Container(
                             padding: const EdgeInsets.all(AppSpacing.lg),
                             decoration: BoxDecoration(
-                              color: AppColors.brandSoft,
+                              color: AppColors.of(context).brandSoft,
                               borderRadius: BorderRadius.circular(AppRadii.lg),
                             ),
                             child: Column(
@@ -472,8 +474,8 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
                                     color: _messageIsError
-                                        ? AppColors.error
-                                        : AppColors.success,
+                                        ? AppColors.of(context).error
+                                        : AppColors.of(context).success,
                                   ),
                             ),
                           ),
@@ -512,10 +514,10 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.lock_outline_rounded,
                               size: 18,
-                              color: AppColors.inkSecondary,
+                              color: AppColors.of(context).inkSecondary,
                             ),
                             const SizedBox(width: AppSpacing.sm),
                             Expanded(
@@ -526,7 +528,9 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                                     ? 'Demo mode uses sample data and cannot change the live store.'
                                     : 'This release is locked because Supabase production configuration is missing.',
                                 style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: AppColors.inkSecondary),
+                                    ?.copyWith(
+                                      color: AppColors.of(context).inkSecondary,
+                                    ),
                               ),
                             ),
                           ],
