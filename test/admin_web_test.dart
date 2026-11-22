@@ -32,6 +32,13 @@ void main() {
     expect(find.byKey(const Key('admin-category-inventory')), findsNothing);
     expect(find.byTooltip('Sign out'), findsOneWidget);
     expect(find.text('Customer app'), findsNothing);
+
+    final openQueue = find.byKey(const Key('admin-overview-open-orders'));
+    await tester.ensureVisible(openQueue);
+    await tester.tap(openQueue);
+    await tester.pumpAndSettle();
+    expect(find.text('Order queue'), findsOneWidget);
+    expect(find.byKey(const Key('admin-overview-section')), findsNothing);
   });
 
   testWidgets('admin filters inventory by category and adjusts stock', (

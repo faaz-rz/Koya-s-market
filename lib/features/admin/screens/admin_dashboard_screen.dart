@@ -299,6 +299,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                       _AdminSidebar(
                         selected: widget.section,
                         onSelected: selectSection,
+                        activeOrders: activeCount,
                       ),
                       const VerticalDivider(width: 1),
                       Expanded(child: content),
@@ -322,39 +323,104 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
 }
 
 class _AdminSidebar extends StatelessWidget {
-  const _AdminSidebar({required this.selected, required this.onSelected});
+  const _AdminSidebar({
+    required this.selected,
+    required this.onSelected,
+    required this.activeOrders,
+  });
 
   final AdminSection selected;
   final ValueChanged<AdminSection> onSelected;
+  final int activeOrders;
 
   @override
   Widget build(BuildContext context) {
-    return NavigationRail(
+    final colors = AppColors.of(context);
+    final text = Theme.of(context).textTheme;
+    return Material(
       key: const Key('admin-side-navigation'),
-      extended: true,
-      minExtendedWidth: 248,
-      selectedIndex: selected.index,
-      onDestinationSelected: (index) => onSelected(AdminSection.values[index]),
-      leading: const Padding(
-        padding: EdgeInsets.fromLTRB(
-          AppSpacing.xl,
-          AppSpacing.lg,
-          AppSpacing.xl,
-          AppSpacing.xxxl,
+      color: colors.surface,
+      child: SizedBox(
+        width: 224,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final navigation = Padding(
+              padding: const EdgeInsets.fromLTRB(14, 22, 14, 14),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 28),
+                    child: Row(
+                      children: [
+                        const KoyasLogo(compact: true),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Koya Stores', style: text.titleSmall),
+                              Text(
+                                'Staff workspace',
+                                style: text.bodySmall?.copyWith(
+                                  color: colors.inkSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  for (final section in AdminSection.values)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                      child: ListTile(
+                        key: Key(section.keyName),
+                        selected: selected == section,
+                        selectedTileColor: colors.brandSoft,
+                        selectedColor: colors.brand700,
+                        textColor: colors.inkSecondary,
+                        iconColor: colors.inkSecondary,
+                        minLeadingWidth: 24,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppRadii.lg),
+                        ),
+                        leading: Icon(
+                          selected == section
+                              ? section.selectedIcon
+                              : section.icon,
+                          size: 22,
+                        ),
+                        title: Text(
+                          section.navigationLabel,
+                          style: text.labelLarge,
+                        ),
+                        trailing:
+                            section == AdminSection.orders && activeOrders > 0
+                            ? Badge(
+                                backgroundColor: colors.warningSoft,
+                                textColor: colors.warning,
+                                label: Semantics(
+                                  label: '$activeOrders active orders',
+                                  child: Text(
+                                    activeOrders > 99 ? '99+' : '$activeOrders',
+                                  ),
+                                ),
+                              )
+                            : null,
+                        onTap: () => onSelected(section),
+                      ),
+                    ),
+                ],
+              ),
+            );
+            return constraints.maxHeight <
+                    MediaQuery.textScalerOf(context).scale(470)
+                ? SingleChildScrollView(primary: false, child: navigation)
+                : navigation;
+          },
         ),
-        child: KoyasLogo(compact: true),
       ),
-      destinations: [
-        for (final section in AdminSection.values)
-          NavigationRailDestination(
-            icon: Icon(section.icon, key: Key(section.keyName)),
-            selectedIcon: Icon(
-              section.selectedIcon,
-              key: Key('${section.keyName}-selected'),
-            ),
-            label: Text(section.navigationLabel),
-          ),
-      ],
     );
   }
 }
@@ -440,9 +506,15 @@ class _DashboardContent extends ConsumerWidget {
               order.fulfilmentType.name == 'pickup' && !terminal(order.status),
         )
         .length;
-    final completedOrders = store.orders
-        .where((order) => terminal(order.status))
+    final fulfilledOrders = store.orders
+        .where(
+          (order) =>
+              order.status == OrderStatus.delivered ||
+              order.status == OrderStatus.collected,
+        )
         .length;
+    void openOrders() =>
+        context.go('/orders?focus=${DateTime.now().microsecondsSinceEpoch}');
     final monthRevenue = store.orders
         .where(
           (order) =>
@@ -457,10 +529,14 @@ class _DashboardContent extends ConsumerWidget {
         activeCount: activeCount,
         todayRevenue: todayRevenue,
         pickupOrders: pickupOrders,
-        completedOrders: completedOrders,
+        fulfilledOrders: fulfilledOrders,
         monthRevenue: monthRevenue,
         lowStockCount: lowStockCount,
         outOfStockCount: outOfStockCount,
+        activeOrders: store.orders.where((order) => !terminal(order.status)),
+        products: store.products,
+        onOpenOrders: openOrders,
+        onOpenInventory: () => context.go(AdminSection.inventory.path),
       ),
       AdminSection.analytics => _AdminAnalyticsPanel(
         analytics: AdminSalesAnalyticsCalculator.calculate(
@@ -513,56 +589,67 @@ class _DashboardContent extends ConsumerWidget {
             _adjustStock(context, ref, product, delta),
       ),
     };
+    final heading = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(section.title, style: Theme.of(context).textTheme.headlineLarge),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          section == AdminSection.overview
+              ? DateFormat('EEEE, d MMMM').format(now)
+              : section.description,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: AppColors.of(context).inkSecondary,
+          ),
+        ),
+      ],
+    );
+    final actions = Wrap(
+      spacing: AppSpacing.xs,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        if (onRefresh != null)
+          IconButton(
+            tooltip: 'Refresh orders and inventory',
+            onPressed: refreshing ? null : onRefresh,
+            icon: refreshing
+                ? const SizedBox.square(
+                    dimension: 20,
+                    child: FourDotLoader(size: 22),
+                  )
+                : const Icon(Icons.refresh_rounded),
+          ),
+        const AppearanceButton(),
+        IconButton.filledTonal(
+          tooltip: 'Sign out',
+          onPressed: onSignOut,
+          icon: const Icon(Icons.logout_rounded),
+        ),
+      ],
+    );
     return CustomScrollView(
       key: PageStorageKey<String>('admin-section-${section.name}'),
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.all(AppSpacing.xxl),
+          padding: EdgeInsets.all(
+            MediaQuery.sizeOf(context).width < 600
+                ? AppSpacing.lg
+                : AppSpacing.xxl,
+          ),
           sliver: SliverList.list(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          section.title,
-                          style: Theme.of(context).textTheme.headlineLarge,
-                        ),
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(
-                          section == AdminSection.overview
-                              ? '${section.description} ${DateFormat('EEEE, d MMMM').format(now)}.'
-                              : section.description,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: AppColors.of(context).inkSecondary,
-                              ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (onRefresh != null) ...[
-                    IconButton(
-                      tooltip: 'Refresh orders and inventory',
-                      onPressed: refreshing ? null : onRefresh,
-                      icon: refreshing
-                          ? const SizedBox.square(
-                              dimension: 20,
-                              child: FourDotLoader(size: 22),
-                            )
-                          : const Icon(Icons.refresh_rounded),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                  ],
-                  const AppearanceButton(),
-                  IconButton.filledTonal(
-                    tooltip: 'Sign out',
-                    onPressed: onSignOut,
-                    icon: const Icon(Icons.logout_rounded),
-                  ),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) => constraints.maxWidth >= 560
+                    ? Row(
+                        children: [
+                          Expanded(child: heading),
+                          actions,
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [heading, actions],
+                      ),
               ),
               if (AppEnvironment.hasSupabaseConfig)
                 const Align(
@@ -570,11 +657,7 @@ class _DashboardContent extends ConsumerWidget {
                   child: ResourceUsageButton(),
                 ),
               const SizedBox(height: AppSpacing.md),
-              StaffOrderAlertBar(
-                onOpenOrders: () => context.go(
-                  '/orders?focus=${DateTime.now().microsecondsSinceEpoch}',
-                ),
-              ),
+              StaffOrderAlertBar(onOpenOrders: openOrders),
               const SizedBox(height: AppSpacing.xxxl),
               KeyedSubtree(
                 key: ValueKey<AdminSection>(section),
@@ -1150,89 +1233,267 @@ class _OverviewSection extends StatelessWidget {
     required this.activeCount,
     required this.todayRevenue,
     required this.pickupOrders,
-    required this.completedOrders,
+    required this.fulfilledOrders,
     required this.monthRevenue,
     required this.lowStockCount,
     required this.outOfStockCount,
+    required this.activeOrders,
+    required this.products,
+    required this.onOpenOrders,
+    required this.onOpenInventory,
   });
 
   final int ordersToday;
   final int activeCount;
   final int todayRevenue;
   final int pickupOrders;
-  final int completedOrders;
+  final int fulfilledOrders;
   final int monthRevenue;
   final int lowStockCount;
   final int outOfStockCount;
+  final Iterable<CustomerOrder> activeOrders;
+  final List<Product> products;
+  final VoidCallback onOpenOrders, onOpenInventory;
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final text = Theme.of(context).textTheme;
+    final queue = activeOrders.toList()
+      ..sort((a, b) {
+        final priority = (a.status == OrderStatus.placed ? 0 : 1).compareTo(
+          b.status == OrderStatus.placed ? 0 : 1,
+        );
+        return priority != 0 ? priority : a.createdAt.compareTo(b.createdAt);
+      });
+    final stock =
+        products
+            .where((product) => product.active && product.stockQuantity <= 12)
+            .toList()
+          ..sort((a, b) => a.stockQuantity.compareTo(b.stockQuantity));
+    final orderPanel = _OverviewPanel(
+      title: 'Orders in progress',
+      icon: Icons.receipt_long_outlined,
+      children: [
+        if (queue.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+            child: Text('New orders will appear here.'),
+          ),
+        for (final order in queue.take(4))
+          ListTile(
+            key: Key('admin-overview-order-${order.id}'),
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              'Order ${order.customerDisplayNumber}',
+              style: text.titleSmall,
+            ),
+            subtitle: Text(
+              '${order.fulfilmentType == FulfilmentType.pickup ? 'Pickup' : 'Delivery'} · ${order.status.label}',
+            ),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => showDialog<void>(
+              context: context,
+              builder: (_) => _AdminOrderDetailsDialog(order: order),
+            ),
+          ),
+      ],
+    );
+    final stockPanel = _OverviewPanel(
+      title: 'Stock to review',
+      icon: Icons.inventory_2_outlined,
+      children: [
+        Text(
+          '$lowStockCount low · $outOfStockCount out of stock',
+          style: text.bodyMedium?.copyWith(color: colors.inkSecondary),
+        ),
+        for (final product in stock.take(3))
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: SizedBox.square(
+              dimension: 40,
+              child: ProductVisual(
+                product: product,
+                iconSize: 21,
+                radius: AppRadii.md,
+              ),
+            ),
+            title: Text(
+              product.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Text(
+              product.stockQuantity == 0
+                  ? 'Out of stock'
+                  : '${product.stockQuantity} left',
+              style: text.bodySmall?.copyWith(
+                color: product.stockQuantity == 0
+                    ? colors.error
+                    : colors.warning,
+              ),
+            ),
+          ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: onOpenInventory,
+            icon: const Icon(Icons.arrow_forward_rounded),
+            label: const Text('Open inventory'),
+          ),
+        ),
+      ],
+    );
     return LayoutBuilder(
       key: const Key('admin-overview-section'),
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 1050
+        final twoColumns =
+            constraints.maxWidth >= 480 ||
+            (constraints.maxWidth >= 340 &&
+                MediaQuery.textScalerOf(context).scale(14) <= 18);
+        final columns = constraints.maxWidth >= 930
             ? 4
-            : constraints.maxWidth >= 480
+            : twoColumns
             ? 2
             : 1;
-        return _AdminMetricGrid(
-          columns: columns,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _MetricCard(
-              label: 'Orders today',
-              value: '$ordersToday',
-              icon: Icons.today_rounded,
-              color: AppColors.of(context).info,
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF123527), Color(0xFF195E46)],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(AppRadii.xl),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.xxl),
+                child: Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: AppSpacing.xl,
+                  runSpacing: AppSpacing.lg,
+                  children: [
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '$activeCount active ${activeCount == 1 ? 'order' : 'orders'}',
+                          style: text.headlineMedium?.copyWith(
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          '$pickupOrders pickup · ${activeCount - pickupOrders} delivery',
+                          style: text.bodyMedium?.copyWith(
+                            color: const Color(0xFFCBE6D7),
+                          ),
+                        ),
+                      ],
+                    ),
+                    FilledButton.icon(
+                      key: const Key('admin-overview-open-orders'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFFE0F3E8),
+                        foregroundColor: const Color(0xFF123527),
+                      ),
+                      onPressed: onOpenOrders,
+                      icon: const Icon(Icons.arrow_forward_rounded),
+                      label: const Text('Open order queue'),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            _MetricCard(
-              label: 'Active orders',
-              value: '$activeCount',
-              icon: Icons.receipt_long_rounded,
-              color: AppColors.of(context).brand600,
+            const SizedBox(height: AppSpacing.lg),
+            _AdminMetricGrid(
+              columns: columns,
+              children: [
+                _MetricCard(
+                  label: 'Orders today',
+                  value: '$ordersToday',
+                  icon: Icons.today_rounded,
+                  color: AppColors.of(context).info,
+                ),
+                _MetricCard(
+                  label: 'Paid today',
+                  value: formatPrice(todayRevenue),
+                  icon: Icons.trending_up_rounded,
+                  color: AppColors.of(context).success,
+                ),
+                _MetricCard(
+                  label: 'Fulfilled orders',
+                  value: '$fulfilledOrders',
+                  icon: Icons.task_alt_rounded,
+                  color: AppColors.of(context).success,
+                ),
+                _MetricCard(
+                  label: 'Paid this month',
+                  value: formatPrice(monthRevenue),
+                  icon: Icons.calendar_month_outlined,
+                  color: AppColors.of(context).brand600,
+                ),
+              ],
             ),
-            _MetricCard(
-              label: 'Paid today',
-              value: formatPrice(todayRevenue),
-              icon: Icons.trending_up_rounded,
-              color: AppColors.of(context).success,
-            ),
-            _MetricCard(
-              label: 'Pickup queue',
-              value: '$pickupOrders',
-              icon: Icons.storefront_outlined,
-              color: AppColors.of(context).offer,
-            ),
-            _MetricCard(
-              label: 'Completed',
-              value: '$completedOrders',
-              icon: Icons.task_alt_rounded,
-              color: AppColors.of(context).success,
-            ),
-            _MetricCard(
-              label: 'Paid this month',
-              value: formatPrice(monthRevenue),
-              icon: Icons.calendar_month_outlined,
-              color: AppColors.of(context).brand600,
-            ),
-            _MetricCard(
-              label: 'Low stock',
-              value: '$lowStockCount items',
-              icon: Icons.inventory_2_outlined,
-              color: lowStockCount > 0
-                  ? AppColors.of(context).warning
-                  : AppColors.of(context).success,
-            ),
-            _MetricCard(
-              label: 'Out of stock',
-              value: '$outOfStockCount items',
-              icon: Icons.remove_shopping_cart_outlined,
-              color: outOfStockCount > 0
-                  ? AppColors.of(context).error
-                  : AppColors.of(context).success,
-            ),
+            const SizedBox(height: AppSpacing.xxl),
+            if (constraints.maxWidth >= 780)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 3, child: orderPanel),
+                  const SizedBox(width: AppSpacing.lg),
+                  Expanded(flex: 2, child: stockPanel),
+                ],
+              )
+            else ...[
+              orderPanel,
+              const SizedBox(height: AppSpacing.lg),
+              stockPanel,
+            ],
           ],
         );
       },
+    );
+  }
+}
+
+class _OverviewPanel extends StatelessWidget {
+  const _OverviewPanel({
+    required this.title,
+    required this.icon,
+    required this.children,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return KoyasSurface(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: AppColors.of(context).brand700, size: 21),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          ...children,
+        ],
+      ),
     );
   }
 }
