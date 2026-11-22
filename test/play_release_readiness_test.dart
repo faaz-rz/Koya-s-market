@@ -4,6 +4,11 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  final releaseVersion = RegExp(
+    r'^version:[ \t]+([^\s+]+)\+([1-9][0-9]*)[ \t]*$',
+    multiLine: true,
+  ).firstMatch(File('pubspec.yaml').readAsStringSync());
+
   test(
     'Android release identity, permission, API and safety gates are fixed',
     () {
@@ -19,7 +24,6 @@ void main() {
       final wrapper = File(
         'android/gradle/wrapper/gradle-wrapper.properties',
       ).readAsStringSync();
-      final pubspec = File('pubspec.yaml').readAsStringSync();
 
       expect(
         manifest,
@@ -58,7 +62,11 @@ void main() {
           '"androidx.test.espresso:espresso-core:3.3+" -> useVersion("3.3.0")',
         ),
       );
-      expect(pubspec, contains('version: 1.1.6+25'));
+      expect(
+        releaseVersion,
+        isNotNull,
+        reason: 'Set version and build number in pubspec.yaml',
+      );
     },
   );
 
@@ -84,7 +92,15 @@ void main() {
     expect(deletion, contains('What is deleted'));
     expect(config['buildCommand'], 'bash tool/build_admin_web.sh');
     expect(config['outputDirectory'], 'build/web');
-    expect(buildScript, contains("koyas_flutter_version='3.47.1'"));
+    expect(
+      File('.flutter-version').readAsStringSync().trim(),
+      matches(r'^\d+\.\d+\.\d+$'),
+    );
+    expect(buildScript, contains('.flutter-version'));
+    expect(
+      File('.github/workflows/security.yml').readAsStringSync(),
+      contains('cat .flutter-version'),
+    );
     expect(buildScript, contains('sb_secret_*|*service_role*'));
     expect(buildScript, contains('-t lib/admin_main.dart'));
     expect(
@@ -133,11 +149,16 @@ void main() {
       colorType: 2,
     ));
 
-    const limits = {
+    expect(
+      releaseVersion,
+      isNotNull,
+      reason: 'Set version and build number in pubspec.yaml',
+    );
+    final limits = {
       'title.txt': 30,
       'short_description.txt': 80,
       'full_description.txt': 4000,
-      'release_notes_1.1.6.txt': 500,
+      'release_notes_${releaseVersion!.group(1)}.txt': 500,
     };
     for (final entry in limits.entries) {
       final copy = File(

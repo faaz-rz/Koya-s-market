@@ -4,7 +4,7 @@
 | --- | --- |
 | App name | Koya Stores |
 | Android application ID | `com.koyas.koyas_supermarket` |
-| Source version | `1.1.6+25` in `pubspec.yaml` |
+| Source version | The `version` field in `pubspec.yaml` |
 | Android support | API 24 and higher, targets API 36 and compiles with API 37 |
 | Category | Shopping |
 | Ads | No |
@@ -27,6 +27,9 @@ Keep the application ID for all Google Play releases. Check Play Console for
 the highest version code ever uploaded before building. Use the source version
 code if it is unused and higher than any existing upload. Split profile APKs
 created for local testing have different version codes from the AAB.
+For each new release, update `pubspec.yaml` and add the matching
+`release_notes_<version>.txt` under `listing/en-US/`. Use `.flutter-version` to
+update the Flutter SDK used by CI and the web build bootstrap together.
 
 ## Build and verify the upload bundle
 
