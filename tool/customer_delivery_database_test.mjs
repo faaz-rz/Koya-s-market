@@ -8,12 +8,7 @@ export async function runCustomerDeliveryChecks({owner,transaction,fixture,anoth
   const address = (overrides = {}) => ({action:'save_address',label:'Home',recipient_name:'Delivery test',phone:'9876543210',
     line1:'12 Test Street',city:'Hyderabad',pincode:'500008',is_default:false,delivery_pin:pin,...overrides});
   await check('delivery requires a saved pin within 5 km; rejected checkouts leave inventory and orders unchanged', async () => {
-    const f = await fixture(5);
-    const slot = randomUUID();
-    await owner.query(
-      "insert into public.fulfilment_slots(id,fulfilment_type,label,start_time,end_time,max_orders) values($1,'delivery',$2,'00:00','23:59',100)",
-      [slot, randomUUID()],
-    );
+    const f = await fixture(5, 100, 'delivery');
     const origin = (await owner.query(
       'select delivery_origin_latitude as latitude, delivery_origin_longitude as longitude from public.store_settings where id=1',
     )).rows[0];
@@ -22,7 +17,7 @@ export async function runCustomerDeliveryChecks({owner,transaction,fixture,anoth
     });
     const order = (customer, addressId, key = randomUUID()) => transaction(customer, c => c.query(
       "select public.place_order_v2($1::jsonb,'delivery',$2,current_date,$3,'cash_on_delivery','',$4,null) as id",
-      [JSON.stringify([{product_id:f.product,quantity:1}]), addressId, slot, key],
+      [JSON.stringify([{product_id:f.product,quantity:1}]), addressId, f.slot, key],
     ).then(r => r.rows[0].id));
     const pincode = (await owner.query('select pincode from public.serviceable_pincodes where active limit 1')).rows[0].pincode;
     const unpinned = await save(f.user, address({pincode, delivery_pin:null}));
@@ -65,13 +60,11 @@ export async function runCustomerDeliveryChecks({owner,transaction,fixture,anoth
     assert.equal(removed.delivery_pin,null);
   });
   await check('order pins are immutable address snapshots, visible only to owner/active staff, and erased on account deletion', async () => {
-    const f = await fixture(5);
-    const slot = randomUUID();
-    await owner.query("insert into public.fulfilment_slots(id,fulfilment_type,label,start_time,end_time,max_orders) values($1,'delivery',$2,'00:00','23:59',100)",[slot,randomUUID()]);
+    const f = await fixture(5, 100, 'delivery');
     const a = await save(f.user,address());
     const key = randomUUID();
     const order = await transaction(f.user,c=>c.query("select public.place_order_v2($1::jsonb,'delivery',$2,current_date,$3,'cash_on_delivery','Test landmark',$4,null) as id",[
-      JSON.stringify([{product_id:f.product,quantity:1}]),a.id,slot,key]).then(r=>r.rows[0].id));
+      JSON.stringify([{product_id:f.product,quantity:1}]),a.id,f.slot,key]).then(r=>r.rows[0].id));
     assert.deepEqual((await owner.query('select delivery_pin from public.orders where id=$1',[order])).rows[0].delivery_pin,pin);
     await save(f.user,address({address_id:a.id,delivery_pin:null,line1:'Changed address'}),a.revision);
     const read = async(user,aal='aal1') => (await transaction(user,c=>c.query('select delivery_pin from public.orders where id=$1',[order]),'authenticated',aal)).rows;

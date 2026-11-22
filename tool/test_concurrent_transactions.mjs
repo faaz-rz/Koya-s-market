@@ -53,13 +53,14 @@ async function transaction(user, fn, role = 'authenticated', aal = 'aal1') {
 }
 let admin, category, owner, slotSequence = 0;
 let databaseStarted = false;
-async function fixture(stock = 10, capacity = 100) {
+async function fixture(stock = 10, capacity = 100, fulfilmentType = 'pickup') {
   const user = randomUUID(), product = randomUUID(), slot = randomUUID();
   await owner.query('insert into auth.users(id) values ($1)', [user]);
   await owner.query(`insert into public.products(id,category_id,name,description,unit,price_paise,stock_quantity)
     values($1,$2,'Concurrency product','Test inventory','1 pack',1000,$3)`, [product, category, stock]);
   await owner.query(`insert into public.fulfilment_slots(id,fulfilment_type,label,start_time,end_time,max_orders)
-    values($1,'pickup','Concurrency slot',time '00:00' + make_interval(secs => $3),'23:59',$2)`, [slot, capacity, ++slotSequence]);
+    values($1,$2,'Concurrency slot',time '00:00' + make_interval(secs => $3),'23:59',$4)`,
+    [slot, fulfilmentType, ++slotSequence, capacity]);
   return { user, product, slot };
 }
 async function anotherUser() {
