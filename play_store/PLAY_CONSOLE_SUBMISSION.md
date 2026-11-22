@@ -15,13 +15,14 @@
 
 | Check | Result |
 | --- | --- |
-| Local app and backend QA | Flutter analysis and 315 Flutter tests passed. All 34 backend handler tests passed. All 33 migrations applied in a disposable database, where delivery radius, checkout, retries, inventory, cancellation, order isolation and manual payment passed. |
-| Android QA bundle | Version `1.1.5 (24)`, API 36, 16 KB native library alignment, non-debuggable, HTTPS-only, and no background location, advertising ID or broad photo/video access. It is signed with a local QA key. |
+| App and backend QA | Flutter analysis and 315 Flutter tests passed. GitHub Actions ran all 34 backend handler tests and applied all 33 migrations on disposable PostgreSQL. Checkout, inventory and delivery radius concurrency checks passed. |
+| Android sideload APKs | Version `1.1.6`. The universal APK uses build code `25` and the arm64 APK uses split build code `2025`. Both use the Android debug signing certificate for sideload testing. |
+| Previous Android QA bundle | Version `1.1.5 (24)`, API 36, 16 KB native library alignment, non-debuggable, HTTPS-only, and no background location, advertising ID or broad photo/video access. Signed with a local QA key. |
 | Upload bundle | Pending a configured private upload key that matches the intended Play Console app. Confirm the version code in Play Console before building. |
 | Hosted email | Staging delivered a six-digit email code. Verify that the Play-delivered app can use a code to sign in against the backend configured in the bundle. |
 | Hosted checkout | Staging lacks `place_order_v2` and `sync_store`. The production backend has those RPCs and still needs migration `20261121171338_delivery_radius.sql` for server-side 5 km enforcement. Verify checkout on the release schema before launch. |
 | Public pages | Privacy, deletion and support return HTTP 200 without signing in. The live privacy and deletion pages still serve older text. Deploy the current `web/privacy.html` and `web/delete-account.html`, then confirm the map disclosures and test one external deletion request with staff. |
-| Play review and device testing | Confirm the reusable reviewer login, install the signed build from Play on a physical Android device, and check the Console's testing requirements and pre-launch report. Full database concurrency testing is pending. |
+| Play review and device testing | Confirm the reusable reviewer login, install the signed build from Play on a physical Android device, and check the Console's testing requirements and pre-launch report. |
 
 Keep the application ID for all Google Play releases. Check Play Console for
 the highest version code ever uploaded before building. Use the source version
