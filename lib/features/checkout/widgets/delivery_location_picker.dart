@@ -11,6 +11,7 @@ import '../../../core/services/network_status.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/four_dot_loader.dart';
 import '../../../core/widgets/koyas_button.dart';
+import '../../store/providers/store_provider.dart';
 import '../models/delivery_pin.dart';
 import '../services/delivery_address_lookup.dart';
 import '../services/delivery_location_service.dart';
@@ -18,16 +19,21 @@ import '../services/delivery_location_service.dart';
 typedef DeliveryLocationPicker =
     Future<DeliveryLocationSelection?> Function(
       BuildContext context,
-      DeliveryPin pin,
-    );
+      DeliveryPin pin, {
+      required bool requirePlacement,
+    });
 final deliveryLocationPickerProvider = Provider<DeliveryLocationPicker>(
   (ref) =>
-      (context, pin) => showModalBottomSheet<DeliveryLocationSelection>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        builder: (_) => DeliveryLocationPickerSheet(initialPin: pin),
-      ),
+      (context, pin, {required requirePlacement}) =>
+          showModalBottomSheet<DeliveryLocationSelection>(
+            context: context,
+            isScrollControlled: true,
+            useSafeArea: true,
+            builder: (_) => DeliveryLocationPickerSheet(
+              initialPin: pin,
+              requirePlacement: requirePlacement,
+            ),
+          ),
 );
 
 final deliveryMapTileProviderFactory = Provider<TileProvider Function()>(
@@ -42,8 +48,13 @@ final deliveryMapTileProviderFactory = Provider<TileProvider Function()>(
 );
 
 class DeliveryLocationPickerSheet extends ConsumerStatefulWidget {
-  const DeliveryLocationPickerSheet({required this.initialPin, super.key});
+  const DeliveryLocationPickerSheet({
+    required this.initialPin,
+    this.requirePlacement = false,
+    super.key,
+  });
   final DeliveryPin initialPin;
+  final bool requirePlacement;
   @override
   ConsumerState<DeliveryLocationPickerSheet> createState() =>
       _DeliveryLocationPickerSheetState();
@@ -52,10 +63,13 @@ class DeliveryLocationPickerSheet extends ConsumerStatefulWidget {
 class _DeliveryLocationPickerSheetState
     extends ConsumerState<DeliveryLocationPickerSheet> {
   final _map = MapController();
+  final _searchController = TextEditingController();
   late DeliveryPin _pin = widget.initialPin;
+  late bool _hasSelectedPin = !widget.requirePlacement;
   late final _tiles = ref.read(deliveryMapTileProviderFactory)();
   ResolvedDeliveryAddress? _address;
-  bool _resolving = true, _locating = false, _tileError = false;
+  bool _resolving = false, _locating = false, _searching = false;
+  bool _mapReady = false, _tileError = false;
   String? _message;
   int _request = 0;
 
@@ -64,11 +78,12 @@ class _DeliveryLocationPickerSheetState
   @override
   void initState() {
     super.initState();
-    unawaited(_resolve());
+    if (_hasSelectedPin) unawaited(_resolve());
   }
 
   @override
   void dispose() {
+    _searchController.dispose();
     _map.dispose();
     super.dispose();
   }
@@ -107,26 +122,30 @@ class _DeliveryLocationPickerSheetState
   }
 
   void _select(LatLng point) {
-    if (_locating) return;
-    setState(
-      () => _pin = DeliveryPin(
+    if (_locating || _searching) return;
+    setState(() {
+      _hasSelectedPin = true;
+      _pin = DeliveryPin(
         latitude: point.latitude,
         longitude: point.longitude,
-        accuracyMeters: _pin.accuracyMeters,
+        accuracyMeters: 0,
         capturedAt: DateTime.now().toUtc(),
-      ),
-    );
+      );
+    });
     unawaited(_resolve());
   }
 
   Future<void> _recenter() async {
-    if (_locating) return;
+    if (_locating || _searching) return;
     setState(() => _locating = true);
     try {
       final pin = await ref.read(deliveryLocationServiceProvider).capture();
       if (!mounted) return;
-      setState(() => _pin = pin);
-      _map.move(_point, 17);
+      setState(() {
+        _hasSelectedPin = true;
+        _pin = pin;
+      });
+      if (_mapReady) _map.move(_point, 17);
       await _resolve();
     } on DeliveryLocationFailure catch (error) {
       if (mounted) setState(() => _message = error.message);
@@ -142,6 +161,51 @@ class _DeliveryLocationPickerSheetState
     }
   }
 
+  Future<void> _search() async {
+    if (_locating || _searching) return;
+    final query = _searchController.text.trim();
+    if (query.length < 3) {
+      setState(() => _message = 'Enter an area, street or PIN code.');
+      return;
+    }
+    FocusScope.of(context).unfocus();
+    _request++;
+    setState(() {
+      _searching = true;
+      _resolving = false;
+      _message = null;
+    });
+    try {
+      final pin = await ref
+          .read(deliveryAddressLookupProvider)
+          .findLocation(query);
+      if (!mounted) return;
+      if (pin == null) {
+        setState(
+          () => _message =
+              'Address not found. Try a nearby street or place the pin on the map.',
+        );
+        return;
+      }
+      setState(() {
+        _hasSelectedPin = true;
+        _pin = pin;
+        _tileError = false;
+      });
+      if (_mapReady) _map.move(_point, 17);
+      await _resolve();
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _message =
+              'Search is unavailable. Place the pin on the map or use your current location.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _searching = false);
+    }
+  }
+
   void _tileFailed(TileImage tile, Object error, StackTrace? trace) {
     if (_tileError || !mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -152,6 +216,11 @@ class _DeliveryLocationPickerSheetState
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
+    final canSearch = ref.watch(deliveryAddressLookupProvider).canSearch;
+    final deliveryArea = ref.watch(
+      storeProvider.select((store) => store.deliveryArea),
+    );
+    final areaIssue = _hasSelectedPin ? deliveryArea?.issueFor(_pin) : null;
     final map = Stack(
       children: [
         FlutterMap(
@@ -159,7 +228,7 @@ class _DeliveryLocationPickerSheetState
           mapController: _map,
           options: MapOptions(
             initialCenter: _point,
-            initialZoom: 17,
+            initialZoom: widget.requirePlacement ? 13 : 17,
             minZoom: 3,
             maxZoom: 19,
             backgroundColor: colors.surfaceMuted,
@@ -167,6 +236,7 @@ class _DeliveryLocationPickerSheetState
               flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
             ),
             onTap: (_, point) => _select(point),
+            onMapReady: () => _mapReady = true,
           ),
           children: [
             TileLayer(
@@ -177,24 +247,25 @@ class _DeliveryLocationPickerSheetState
               panBuffer: 0,
               errorTileCallback: _tileFailed,
             ),
-            MarkerLayer(
-              markers: [
-                Marker(
-                  point: _point,
-                  width: 52,
-                  height: 64,
-                  alignment: Alignment.topCenter,
-                  child: Semantics(
-                    label: 'Selected delivery pin',
-                    child: Icon(
-                      Icons.location_pin,
-                      size: 52,
-                      color: colors.brand700,
+            if (_hasSelectedPin)
+              MarkerLayer(
+                markers: [
+                  Marker(
+                    point: _point,
+                    width: 52,
+                    height: 64,
+                    alignment: Alignment.topCenter,
+                    child: Semantics(
+                      label: 'Selected delivery pin',
+                      child: Icon(
+                        Icons.location_pin,
+                        size: 52,
+                        color: colors.brand700,
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
             Align(
               alignment: Alignment.bottomRight,
               child: ConstrainedBox(
@@ -235,7 +306,7 @@ class _DeliveryLocationPickerSheetState
             shape: const CircleBorder(),
             child: IconButton(
               tooltip: 'Recenter on current location',
-              onPressed: _locating ? null : _recenter,
+              onPressed: _locating || _searching ? null : _recenter,
               icon: _locating
                   ? const FourDotLoader(size: 22)
                   : const Icon(Icons.my_location_rounded),
@@ -247,7 +318,9 @@ class _DeliveryLocationPickerSheetState
     final summary = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (_resolving)
+        if (_searching && !_resolving)
+          const Text('Searching for the address…')
+        else if (_resolving)
           const Row(
             children: [
               FourDotLoader(size: 24, label: 'Looking up address'),
@@ -255,7 +328,7 @@ class _DeliveryLocationPickerSheetState
               Expanded(child: Text('Finding your address…')),
             ],
           )
-        else ...[
+        else if (_hasSelectedPin) ...[
           Text(
             _address?.formatted.isNotEmpty == true
                 ? _address!.formatted
@@ -265,7 +338,7 @@ class _DeliveryLocationPickerSheetState
           ),
           const SizedBox(height: 4),
           Text(
-            'Confirm the location, then add your flat number and landmark.',
+            'Check the pin is at the entrance before confirming.',
             style: TextStyle(color: colors.inkSecondary),
           ),
         ],
@@ -284,6 +357,11 @@ class _DeliveryLocationPickerSheetState
                 style: TextStyle(color: colors.inkSecondary),
               ),
             ),
+          ),
+        if (areaIssue != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(areaIssue, style: TextStyle(color: colors.warning)),
           ),
         if (_tileError)
           Padding(
@@ -320,26 +398,52 @@ class _DeliveryLocationPickerSheetState
               ),
             ),
             Expanded(
-              child: ListView(
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(20, 0, 20, 12),
-                    child: Text(
-                      'Tap the map to place the pin at your entrance.',
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (canSearch)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                        child: TextField(
+                          key: const Key('search-delivery-address'),
+                          controller: _searchController,
+                          enabled: !_searching && !_locating,
+                          maxLength: 120,
+                          textInputAction: TextInputAction.search,
+                          onSubmitted: (_) => _search(),
+                          decoration: InputDecoration(
+                            labelText: 'Area, street or PIN code',
+                            counterText: '',
+                            suffixIcon: IconButton(
+                              tooltip: 'Search for address',
+                              onPressed: _searching || _locating
+                                  ? null
+                                  : _search,
+                              icon: const Icon(Icons.search_rounded),
+                            ),
+                          ),
+                        ),
+                      ),
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(20, 0, 20, 12),
+                      child: Text(
+                        'Tap the map to place the pin at your entrance.',
+                      ),
                     ),
-                  ),
-                  SizedBox(
-                    height: (MediaQuery.sizeOf(context).height * .4).clamp(
-                      240.0,
-                      360.0,
+                    SizedBox(
+                      height: (MediaQuery.sizeOf(context).height * .4).clamp(
+                        240.0,
+                        360.0,
+                      ),
+                      child: map,
                     ),
-                    child: map,
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                    child: summary,
-                  ),
-                ],
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                      child: summary,
+                    ),
+                  ],
+                ),
               ),
             ),
             Padding(
@@ -347,7 +451,8 @@ class _DeliveryLocationPickerSheetState
               child: KoyasButton(
                 key: const Key('confirm-delivery-location'),
                 label: 'Confirm location',
-                onPressed: _resolving || _locating
+                onPressed:
+                    !_hasSelectedPin || _resolving || _locating || _searching
                     ? null
                     : () => Navigator.of(context).pop(
                         DeliveryLocationSelection(pin: _pin, address: _address),

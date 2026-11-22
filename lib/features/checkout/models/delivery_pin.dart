@@ -24,7 +24,9 @@ class DeliveryPin {
       capturedAt.millisecondsSinceEpoch >= 0 &&
       capturedAt.millisecondsSinceEpoch <= 4102444800000;
   bool get isApproximate => accuracyMeters > 100;
-  String get accuracyLabel => 'Estimated accuracy: ±${accuracyMeters.ceil()} m';
+  String get accuracyLabel => accuracyMeters == 0
+      ? 'Pin placed on map'
+      : 'Estimated accuracy: ±${accuracyMeters.ceil()} m';
   String get coordinates =>
       '${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}';
   Uri get mapUri => Uri.https('www.google.com', '/maps/search/', {

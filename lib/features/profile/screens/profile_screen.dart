@@ -95,13 +95,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _saveAddress([CustomerAddress? current]) async {
+    final profile = ref.read(storeProvider).profile;
     final edited = await showDialog<CustomerAddress>(
       context: context,
       animationStyle: AppMotion.dialogStyle(context),
-      builder: (context) => AddressEditorDialog(address: current),
+      builder: (context) => AddressEditorDialog(
+        address: current,
+        initialName: profile?.name ?? '',
+        initialPhone: profile?.phone ?? '',
+      ),
     );
-    if (edited == null) return;
-    final customerId = ref.read(storeProvider).profile?.id;
+    if (edited == null ||
+        !mounted ||
+        ref.read(storeProvider).profile?.id != profile?.id) {
+      return;
+    }
     final repository = AppEnvironment.hasSupabaseConfig
         ? SupabaseStoreRepository()
         : null;
@@ -111,7 +119,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ? await repository.addAddress(edited)
                 : await repository.updateAddress(edited)
           : edited;
-      if (!mounted || ref.read(storeProvider).profile?.id != customerId) return;
+      if (!mounted || ref.read(storeProvider).profile?.id != profile?.id) {
+        return;
+      }
       if (current == null) {
         ref.read(storeProvider.notifier).addAddress(saved);
       } else {
@@ -470,15 +480,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                store.serviceablePincodes.contains(
-                                      address.pincode,
-                                    )
+                                store.deliveryAddressIssue(address) == null
                                     ? Icons.check_circle_outline_rounded
                                     : Icons.error_outline_rounded,
                                 color:
-                                    store.serviceablePincodes.contains(
-                                      address.pincode,
-                                    )
+                                    store.deliveryAddressIssue(address) == null
                                     ? AppColors.of(context).success
                                     : AppColors.of(context).error,
                               ),

@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:koyas_supermarket/core/theme/app_theme.dart';
+import 'package:koyas_supermarket/core/widgets/koyas_button.dart';
 import 'package:koyas_supermarket/features/checkout/models/checkout_models.dart';
 import 'package:koyas_supermarket/features/checkout/models/delivery_pin.dart';
 import 'package:koyas_supermarket/features/checkout/services/delivery_address_lookup.dart';
@@ -55,7 +56,7 @@ Future<void> editor(
       overrides: [
         deliveryLocationServiceProvider.overrideWithValue(FixedLocation()),
         deliveryLocationPickerProvider.overrideWithValue(
-          (_, _) async => selection,
+          (_, _, {required requirePlacement}) async => selection,
         ),
       ],
       child: MaterialApp(
@@ -155,8 +156,9 @@ void main() {
   );
 
   testWidgets(
-    'cancel keeps manual fields; an unresolved new pin never keeps a stale PIN code',
+    'cancel preserves fields and a new pin can be saved with a manually entered address',
     (tester) async {
+      CustomerAddress? saved;
       await editor(tester, null);
       await tester.enterText(
         find.byKey(const Key('address-line')),
@@ -172,7 +174,15 @@ void main() {
       expect(text(tester, 'line'), 'Typed street');
       expect(text(tester, 'pincode'), '500008');
       await tester.pumpWidget(const SizedBox.shrink());
-      await editor(tester, DeliveryLocationSelection(pin: samplePin));
+      await editor(
+        tester,
+        DeliveryLocationSelection(pin: samplePin),
+        save: (address) => saved = address,
+      );
+      await tester.enterText(
+        find.byKey(const Key('address-line')),
+        'Typed street',
+      );
       await tester.enterText(
         find.byKey(const Key('address-pincode')),
         '500008',
@@ -180,15 +190,40 @@ void main() {
       await tester.ensureVisible(find.byKey(const Key('capture-delivery-pin')));
       await tester.tap(find.byKey(const Key('capture-delivery-pin')));
       await tester.pumpAndSettle();
-      expect(text(tester, 'pincode'), isEmpty);
+      expect(text(tester, 'pincode'), '500008');
+      expect(text(tester, 'line'), 'Typed street');
+      await tester.enterText(
+        find.byKey(const Key('address-line')),
+        'Typed street',
+      );
+      await tester.enterText(
+        find.byKey(const Key('address-city')),
+        'Hyderabad',
+      );
+      await tester.enterText(
+        find.byKey(const Key('address-pincode')),
+        '500008',
+      );
+      final save = find.byKey(const Key('save-address'));
+      await tester.ensureVisible(save);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect(saved?.deliveryPin, samplePin);
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
 
   for (final dark in [false, true]) {
     testWidgets(
-      'map confirmation fits 320px and large text in ${dark ? 'dark' : 'light'} mode',
+      'map confirmation and ${dark ? 'manual placement' : 'street search'} fit 320px and large text',
       (tester) async {
+        final searchedPin = Location(
+          latitude: 17.385,
+          longitude: 78.416,
+          timestamp: DateTime(2026),
+        );
+        DeliveryLocationSelection? confirmed;
+        String? searchedQuery;
         tester.view.physicalSize = const Size(320, 844);
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.resetPhysicalSize);
@@ -197,7 +232,13 @@ void main() {
           ProviderScope(
             overrides: [
               deliveryAddressLookupProvider.overrideWithValue(
-                DeliveryAddressLookup(lookup: (_, _) async => [place]),
+                DeliveryAddressLookup(
+                  lookup: (_, _) async => [place],
+                  findLocations: (query) async {
+                    searchedQuery = query;
+                    return [searchedPin];
+                  },
+                ),
               ),
               deliveryMapTileProviderFactory.overrideWithValue(
                 TestMapTiles.new,
@@ -208,18 +249,20 @@ void main() {
               home: Builder(
                 builder: (context) => Scaffold(
                   body: TextButton(
-                    onPressed: () => showModalBottomSheet<void>(
-                      context: context,
-                      isScrollControlled: true,
-                      builder: (_) => MediaQuery(
-                        data: MediaQuery.of(
-                          context,
-                        ).copyWith(textScaler: const TextScaler.linear(2)),
-                        child: DeliveryLocationPickerSheet(
-                          initialPin: samplePin,
+                    onPressed: () async => confirmed =
+                        await showModalBottomSheet<DeliveryLocationSelection>(
+                          context: context,
+                          isScrollControlled: true,
+                          builder: (_) => MediaQuery(
+                            data: MediaQuery.of(
+                              context,
+                            ).copyWith(textScaler: const TextScaler.linear(2)),
+                            child: DeliveryLocationPickerSheet(
+                              initialPin: samplePin,
+                              requirePlacement: dark,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
                     child: const Text('Open map'),
                   ),
                 ),
@@ -229,17 +272,46 @@ void main() {
         );
         await tester.tap(find.text('Open map'));
         await tester.pumpAndSettle();
-        expect(find.byKey(const Key('delivery-location-map')), findsOneWidget);
-        await tester.drag(find.byType(ListView).last, const Offset(0, -300));
+        final map = find.byKey(const Key('delivery-location-map'));
+        final confirm = find.byKey(const Key('confirm-delivery-location'));
+        expect(map, findsOneWidget);
+        if (dark) {
+          expect(find.bySemanticsLabel('Selected delivery pin'), findsNothing);
+          expect(tester.widget<KoyasButton>(confirm).onPressed, isNull);
+          await tester.ensureVisible(map);
+          await tester.pumpAndSettle();
+          expect(map.hitTestable(), findsOneWidget);
+          await tester.tap(map);
+          await tester.pump();
+          // The map waits briefly to distinguish a tap from a double tap.
+          await tester.pump(const Duration(milliseconds: 300));
+          await tester.pumpAndSettle();
+          expect(
+            find.bySemanticsLabel('Selected delivery pin'),
+            findsOneWidget,
+          );
+        } else {
+          await tester.enterText(
+            find.byKey(const Key('search-delivery-address')),
+            ' Market Road ',
+          );
+          await tester.tap(find.byTooltip('Search for address'));
+          await tester.pumpAndSettle();
+          expect(searchedQuery, 'Market Road');
+        }
+        final result = find.byKey(const Key('resolved-delivery-address'));
+        expect(tester.widget<Text>(result).data, contains('500008'));
+        await tester.ensureVisible(result);
         await tester.pumpAndSettle();
         expect(find.textContaining('500008'), findsOneWidget);
-        expect(
-          find.byKey(const Key('confirm-delivery-location')),
-          findsOneWidget,
-        );
+        expect(tester.widget<KoyasButton>(confirm).onPressed, isNotNull);
         expect(tester.takeException(), isNull);
-        await tester.tap(find.byKey(const Key('confirm-delivery-location')));
+        await tester.tap(confirm);
         await tester.pumpAndSettle();
+        if (!dark) {
+          expect(confirmed?.pin.latitude, searchedPin.latitude);
+          expect(confirmed?.pin.longitude, searchedPin.longitude);
+        }
         await tester.pumpWidget(const SizedBox.shrink());
       },
     );

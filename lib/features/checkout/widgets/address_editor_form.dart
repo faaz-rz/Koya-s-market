@@ -45,7 +45,7 @@ class AddressEditorFormState extends State<AddressEditorForm> {
       _pincode,
       _instructions;
   DeliveryPin? _pin;
-  bool _locating = false, _pinCleared = false;
+  bool _locating = false, _pinCleared = false, _pinChosenInEditor = false;
   @override
   void initState() {
     super.initState();
@@ -84,7 +84,7 @@ class AddressEditorFormState extends State<AddressEditorForm> {
   String? _required(String? value) =>
       value == null || value.trim().isEmpty ? 'This field is required' : null;
   void _addressChanged(String _) {
-    if (_pin != null) {
+    if (_pin != null && !_pinChosenInEditor) {
       setState(() {
         _pin = null;
         _pinCleared = true;
@@ -151,14 +151,14 @@ class AddressEditorFormState extends State<AddressEditorForm> {
           onChanged: (pin) => setState(() {
             _pin = pin;
             _pinCleared = false;
+            _pinChosenInEditor = pin != null;
           }),
           onAddressResolved: (address) {
             // Controller assignment does not run the manual-edit listener,
             // so the confirmed pin remains attached to the resolved address.
-            _flat.clear();
-            _line.text = address.street;
-            _city.text = address.city;
-            _pincode.text = address.pincode;
+            if (address.street.isNotEmpty) _line.text = address.street;
+            if (address.city.isNotEmpty) _city.text = address.city;
+            if (address.pincode.isNotEmpty) _pincode.text = address.pincode;
           },
           onBusyChanged: (busy) {
             setState(() => _locating = busy);
@@ -177,7 +177,7 @@ class AddressEditorFormState extends State<AddressEditorForm> {
           maxLength: 60,
           textInputAction: TextInputAction.next,
           decoration: const InputDecoration(
-            labelText: 'Flat / house number (optional)',
+            labelText: 'House, flat or floor (optional)',
             counterText: '',
           ),
         ),
@@ -189,10 +189,12 @@ class AddressEditorFormState extends State<AddressEditorForm> {
           enabled: !widget.saving && !_locating,
           maxLength: 200,
           onChanged: _addressChanged,
-          validator: _required,
+          validator: (value) => (value?.trim().runes.length ?? 0) < 3
+              ? 'Enter the building or street'
+              : null,
           textInputAction: TextInputAction.next,
           decoration: const InputDecoration(
-            labelText: 'Flat, building and street',
+            labelText: 'Building and street',
             counterText: '',
             errorMaxLines: 2,
           ),
@@ -205,7 +207,8 @@ class AddressEditorFormState extends State<AddressEditorForm> {
           enabled: !widget.saving && !_locating,
           maxLength: 80,
           onChanged: _addressChanged,
-          validator: _required,
+          validator: (value) =>
+              (value?.trim().runes.length ?? 0) < 2 ? 'Enter the city' : null,
           textInputAction: TextInputAction.next,
           decoration: const InputDecoration(
             labelText: 'City',

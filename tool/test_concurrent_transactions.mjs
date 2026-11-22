@@ -16,8 +16,9 @@ const { default: EmbeddedPostgres } = await import(pathToFileURL(require.resolve
 const { Client } = require('pg');
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const directory = await mkdtemp(path.join(tmpdir(), 'koyas-pg-test-'));
-const port = await new Promise(resolve => {
+const port = await new Promise((resolve, reject) => {
   const server = net.createServer();
+  server.once('error', reject);
   server.listen(0, '127.0.0.1', () => {
     const chosen = server.address().port;
     server.close(() => resolve(chosen));
@@ -51,6 +52,7 @@ async function transaction(user, fn, role = 'authenticated', aal = 'aal1') {
   } finally { await client.end(); clients.delete(client); }
 }
 let admin, category, owner, slotSequence = 0;
+let databaseStarted = false;
 async function fixture(stock = 10, capacity = 100) {
   const user = randomUUID(), product = randomUUID(), slot = randomUUID();
   await owner.query('insert into auth.users(id) values ($1)', [user]);
@@ -84,7 +86,10 @@ function businessRejections(results, message) {
 }
 
 try {
-  await database.initialise(); await database.start(); owner = await connect();
+  await database.initialise();
+  await database.start();
+  databaseStarted = true;
+  owner = await connect();
   console.log((await owner.query('select version()')).rows[0].version);
   await owner.query(`
     create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
@@ -309,6 +314,8 @@ try {
   console.log('All concurrency and sync checks passed. No remote database was contacted.');
 } finally {
   await Promise.all([...clients].map(c => c.end().catch(() => {})));
-  await database.stop();
-  console.log(`Stopped disposable PostgreSQL. Local test data/logs: ${directory}`);
+  if (databaseStarted) {
+    await database.stop();
+    console.log(`Stopped disposable PostgreSQL. Local test data/logs: ${directory}`);
+  }
 }

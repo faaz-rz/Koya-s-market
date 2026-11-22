@@ -66,17 +66,50 @@ final deliveryAddressLookupProvider = Provider<DeliveryAddressLookup>(
 class DeliveryAddressLookup {
   DeliveryAddressLookup({
     this.lookup,
+    this.findLocations,
     this.timeout = const Duration(seconds: 8),
   });
   final Future<List<Placemark>> Function(double, double)? lookup;
+  final Future<List<Location>> Function(String)? findLocations;
   final Duration timeout;
+
+  bool get canSearch =>
+      findLocations != null ||
+      (!kIsWeb &&
+          (defaultTargetPlatform == TargetPlatform.android ||
+              defaultTargetPlatform == TargetPlatform.iOS));
+
+  Future<DeliveryPin?> findLocation(String query) async {
+    if (!canSearch || query.trim().length < 3) return null;
+    final reader =
+        findLocations ??
+        (query) => Geocoding().locationFromAddress(
+          '$query, Hyderabad, India',
+          locale: const Locale('en', 'IN'),
+        );
+    final results = await reader(query.trim()).timeout(timeout);
+    for (final location in results) {
+      final pin = DeliveryPin(
+        latitude: location.latitude,
+        longitude: location.longitude,
+        accuracyMeters: 0,
+        capturedAt: DateTime.now().toUtc(),
+      );
+      if (pin.isValid) return pin;
+    }
+    return null;
+  }
 
   Future<ResolvedDeliveryAddress?> resolve(DeliveryPin pin) async {
     if (!pin.isValid) return null;
     if (lookup == null && kIsWeb) return null;
     final reader =
         lookup ??
-        Geocoding(locale: const Locale('en', 'IN')).placemarkFromCoordinates;
+        (latitude, longitude) => Geocoding().placemarkFromCoordinates(
+          latitude,
+          longitude,
+          locale: const Locale('en', 'IN'),
+        );
     final places = await reader(pin.latitude, pin.longitude).timeout(timeout);
     final addresses = places
         .map(ResolvedDeliveryAddress.fromPlacemark)

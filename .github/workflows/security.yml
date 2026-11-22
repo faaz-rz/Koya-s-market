@@ -21,11 +21,7 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-      - name: Verify push dispatch without external messages
-        run: node --test tool/push_dispatch_handler_test.mjs
+      - run: flutter test --platform chrome test/web/image_optimization_browser_test.dart
       - name: Confirm an unconfigured release is rejected
         run: |
           if flutter build apk --release > release-gate.log 2>&1; then
@@ -33,6 +29,28 @@ jobs:
             exit 1
           fi
           grep -q "Release signing is required" release-gate.log
+
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify backend handlers without external messages
+        run: node --test tool/account_deletion_handler_test.mjs tool/http_protocol_test.mjs tool/push_dispatch_handler_test.mjs tool/product_image_review_test.mjs tool/usage_budget_test.mjs
+      - name: Verify migrations and checkout transactions on disposable PostgreSQL
+        run: |
+          export KOYAS_PG_RUNTIME="$(mktemp -d)"
+          npm install --prefix "$KOYAS_PG_RUNTIME" --ignore-scripts --no-audit --no-fund embedded-postgres@17.10.0-beta.17 pg@8.23.0
+          (
+            cd "$KOYAS_PG_RUNTIME/node_modules/@embedded-postgres/linux-x64"
+            if [[ -f scripts/hydrate-symlinks.js ]]; then
+              node scripts/hydrate-symlinks.js
+            fi
+          )
+          node tool/test_concurrent_transactions.mjs --performance
 
   dependency-review:
     if: github.event_name == 'pull_request'

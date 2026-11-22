@@ -8,6 +8,21 @@ CLI deployments do not replay the schema. The 3,380-row billing catalogue was
 uploaded in eight bounded, idempotent batches because of the tool request limit.
 No customer accounts or orders were created during deployment.
 
+## Database state for 1.1.6
+
+Production has all 32 migrations through `20261009151549_customer_order_numbers`.
+The only pending repository migration is
+`20261121171338_delivery_radius.sql`. The installed app can use the existing
+production checkout and store-sync APIs. It uses the store's configured PIN
+codes until the server publishes the delivery origin.
+
+The staging project `hwoysylcqakppwlhhzzy` was seeded through a separate
+migration history and lacks the current checkout and store-sync APIs. Use a
+staging database with the production migration baseline to verify the radius
+change before production rollout.
+
+## Production website
+
 Production website: [koya-s-market.faazlance.workers.dev](https://koya-s-market.faazlance.workers.dev).
 The native app's privacy and deletion URLs are recorded in
 `config/production.json`. That file contains only public frontend configuration;
@@ -172,6 +187,19 @@ Cloudflare has not been deployed or authenticated from this chat.
 
 ## Daily store work
 
+Home delivery eligibility uses the saved address pin and a **5 km straight-line
+radius** around the store. The delivery-radius migration stores the origin in
+`store_settings` and enforces the rule in the checkout transaction. PIN codes
+are part of the address. Customers with older addresses need to add or place a
+map pin before ordering delivery. Pickup works without a pin.
+
+Before applying the radius migration to production, confirm the listed Bapu
+Ghat Road map pin against the storefront. Verify in staging that pickup still
+works, delivery accepts the boundary and rejects outside or unpinned addresses,
+and a previously committed checkout still returns its order on retry. Release
+the matching customer app with the migration so the address screen explains
+the radius and offers manual map placement.
+
 Use the **staff dashboard** for orders, payment collection, inventory, prices,
 offers and delivery settings. Supabase handles accounts and data; it is not the
 day-to-day order screen. Before launch, check stock and prices: the imported
@@ -296,10 +324,11 @@ This is device persistence, not cross-device synchronization. Clearing app data
 or browser storage can remove it. The client/server still validate prices,
 offers, stock, basket bounds and account ownership when ordering.
 
-When adding or editing a delivery address, a customer may tap **Use current
-location**. Location is requested only for that foreground action and the user
-can continue with a typed address. The saved record contains latitude,
-longitude, estimated accuracy and capture time. The checkout order copies this
+When adding or editing a delivery address, a customer can place a pin on the
+map or tap **Use current location**. GPS permission is requested only for that
+foreground action. Customers can type or correct the written address after
+choosing the pin. The record includes latitude, longitude, estimated GPS
+accuracy when available, and the capture time. The checkout order copies the
 pin into an immutable snapshot, so later address edits cannot move an existing
 delivery. Approved staff see a **Directions to delivery pin** link in order
 details. Confirm the written address and landmark when the accuracy is

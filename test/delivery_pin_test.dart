@@ -1,13 +1,56 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:koyas_supermarket/core/theme/app_theme.dart';
+import 'package:koyas_supermarket/core/widgets/koyas_button.dart';
 import 'package:koyas_supermarket/features/checkout/models/checkout_models.dart';
+import 'package:koyas_supermarket/features/checkout/models/delivery_area.dart';
 import 'package:koyas_supermarket/features/checkout/models/delivery_pin.dart';
+import 'package:koyas_supermarket/features/checkout/screens/delivery_checkout_screen.dart';
 import 'package:koyas_supermarket/features/checkout/services/delivery_location_service.dart';
 import 'package:koyas_supermarket/features/checkout/widgets/address_editor_dialog.dart';
+import 'package:koyas_supermarket/features/store/providers/store_provider.dart';
+
+const deliveryArea = DeliveryArea(17.37601003, 78.41978797);
+
+DeliveryPin pinAtDistance(double meters) => DeliveryPin(
+  latitude: deliveryArea.latitude + meters * 180 / (math.pi * 6371008.8),
+  longitude: deliveryArea.longitude,
+  accuracyMeters: 0,
+  capturedAt: DateTime.utc(2026),
+);
+
+class DeliveryCheckoutStore extends StoreController {
+  @override
+  StoreState build() {
+    CustomerAddress address(String label, [DeliveryPin? pin]) =>
+        CustomerAddress(
+          id: label,
+          label: label,
+          recipientName: 'Customer',
+          phone: '9876543210',
+          line1: 'Market Road',
+          city: 'Hyderabad',
+          pincode: '500008',
+          deliveryPin: pin,
+        );
+
+    return super.build().copyWith(
+      fulfilmentType: FulfilmentType.delivery,
+      deliveryArea: deliveryArea,
+      serviceablePincodes: const {},
+      selectedAddressId: 'No pin',
+      addresses: [
+        address('No pin'),
+        address('Outside radius', pinAtDistance(5001)),
+        address('At 5 km', pinAtDistance(5000)),
+      ],
+    );
+  }
+}
 
 class TestLocation extends GeolocatorPlatform {
   bool service = true;
@@ -64,6 +107,47 @@ void main() {
     GeolocatorPlatform.instance = location;
   });
   tearDown(() => GeolocatorPlatform.instance = original);
+
+  test(
+    'delivery radius includes the 5 km boundary and requires a valid pin',
+    () {
+      expect(deliveryArea.issueFor(pinAtDistance(4999)), isNull);
+      expect(deliveryArea.issueFor(pinAtDistance(5000)), isNull);
+      expect(
+        deliveryArea.issueFor(pinAtDistance(5001)),
+        DeliveryArea.outsideRadius,
+      );
+      expect(deliveryArea.issueFor(null), DeliveryArea.pinRequired);
+      expect(DeliveryArea.fromSettings({}), isNull);
+    },
+  );
+
+  testWidgets('checkout enables payment only for an address within 5 km', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [storeProvider.overrideWith(DeliveryCheckoutStore.new)],
+        child: MaterialApp(
+          theme: AppTheme.customer,
+          home: const DeliveryCheckoutScreen(),
+        ),
+      ),
+    );
+    final payment = find.widgetWithText(KoyasButton, 'Continue to payment');
+    expect(find.text('Add a delivery pin'), findsOneWidget);
+    expect(tester.widget<KoyasButton>(payment).onPressed, isNull);
+
+    await tester.tap(find.text('Outside radius'));
+    await tester.pumpAndSettle();
+    expect(find.text(DeliveryArea.outsideRadius), findsOneWidget);
+    expect(tester.widget<KoyasButton>(payment).onPressed, isNull);
+
+    await tester.tap(find.text('At 5 km'));
+    await tester.pumpAndSettle();
+    expect(find.text(DeliveryArea.outsideRadius), findsNothing);
+    expect(tester.widget<KoyasButton>(payment).onPressed, isNotNull);
+  });
 
   test(
     'single foreground fix asks permission only when needed and returns finite coordinates with accuracy',
@@ -180,10 +264,7 @@ void main() {
       );
       await tester.tap(find.text('Edit'));
       await tester.pumpAndSettle();
-      final line = find.widgetWithText(
-        TextFormField,
-        'Flat, building and street',
-      );
+      final line = find.widgetWithText(TextFormField, 'Building and street');
       await tester.ensureVisible(line);
       await tester.enterText(line, '99 New Street');
       await tester.pump();

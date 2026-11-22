@@ -1,80 +1,108 @@
-# Google Play submission checklist
+# Google Play submission for Koya Stores
 
-## Permanent release identity
+| Setting | Value |
+| --- | --- |
+| App name | Koya Stores |
+| Android application ID | `com.koyas.koyas_supermarket` |
+| Source version | `1.1.6+25` in `pubspec.yaml` |
+| Android support | API 24 and higher, targets API 36 and compiles with API 37 |
+| Category | Shopping |
+| Ads | No |
+| Target audience | 18 and over, for adults arranging household purchases |
+| Payments | Cash or UPI at pickup or delivery for physical groceries |
 
-- App name/brand: **Koya Stores**
-- Android application ID: **`com.koyas.koyas_supermarket`**
-- Current version name: **`1.1.5`**
-- Current version code: **`11`**
-- Category: **Shopping**
-- Ads: **No**
-- Recommended target audience: **18 and over**. The service is for adults
-  arranging household purchases and is not designed for children.
-- Target SDK: **36** (the final AAB verifier must confirm this)
+## Release check on 22 November 2026
 
-Treat the application ID as permanent before the first Play upload. Future
-uploads must use a higher version code.
+| Check | Result |
+| --- | --- |
+| Local app and backend QA | Flutter analysis and 315 Flutter tests passed. All 34 backend handler tests passed. All 33 migrations applied in a disposable database, where delivery radius, checkout, retries, inventory, cancellation, order isolation and manual payment passed. |
+| Android QA bundle | Version `1.1.5 (24)`, API 36, 16 KB native library alignment, non-debuggable, HTTPS-only, and no background location, advertising ID or broad photo/video access. It is signed with a local QA key. |
+| Upload bundle | Pending a configured private upload key that matches the intended Play Console app. Confirm the version code in Play Console before building. |
+| Hosted email | Staging delivered a six-digit email code. Verify that the Play-delivered app can use a code to sign in against the backend configured in the bundle. |
+| Hosted checkout | Staging lacks `place_order_v2` and `sync_store`. The production backend has those RPCs and still needs migration `20261121171338_delivery_radius.sql` for server-side 5 km enforcement. Verify checkout on the release schema before launch. |
+| Public pages | Privacy, deletion and support return HTTP 200 without signing in. The live privacy and deletion pages still serve older text. Deploy the current `web/privacy.html` and `web/delete-account.html`, then confirm the map disclosures and test one external deletion request with staff. |
+| Play review and device testing | Confirm the reusable reviewer login, install the signed build from Play on a physical Android device, and check the Console's testing requirements and pre-launch report. Full database concurrency testing is pending. |
 
-## Repository-controlled items completed
+Keep the application ID for all Google Play releases. Check Play Console for
+the highest version code ever uploaded before building. Use the source version
+code if it is unused and higher than any existing upload. Split profile APKs
+created for local testing have different version codes from the AAB.
 
-- Explicit Android Internet permission.
-- API 36 compile and target configuration.
-- Release builds reject debug signing, missing production Supabase values,
-  missing HTTPS legal URLs and missing reusable reviewer access.
-- In-app privacy policy link and self-service permanent account deletion.
-- Public `/privacy` and `/delete-account` pages prepared for Vercel.
-- Play listing copy, release notes, 512 px icon, 1024×500 feature graphic and
-  six phone screenshots in `play_store/assets/`.
-- Data Safety and reviewer-access worksheets.
+## Build and verify the upload bundle
 
-## Credentials and console actions still required
+Confirm the intended upload certificate in Play Console. The verifier uses the
+public certificate at `android/koyas-upload-certificate.pem`. For an enrolled
+app, match it to the Play Console **Upload key certificate** and configure its
+corresponding private key. If the registered private key is unavailable, use
+Play Console's upload-key reset process. For a first upload, confirm which key
+will be registered and use its public certificate with the verifier. Keep the
+keystore and passwords outside Git. Configure them through the ignored
+`android/key.properties` file or the four `KOYAS_ANDROID_*` environment
+variables in its example.
 
-1. **Choose a monitored support email address.** Play Console requires one and
-   no support email is currently authorized in the repository. Add it to the
-   Store settings and privacy contact before publishing.
-2. **Deploy Supabase.** Apply migrations and deploy `delete-account`; configure
-   production Auth, catalogue, PIN codes and store settings. Firebase and
-   Razorpay secrets are not required for the first-release binary.
-3. **Deploy Vercel.** Record the final public HTTPS domain and use its `/privacy`
-   and `/delete-account` URLs in both Play Console and the release Dart defines.
-4. **Recover or create the private upload keystore.** If the app/package has
-   ever been registered, use the private key matching
-   `android/koyas-upload-certificate.pem`; creating a different key may prevent
-   updates. For a genuinely new package, create an upload key securely, export
-   its public certificate, then keep both the keystore and passwords outside Git.
-5. Copy `android/key.properties.example` to the ignored
-   `android/key.properties` and replace every placeholder, or set all four
-   `KOYAS_ANDROID_*` environment variables.
-6. Create the dedicated reviewer customer described in `APP_ACCESS.md` and put
-   its credentials only in Play Console.
-7. Build the release AAB using the command in the project README, then run:
-   `tool/verify_android_release.sh build/app/outputs/bundle/release/app-release.aab`.
-   Install the official Bundletool command or set `BUNDLETOOL_JAR` to a local
-   `bundletool-all.jar` so the verifier can inspect the AAB manifest itself.
-8. Install/test the signed release on at least one physical supported Android
-   phone. Verify OTP and review login, catalogue, offer calculation, cart,
-   pickup, delivery, realtime order status, privacy link, deletion with/without
-   an active order, and relaunch after deletion.
-9. Create the Play app, complete the listing from `listing/en-US/`, upload the
-   graphics/screenshots, provide the support contact, and complete App access,
-   Ads, Content rating, Target audience, News apps and Data Safety forms.
-10. Enrol in **Play App Signing** during the first upload and use the private key
-    only as the upload key. Download and archive the Play signing certificate.
-11. Upload to Internal testing first, resolve every pre-launch report issue,
-    then promote the exact tested artifact to production.
+For the Android release with optional push notifications, build with the public
+production configuration and the separate public Firebase configuration.
 
-## Suggested content-rating answers
+```sh
+flutter build appbundle --release \
+  --dart-define-from-file=config/production.json \
+  --dart-define-from-file=config/push-production.json \
+  --dart-define=ENABLE_PLAY_REVIEW_LOGIN=true
+tool/verify_android_release.sh build/app/outputs/bundle/release/app-release.aab
+```
 
-Answer based on the final product catalogue. For the current grocery-only app:
-no violence, sexual content, gambling/simulated gambling, profanity, controlled
-substances, user-generated content, social features or unrestricted web access.
-If alcohol, tobacco or another age-restricted product is ever listed, redo both
-content rating and target-audience declarations before that release.
+Install the official Bundletool executable or point `BUNDLETOOL_JAR` to its
+standalone JAR. The verifier checks the upload certificate, package, version,
+API target, manifest, native 64-bit libraries and 16 KB alignment. Use Play
+App Signing and verify the uploaded bundle in **App bundle explorer**.
 
-## Asset notes
+## Set up App content and the listing
 
-- Store icon: `assets/app-icon-512.png`
-- Feature graphic: `assets/feature-graphic-1024x500.png`
-- Final phone screenshots: `assets/phone/`
-- `assets/account-deletion-flow-540x960.png` is QA evidence and need not be part
-  of the public listing.
+| Play Console item | What to enter or verify |
+| --- | --- |
+| Main store listing | Copy `listing/en-US/`, upload `assets/app-icon-512.png`, `assets/feature-graphic-1024x500.png` and the six images in `assets/phone/`. Check that the screenshots match the submitted app. |
+| Store settings | Add an authorized, monitored public support email. Confirm the store contact and intended countries or regions. |
+| Privacy policy | `https://koya-s-market.faazlance.workers.dev/privacy` |
+| Account deletion | `https://koya-s-market.faazlance.workers.dev/delete-account` |
+| App access | Select restricted access and provide the reusable customer credentials from `APP_ACCESS.md`. |
+| Data safety | Complete from `DATA_SAFETY.md` using the exact bundle and production services. |
+| Ads and advertising ID | Declare based on the final manifest and SDKs. This release is designed for no ads and no advertising ID. |
+| Content rating and audience | Complete the IARC questionnaire against the live catalogue. Declare Shopping and the intended adult audience. |
+| Other declarations | Review all Console prompts, including applicable financial features, health, permissions and developer verification. |
+
+To refresh the phone screenshots from the current UI, run the preview test and
+export the Home, Categories, Detail, Cart, Fulfilment and Profile captures in
+`build/qa/customer-ui/` as 1080 × 1920 JPEGs. The captures use a sample account
+and sample catalogue data.
+
+```sh
+flutter test --dart-define=CAPTURE_PLAY_LISTING=true tool/customer_ui_preview_test.dart
+```
+
+Before submission, open both legal URLs while signed out and verify the current
+policy mentions delivery location and messaging. Test the in-app deletion flow
+and the public support route with disposable accounts. Confirm that staff can
+receive and complete a verified request from a customer who has uninstalled the
+app. Check the updated delivery rule on the same backend the bundle will use.
+
+## Testing tracks
+
+1. Upload the verified AAB to **Internal testing** and install the Play-delivered
+   app on a physical Android phone. Exercise OTP sign-in, reusable reviewer
+   access, catalogue, cart, offers, pickup, delivery inside and outside the
+   radius, map and notification permissions, status alerts, legal links and
+   account deletion.
+2. Check the Play pre-launch report when it runs for the test release. Verify an
+   install on an Android 16 device and a device or emulator using 16 KB memory
+   pages. Review accessibility, stability and device compatibility findings.
+3. If Play Console gates production on a closed test for this personal developer
+   account, keep at least 12 testers opted in continuously for 14 days and apply
+   for production access. Check the Console dashboard for eligibility.
+4. Promote the tested bundle after the backend, reviewer access, listing and
+   Console checks pass. If you rebuild the bundle, test that new artifact.
+
+[Target API](https://support.google.com/googleplay/android-developer/answer/11926878) ·
+[16 KB compatibility](https://developer.android.com/guide/practices/page-sizes) ·
+[Preview assets](https://support.google.com/googleplay/android-developer/answer/9866151) ·
+[App review](https://support.google.com/googleplay/android-developer/answer/9859455) ·
+[Closed testing](https://support.google.com/googleplay/android-developer/answer/14151465)
