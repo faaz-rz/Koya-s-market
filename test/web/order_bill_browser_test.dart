@@ -18,11 +18,12 @@ void main() {
     web.document.body!.appendChild(frame);
     addTearDown(frame.remove);
 
-    final receiptWindow = frame.contentWindow!;
-    final originalOpen = web.window['open'];
-    web.window['open'] =
+    final JSObject browserWindow = web.window;
+    final JSObject receiptWindow = frame.contentWindow!;
+    final originalOpen = browserWindow['open'];
+    browserWindow['open'] =
         ((JSString url, JSString target) => receiptWindow).toJS;
-    addTearDown(() => web.window['open'] = originalOpen);
+    addTearDown(() => browserWindow['open'] = originalOpen);
 
     var printCalls = 0;
     receiptWindow['print'] = (() {
@@ -31,7 +32,7 @@ void main() {
     printOrderBill(billOrder(itemName: 'Long grain rice, family pack'));
     expect(printCalls, 1);
 
-    final document = receiptWindow.document;
+    final document = frame.contentDocument!;
     expect(document.title, 'Koya Stores - Bill KOY12345');
     final bill = document.querySelector('.bill')!;
     expect(bill.textContent, contains('Long grain rice, family pack'));
