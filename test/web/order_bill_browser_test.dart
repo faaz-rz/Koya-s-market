@@ -16,7 +16,7 @@ void main() {
       ..style.cssText =
           'position: fixed; left: -1000px; width: 58mm; border: 0';
     web.document.body!.appendChild(frame);
-    addTearDown(frame.remove);
+    addTearDown(() => frame.remove());
 
     final JSObject browserWindow = web.window;
     final JSObject receiptWindow = frame.contentWindow!;
