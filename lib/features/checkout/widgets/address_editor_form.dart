@@ -3,7 +3,11 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/koyas_button.dart';
 import '../models/checkout_models.dart';
 import '../models/delivery_pin.dart';
+import 'delivery_address_notice.dart';
 import 'delivery_pin_field.dart';
+
+typedef DeliveryCoverageCheck =
+    String? Function({String? pincode, DeliveryPin? pin});
 
 /// Shared by first sign-in, saved addresses and checkout. Location is optional.
 class AddressEditorForm extends StatefulWidget {
@@ -17,6 +21,7 @@ class AddressEditorForm extends StatefulWidget {
     this.makeDefault = false,
     this.showSaveButton = true,
     this.onLocatingChanged,
+    this.checkDeliveryCoverage,
     super.key,
   });
   final ValueChanged<CustomerAddress> onSave;
@@ -25,11 +30,14 @@ class AddressEditorForm extends StatefulWidget {
   final bool saving, makeDefault;
   final bool showSaveButton;
   final ValueChanged<bool>? onLocatingChanged;
+  final DeliveryCoverageCheck? checkDeliveryCoverage;
   @override
   AddressEditorFormState createState() => AddressEditorFormState();
 }
 
 class AddressEditorFormState extends State<AddressEditorForm> {
+  static final _pincodePattern = RegExp(r'^\d{6}$');
+
   final _form = GlobalKey<FormState>();
   final _focus = <Key, FocusNode>{
     for (final name in ['line', 'city', 'pincode', 'name', 'phone', 'label'])
@@ -165,6 +173,8 @@ class AddressEditorFormState extends State<AddressEditorForm> {
             widget.onLocatingChanged?.call(busy);
           },
         ),
+        if (widget.checkDeliveryCoverage?.call(pin: _pin) case final issue?)
+          DeliveryAddressNotice(message: issue),
         if (_pinCleared)
           const Text(
             'Address changed. Capture a new pin at this address if needed.',
@@ -226,7 +236,7 @@ class AddressEditorFormState extends State<AddressEditorForm> {
           onChanged: _addressChanged,
           keyboardType: TextInputType.number,
           textInputAction: TextInputAction.next,
-          validator: (v) => RegExp(r'^\d{6}$').hasMatch(v?.trim() ?? '')
+          validator: (v) => _pincodePattern.hasMatch(v?.trim() ?? '')
               ? null
               : 'Enter a valid 6-digit PIN',
           decoration: const InputDecoration(
@@ -235,6 +245,22 @@ class AddressEditorFormState extends State<AddressEditorForm> {
             errorMaxLines: 2,
           ),
         ),
+        if (widget.checkDeliveryCoverage case final check?)
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _pincode,
+            builder: (context, value, child) {
+              final pincode = value.text.trim();
+              final issue = _pincodePattern.hasMatch(pincode)
+                  ? check(pincode: pincode)
+                  : null;
+              return issue == null
+                  ? const SizedBox.shrink()
+                  : Padding(
+                      padding: const EdgeInsets.only(top: AppSpacing.sm),
+                      child: DeliveryAddressNotice(message: issue),
+                    );
+            },
+          ),
         const SizedBox(height: AppSpacing.md),
         TextFormField(
           controller: _instructions,

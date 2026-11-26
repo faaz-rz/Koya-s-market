@@ -8,7 +8,7 @@ class DeliveryArea {
   static const storeOrigin = DeliveryArea(17.37601003, 78.41978797);
   static const pinRequired = 'Add a delivery pin to check this address.';
   static const outsideRadius =
-      'We deliver within 5 km of Koya Stores. Check your address pin or choose store pickup.';
+      'This location is outside our delivery area. Please choose an address within 5 km of Koya Stores.';
 
   final double latitude;
   final double longitude;

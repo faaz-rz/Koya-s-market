@@ -16,6 +16,7 @@ import '../../store/data/supabase_store_repository.dart';
 import '../../store/providers/store_provider.dart';
 import '../models/checkout_models.dart';
 import '../widgets/checkout_progress.dart';
+import '../widgets/delivery_address_notice.dart';
 import '../widgets/selection_card.dart';
 
 class DeliveryCheckoutScreen extends ConsumerStatefulWidget {
@@ -53,7 +54,8 @@ class _DeliveryCheckoutScreenState
   }
 
   Future<void> _addAddress([CustomerAddress? current]) async {
-    final profile = ref.read(storeProvider).profile;
+    final store = ref.read(storeProvider);
+    final profile = store.profile;
     final address = await showDialog<CustomerAddress>(
       context: context,
       animationStyle: AppMotion.dialogStyle(context),
@@ -61,6 +63,7 @@ class _DeliveryCheckoutScreenState
         address: current,
         initialName: profile?.name ?? '',
         initialPhone: profile?.phone ?? '',
+        checkDeliveryCoverage: store.deliveryCoverageIssue,
       ),
     );
     if (address != null &&
@@ -192,6 +195,8 @@ class _DeliveryCheckoutScreenState
                       ),
                     );
                   }),
+                  if (selectedIssue != null)
+                    DeliveryAddressNotice(message: selectedIssue),
                   if (selectedAddress?.deliveryPin != null)
                     DeliveryPinSummary(pin: selectedAddress!.deliveryPin!),
                   if (selectedAddress != null)
@@ -202,22 +207,6 @@ class _DeliveryCheckoutScreenState
                         selectedAddress.deliveryPin == null
                             ? 'Add a delivery pin'
                             : 'Edit address',
-                      ),
-                    ),
-                  if (selectedIssue != null)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(AppSpacing.md),
-                      decoration: BoxDecoration(
-                        color: AppColors.of(context).errorSoft,
-                        borderRadius: BorderRadius.circular(AppRadii.md),
-                      ),
-                      child: Text(
-                        selectedIssue,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.of(context).error,
-                          fontWeight: FontWeight.w700,
-                        ),
                       ),
                     ),
                   const SizedBox(height: AppSpacing.xxxl),

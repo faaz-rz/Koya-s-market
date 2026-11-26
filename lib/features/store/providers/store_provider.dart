@@ -8,6 +8,7 @@ import '../../../core/utils/transaction_request.dart';
 import '../../cart/models/cart_item.dart';
 import '../../checkout/models/checkout_models.dart';
 import '../../checkout/models/delivery_area.dart';
+import '../../checkout/models/delivery_pin.dart';
 import '../../offers/models/store_offer.dart';
 import '../../orders/models/order.dart';
 import '../../products/models/category.dart';
@@ -106,16 +107,26 @@ class StoreState {
     return null;
   }
 
-  String? deliveryAddressIssue(CustomerAddress address) {
+  String? deliveryCoverageIssue({String? pincode, DeliveryPin? pin}) {
     final area = deliveryArea;
-    if (area != null) return area.issueFor(address.deliveryPin);
+    if (area != null) return pin == null ? null : area.issueFor(pin);
+    if (pincode == null) return null;
     if (serviceablePincodes.isEmpty) {
       return 'Delivery area is currently unavailable. Please try again later.';
     }
-    if (!serviceablePincodes.contains(address.pincode)) {
-      return 'We do not deliver to PIN ${address.pincode} yet. Choose another address.';
+    if (!serviceablePincodes.contains(pincode)) {
+      return 'Delivery is unavailable for PIN code $pincode. Please choose another address.';
     }
-    if (AppEnvironment.hasSupabaseConfig &&
+    return null;
+  }
+
+  String? deliveryAddressIssue(CustomerAddress address) {
+    final issue = deliveryCoverageIssue(
+      pincode: address.pincode,
+      pin: address.deliveryPin,
+    );
+    if (issue != null) return issue;
+    if ((deliveryArea != null || AppEnvironment.hasSupabaseConfig) &&
         address.deliveryPin?.isValid != true) {
       return DeliveryArea.pinRequired;
     }

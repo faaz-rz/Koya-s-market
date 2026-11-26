@@ -10,8 +10,10 @@ import 'package:koyas_supermarket/features/checkout/models/checkout_models.dart'
 import 'package:koyas_supermarket/features/checkout/models/delivery_area.dart';
 import 'package:koyas_supermarket/features/checkout/models/delivery_pin.dart';
 import 'package:koyas_supermarket/features/checkout/screens/delivery_checkout_screen.dart';
+import 'package:koyas_supermarket/features/checkout/services/delivery_address_lookup.dart';
 import 'package:koyas_supermarket/features/checkout/services/delivery_location_service.dart';
 import 'package:koyas_supermarket/features/checkout/widgets/address_editor_dialog.dart';
+import 'package:koyas_supermarket/features/checkout/widgets/delivery_location_picker.dart';
 import 'package:koyas_supermarket/features/store/providers/store_provider.dart';
 
 const deliveryArea = DeliveryArea(17.37601003, 78.41978797);
@@ -24,6 +26,10 @@ DeliveryPin pinAtDistance(double meters) => DeliveryPin(
 );
 
 class DeliveryCheckoutStore extends StoreController {
+  DeliveryCheckoutStore({this.useDeliveryRadius = true});
+
+  final bool useDeliveryRadius;
+
   @override
   StoreState build() {
     CustomerAddress address(String label, [DeliveryPin? pin]) =>
@@ -40,8 +46,8 @@ class DeliveryCheckoutStore extends StoreController {
 
     return super.build().copyWith(
       fulfilmentType: FulfilmentType.delivery,
-      deliveryArea: deliveryArea,
-      serviceablePincodes: const {},
+      deliveryArea: useDeliveryRadius ? deliveryArea : null,
+      serviceablePincodes: useDeliveryRadius ? const {} : const {'500008'},
       selectedAddressId: 'No pin',
       addresses: [
         address('No pin'),
@@ -147,6 +153,78 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text(DeliveryArea.outsideRadius), findsNothing);
     expect(tester.widget<KoyasButton>(payment).onPressed, isNotNull);
+  });
+
+  testWidgets(
+    'address editor warns immediately after confirming an out-of-range pin',
+    (tester) async {
+      var selectedPin = pinAtDistance(5001);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            storeProvider.overrideWith(DeliveryCheckoutStore.new),
+            deliveryLocationPickerProvider.overrideWithValue(
+              (_, _, {required requirePlacement}) async =>
+                  DeliveryLocationSelection(pin: selectedPin),
+            ),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.customer,
+            home: const DeliveryCheckoutScreen(),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Add new'));
+      await tester.pumpAndSettle();
+      final movePin = find.byKey(const Key('place-delivery-pin-on-map'));
+      await tester.tap(movePin);
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          'This location is outside our delivery area. Please choose an address within 5 km of Koya Stores.',
+        ),
+        findsOneWidget,
+      );
+
+      selectedPin = pinAtDistance(5000);
+      await tester.tap(movePin);
+      await tester.pumpAndSettle();
+      expect(find.text(DeliveryArea.outsideRadius), findsNothing);
+    },
+  );
+
+  testWidgets('address editor warns after entering an unsupported PIN code', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          storeProvider.overrideWith(
+            () => DeliveryCheckoutStore(useDeliveryRadius: false),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.customer,
+          home: const DeliveryCheckoutScreen(),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Add new'));
+    await tester.pumpAndSettle();
+    final pincode = find.byKey(const Key('address-pincode'));
+    final warning = find.textContaining('Delivery is unavailable for PIN code');
+    await tester.ensureVisible(pincode);
+    await tester.enterText(pincode, '99999');
+    await tester.pump();
+    expect(warning, findsNothing);
+
+    await tester.enterText(pincode, '999999');
+    await tester.pump();
+    expect(warning, findsOneWidget);
+
+    await tester.enterText(pincode, '500008');
+    await tester.pump();
+    expect(warning, findsNothing);
   });
 
   test(
