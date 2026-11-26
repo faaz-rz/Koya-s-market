@@ -2681,7 +2681,18 @@ class _MetricCard extends StatelessWidget {
   }
 }
 
-class _AdminOrderRow extends StatelessWidget {
+String? _tryPrintOrderBill(WidgetRef ref, CustomerOrder order) {
+  try {
+    ref.read(orderBillPrinterProvider)(order);
+    return null;
+  } on StateError catch (error) {
+    return error.message;
+  } catch (_) {
+    return 'The bill could not be opened. Please try again.';
+  }
+}
+
+class _AdminOrderRow extends ConsumerWidget {
   const _AdminOrderRow({
     required this.order,
     required this.canAdvance,
@@ -2735,7 +2746,7 @@ class _AdminOrderRow extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return KoyasSurface(
       key: Key('admin-order-${order.id}'),
       child: Wrap(
@@ -2844,6 +2855,19 @@ class _AdminOrderRow extends StatelessWidget {
             ),
             icon: const Icon(Icons.visibility_outlined, size: 18),
             label: const Text('View details'),
+          ),
+          OutlinedButton.icon(
+            key: Key('admin-print-order-${order.id}'),
+            onPressed: () {
+              final message = _tryPrintOrderBill(ref, order);
+              if (message != null) {
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text(message)));
+              }
+            },
+            icon: const Icon(Icons.print_outlined, size: 18),
+            label: const Text('Print bill'),
           ),
           if (_canRecordPayment)
             FilledButton.icon(
@@ -3148,16 +3172,8 @@ class _AdminOrderDetailsDialogState
                   FilledButton.icon(
                     key: Key('admin-print-bill-${order.id}'),
                     onPressed: () {
-                      setState(() => _printError = null);
-                      try {
-                        ref.read(orderBillPrinterProvider)(order);
-                      } catch (error) {
-                        setState(
-                          () => _printError = error is StateError
-                              ? error.message
-                              : 'The bill could not be opened. Please try again.',
-                        );
-                      }
+                      final message = _tryPrintOrderBill(ref, order);
+                      setState(() => _printError = message);
                     },
                     icon: const Icon(Icons.print_outlined),
                     label: const Text('Print bill'),

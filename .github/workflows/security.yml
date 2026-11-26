@@ -24,7 +24,7 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
-      - run: flutter test --platform chrome test/web/image_optimization_browser_test.dart
+      - run: flutter test --platform chrome test/web
       - name: Confirm an unconfigured release is rejected
         run: |
           if flutter build apk --release > release-gate.log 2>&1; then

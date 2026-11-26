@@ -756,6 +756,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    final quickPrint = find.byKey(const Key('admin-print-order-KOY34621'));
+    await tester.ensureVisible(quickPrint);
+    await tester.tap(quickPrint);
+    await tester.pumpAndSettle();
+    expect(detailsDialog, findsNothing);
+    expect(printedOrders, [originalOrder, originalOrder]);
+
     final markPaid = find.byKey(const Key('admin-mark-paid-KOY34619'));
     await tester.ensureVisible(markPaid);
     expect(find.byKey(const Key('admin-advance-KOY34619')), findsNothing);

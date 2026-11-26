@@ -109,12 +109,11 @@ flutter run -d chrome -t lib/admin_main.dart
 Staff demo: enter an email address and select **Open staff dashboard demo**.
 The customer app contains no admin route or admin-dashboard shortcut.
 
-To print an order, open **Orders → View details → Print bill**. The browser
-opens a black-and-white receipt and its print dialog, where staff can choose
-a printer or **Save as PDF**. The bill fits an 80 mm receipt roll and can also
-be printed on A4. Choose the matching paper size and turn off browser headers
-and footers. If pop-ups are blocked, allow them for the staff website and try
-again. Printing does not change the order or record a payment.
+In **Orders**, select **Print bill** next to an order. The browser opens an
+itemized receipt and its print dialog. Select your printer and match its paper
+size (58 mm, 80 mm or A4), or choose **Save as PDF**. Turn off browser headers
+and footers. If the browser blocks the receipt window, allow pop-ups for the
+staff website and try again. Use **Mark payment received** to record payment.
 
 For a physical stock count, find the exact product and pack size, type its
 **Total stock**, then select **Save**. Enter `0` to remove it from sale, or enter
