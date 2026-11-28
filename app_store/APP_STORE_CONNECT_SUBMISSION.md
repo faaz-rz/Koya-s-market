@@ -31,8 +31,7 @@ Future uploads for version `1.1.5` must use a build number greater than `9`.
 - Debug-only Bonjour/local-network descriptions are excluded from Release.
 - The Release Info.plist declares that the app does not use non-exempt
   encryption.
-- Release builds require production Supabase values, public legal URLs and a
-  reusable reviewer-login path.
+- Release builds require production Supabase values and public legal URLs.
 - The first Release is iPhone-only and portrait-only, matching its tested UI and
   screenshot set.
 - The launch screen uses Koya Stores branding instead of a blank image.
@@ -56,8 +55,7 @@ Future uploads for version `1.1.5` must use a build number greater than `9`.
    TestFlight feedback, the public support page and the privacy policy.
 6. Deploy Supabase and Vercel. Replace every `YOUR_*` URL/key in build commands
    with production values.
-7. Create the dedicated ordinary customer reviewer account described in
-   `APP_REVIEW_ACCESS.md`. Never make this account an administrator.
+7. Verify reviewer access as described in `APP_REVIEW_ACCESS.md`.
 8. Complete App Privacy using `APP_PRIVACY.md`; use `/privacy` as the Privacy
    Policy URL and `/delete-account` as the Privacy Choices URL.
 9. Complete the age-rating questionnaire honestly. For the current grocery-only
@@ -70,7 +68,7 @@ Future uploads for version `1.1.5` must use a build number greater than `9`.
 12. Upload with Xcode Organizer, allow App Store Connect to process the build,
     and resolve every validation warning before TestFlight distribution.
 13. Install the processed build through TestFlight on a physical iPhone. Test
-    reusable review login, OTP login, catalogue, offers, cart, pickup, delivery,
+    reviewer access, OTP sign-in, catalogue, offers, cart, pickup, delivery,
     order lifecycle, pay-at-handover reconciliation, privacy links and account
     deletion.
 14. Upload one to ten production screenshots from `app_store/assets/iphone-6.9/`,
@@ -85,15 +83,14 @@ Future uploads for version `1.1.5` must use a build number greater than `9`.
 Koya Stores is a local supermarket ordering app for store pickup and manually
 arranged delivery in Hyderabad. The first release does not collect payment in
 the app. Customers pay by cash or UPI when collecting the order or when delivery
-arrives. The reviewer account uses the **App review access** button on the login
-screen and does not require access to an OTP inbox. Account deletion is under
-Profile → Privacy and account → Delete account. The public privacy, support and
+arrives. Customers sign in using a six-digit email code. Account deletion is under
+Profile → Account → Delete account. The public privacy, support and
 deletion URLs are provided in App Store Connect.
 
 ## Final physical-device flow
 
 - Fresh install and relaunch
-- Reusable reviewer login and ordinary email OTP login
+- Reviewer access and email OTP sign-in
 - Profile name and phone editing
 - Browse/search/filter products and open product variants
 - Apply a percentage/fixed offer and a minimum-buy free-product offer

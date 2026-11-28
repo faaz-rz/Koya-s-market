@@ -120,25 +120,18 @@ Future<LoginFixture> staffFixture(WidgetTester tester, {bool isAdmin = true}) =>
 
 void main() {
   testWidgets(
-    'staff password still requires an email code before loading orders',
+    'an existing staff session without OTP must verify email before loading orders',
     (tester) async {
       final fixture = await staffFixture(tester);
+      await tester.runAsync(
+        () => fixture.client.auth.signInWithPassword(
+          email: 'alice@example.test',
+          password: 'legacy-session-test-value',
+        ),
+      );
       final auth = StaffAuth(fixture);
       await openStaff(tester, fixture, auth);
-      await tester.enterText(
-        find.byKey(const Key('admin-email')),
-        'alice@example.test',
-      );
-      await tap(tester, 'staff-sign-in-method');
-      await tester.enterText(
-        find.descendant(
-          of: find.byKey(const Key('admin-password')),
-          matching: find.byType(TextField),
-        ),
-        'sample-long-password',
-      );
-      await tap(tester, 'admin-login');
-      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('admin-password')), findsNothing);
       expect(fixture.calls('/auth/v1/token'), 1);
       expect(fixture.calls('/auth/v1/otp'), 1);
       expect(fixture.calls('/rest/v1/rpc/sync_store'), 0);

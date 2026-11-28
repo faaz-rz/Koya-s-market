@@ -1,44 +1,14 @@
 # Google Play reviewer access
 
-Google reviewers must receive a stable, reusable account; the normal one-time
-email code is unsuitable because reviewers cannot depend on access to a store
-operator's inbox.
+Koya Stores uses six-digit email codes for customer sign-in. Google Play
+requires reviewers to have reusable access without relying on a one-time code
+sent to the store's inbox. The reviewer path for the email-code-only build
+remains to be verified before submission.
 
-## Production setup
+Provide and test reusable access in Play Console → App content → App access.
+A review account must have ordinary customer access. Use a serviceable test
+address and verify that reviewers can browse, exercise pickup and delivery,
+and test account settings. Keep live staff credentials out of submission
+instructions.
 
-1. In the production Supabase project, create one ordinary customer Auth user
-   with email/password credentials. Do not add this user to `public.admins`.
-2. Give the account a normal customer profile and a saved test delivery address
-   with a valid pin inside the store's service radius. The app prompts new
-   customers without a saved address to set one up before browsing. Verify the
-   reviewer can open the Home screen from a fresh install and browse from
-   outside the delivery area. Keep the account free of active orders before
-   submission and tell staff how to identify and handle review orders.
-3. Store its random password in the team's password manager. Never add it to
-   source control, Dart defines, screenshots or release notes.
-4. Build with `--dart-define=ENABLE_PLAY_REVIEW_LOGIN=true`. Android release
-   builds intentionally fail if this flag is missing.
-5. In Play Console → App content → App access, select that access is restricted
-   and add the instructions below with the real credentials.
-
-## Text to paste into Play Console
-
-**Access name:** Koya Stores customer review account
-
-**Username/email:** `[enter the dedicated reviewer email in Play Console only]`
-
-**Password:** `[enter the dedicated reviewer password in Play Console only]`
-
-**Instructions:**
-
-1. Open Koya Stores.
-2. On the sign-in screen, tap **App review access** below the OTP button.
-3. Enter the reusable email and password supplied above.
-4. Tap **Sign in for review**.
-5. The account opens the customer Home screen using its saved address. Pickup
-   is available without location permission. To review delivery, select the
-   saved test address and choose an available slot.
-
-If Google requests access to staff-only features, create a separate least-
-privilege review process rather than promoting this customer account. Never
-publish production administrator credentials.
+[Google Play sign-in requirements](https://support.google.com/googleplay/android-developer/answer/15748846)

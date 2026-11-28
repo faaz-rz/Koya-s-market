@@ -63,8 +63,6 @@ if (isReleaseBuildRequested) {
     val supabaseAnonKey = flutterDartDefines["SUPABASE_ANON_KEY"] ?: ""
     val privacyPolicyUrl = flutterDartDefines["PRIVACY_POLICY_URL"] ?: ""
     val accountDeletionUrl = flutterDartDefines["ACCOUNT_DELETION_URL"] ?: ""
-    val playReviewLoginEnabled =
-        flutterDartDefines["ENABLE_PLAY_REVIEW_LOGIN"]?.equals("true", ignoreCase = true) == true
     if (!supabaseUrl.startsWith("https://") || supabaseAnonKey.isBlank()) {
         throw GradleException(
             "Release backend configuration is required. Pass HTTPS SUPABASE_URL and SUPABASE_ANON_KEY with --dart-define.",
@@ -75,11 +73,7 @@ if (isReleaseBuildRequested) {
             "Release legal URLs are required. Pass HTTPS PRIVACY_POLICY_URL and ACCOUNT_DELETION_URL with --dart-define.",
         )
     }
-    if (!playReviewLoginEnabled) {
-        throw GradleException(
-            "Reusable Google Play review access is required. Pass --dart-define=ENABLE_PLAY_REVIEW_LOGIN=true.",
-        )
-    }
+
 }
 
 android {

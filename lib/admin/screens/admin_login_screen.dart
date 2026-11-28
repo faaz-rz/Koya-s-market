@@ -14,8 +14,6 @@ import '../../core/widgets/koyas_button.dart';
 import '../../core/widgets/koyas_logo.dart';
 import '../../features/auth/data/auth_repository.dart';
 import '../../features/auth/data/otp_send_limiter.dart';
-import '../../features/auth/widgets/account_password_field.dart';
-import '../../features/auth/widgets/set_password_dialog.dart';
 import '../../features/store/data/supabase_store_repository.dart';
 import '../../features/store/providers/store_provider.dart';
 
@@ -42,12 +40,9 @@ class AdminLoginScreen extends ConsumerStatefulWidget {
 class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
   final _emailController = TextEditingController();
   final _otpController = TextEditingController();
-  final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   _AdminLoginStep _step = _AdminLoginStep.email;
   bool _loading = false;
-  bool _usePassword = false;
-  bool _setPassword = false;
   bool _messageIsError = false;
   String? _message;
   Timer? _resendTimer;
@@ -86,7 +81,6 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
     _resendTimer?.cancel();
     _emailController.dispose();
     _otpController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
@@ -133,17 +127,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
     try {
       switch (_step) {
         case _AdminLoginStep.email:
-          if (_usePassword) {
-            final password = _passwordController.text;
-            _passwordController.clear();
-            await auth.signInWithPassword(
-              email: _emailController.text,
-              password: password,
-            );
-            await _finishSignIn(auth);
-          } else {
-            await _requestCode(auth, shouldCreateUser: true);
-          }
+          await _requestCode(auth, shouldCreateUser: true);
         case _AdminLoginStep.emailOtp:
           await auth.verifyEmailOtp(
             email: _emailController.text,
@@ -196,18 +180,6 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
       }
       await _requestCode(auth, shouldCreateUser: false);
       return;
-    }
-    if (_setPassword) {
-      _setPassword = false;
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => SetPasswordDialog(auth: auth, userId: userId),
-      );
-    }
-    if (!mounted) return;
-    if (auth.currentUser?.id != userId || !auth.hasEmailVerification) {
-      throw const AuthException('Your session changed. Sign in again.');
     }
     await _openDashboard(auth);
   }
@@ -295,14 +267,11 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
       ref.read(storeProvider.notifier).logout();
       _emailController.clear();
       _otpController.clear();
-      _passwordController.clear();
       _resendTimer?.cancel();
       _resendSeconds = 0;
       if (mounted) {
         setState(() {
           _step = _AdminLoginStep.email;
-          _usePassword = false;
-          _setPassword = false;
           _message = null;
           _messageIsError = false;
         });
@@ -326,24 +295,9 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
     return switch (_step) {
       _AdminLoginStep.email when _auth.currentUser != null =>
         'Send verification code',
-      _AdminLoginStep.email when _usePassword => 'Sign in with password',
-      _AdminLoginStep.email when _setPassword => 'Send code to set password',
       _AdminLoginStep.email => 'Send secure code',
       _AdminLoginStep.emailOtp => 'Verify email',
     };
-  }
-
-  void _changeSignInMethod({
-    bool usePassword = false,
-    bool setPassword = false,
-  }) {
-    setState(() {
-      _usePassword = usePassword;
-      _setPassword = setPassword;
-      _passwordController.clear();
-      _message = null;
-      _messageIsError = false;
-    });
   }
 
   @override
@@ -416,20 +370,6 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                             return null;
                           },
                         ),
-                        if (configured &&
-                            _usePassword &&
-                            _step == _AdminLoginStep.email &&
-                            _auth.currentUser == null) ...[
-                          const SizedBox(height: AppSpacing.lg),
-                          AccountPasswordField(
-                            key: const Key('admin-password'),
-                            controller: _passwordController,
-                            enabled: !_loading,
-                            validator: (value) => value?.isNotEmpty == true
-                                ? null
-                                : 'Enter your password',
-                          ),
-                        ],
                         if (_step == _AdminLoginStep.emailOtp) ...[
                           const SizedBox(height: AppSpacing.lg),
                           TextFormField(
@@ -444,7 +384,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                             autofillHints: const [AutofillHints.oneTimeCode],
                             decoration: InputDecoration(
                               labelText: 'Email verification code',
-                              prefixIcon: const Icon(Icons.password_rounded),
+                              prefixIcon: const Icon(Icons.pin_outlined),
                             ),
                             validator: (value) =>
                                 RegExp(r'^\d{6}$').hasMatch(value?.trim() ?? '')
@@ -478,34 +418,6 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                               ? _continue
                               : null,
                         ),
-                        if (configured &&
-                            _step == _AdminLoginStep.email &&
-                            _auth.currentUser == null) ...[
-                          TextButton(
-                            key: const Key('staff-sign-in-method'),
-                            onPressed: _loading
-                                ? null
-                                : () => _changeSignInMethod(
-                                    usePassword: !_usePassword,
-                                  ),
-                            child: Text(
-                              _usePassword
-                                  ? 'Use verification code'
-                                  : 'Use password',
-                            ),
-                          ),
-                          if (_usePassword)
-                            TextButton(
-                              key: const Key('staff-set-password'),
-                              onPressed: _loading
-                                  ? null
-                                  : () =>
-                                        _changeSignInMethod(setPassword: true),
-                              child: const Text(
-                                'Set or reset password with email',
-                              ),
-                            ),
-                        ],
                         if (_step == _AdminLoginStep.emailOtp)
                           TextButton(
                             key: const Key('admin-resend-code'),
@@ -540,7 +452,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                             Expanded(
                               child: Text(
                                 configured
-                                    ? 'Staff access requires a code from your approved email, including when you sign in with a password.'
+                                    ? 'Staff access requires a code from your approved email.'
                                     : AppEnvironment.allowAdminDemo
                                     ? 'Demo mode uses sample data and cannot change the live store.'
                                     : 'This release is locked because Supabase production configuration is missing.',

@@ -47,7 +47,6 @@ void main() {
       expect(wrapper, contains('gradle-9.5.0-all.zip'));
       expect(gradle, contains('Release signing is required'));
       expect(gradle, contains('Release legal URLs are required'));
-      expect(gradle, contains('ENABLE_PLAY_REVIEW_LOGIN'));
       expect(
         rootGradle,
         contains('"androidx.test:runner:1.2+" -> useVersion("1.2.0")'),
@@ -217,21 +216,23 @@ void main() {
     expect(dialog, contains("Key('delete-account-otp')"));
   });
 
-  test('review credentials are entered at runtime and never embedded', () {
-    final login = File(
+  test('customer and staff sign-in screens expose email codes only', () {
+    final customer = File(
       'lib/features/auth/screens/login_screen.dart',
     ).readAsStringSync();
-    final access = File('play_store/APP_ACCESS.md').readAsStringSync();
+    final staff = File(
+      'lib/admin/screens/admin_login_screen.dart',
+    ).readAsStringSync();
 
-    expect(login, contains("Key('play-review-login')"));
-    expect(login, contains("Key('login-privacy-policy')"));
-    expect(login, contains('signInWithPassword'));
-    expect(login, contains("Key('play-review-email')"));
-    expect(login, contains("Key('play-review-password')"));
-    expect(login, isNot(contains('reviewer@koyas')));
-    expect(access, contains('Play Console only'));
-    expect(access, contains("password in the team's password manager"));
-    expect(access, contains('source control, Dart defines'));
+    expect(customer, contains("Key('login-otp')"));
+    expect(customer, contains("Key('login-privacy-policy')"));
+    expect(staff, contains("Key('admin-otp')"));
+    for (final screen in [customer, staff]) {
+      expect(screen, contains('verifyEmailOtp'));
+      expect(screen, isNot(contains('signInWithPassword')));
+      expect(screen, isNot(contains('SetPasswordDialog')));
+      expect(screen, isNot(contains('App review access')));
+    }
   });
 }
 

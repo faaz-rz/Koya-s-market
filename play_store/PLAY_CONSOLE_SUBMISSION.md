@@ -22,7 +22,7 @@
 | Hosted email | Staging delivered a six-digit email code. Verify that the Play-delivered app can use a code to sign in against the backend configured in the bundle. |
 | Hosted checkout | Staging lacks `place_order_v2` and `sync_store`. The production backend has those RPCs and still needs migration `20261121171338_delivery_radius.sql` for server-side 5 km enforcement. Verify checkout on the release schema before launch. |
 | Public pages | Privacy, deletion and support return HTTP 200 without signing in. The live privacy and deletion pages still serve older text. Deploy the current `web/privacy.html` and `web/delete-account.html`, then confirm the map disclosures and test one external deletion request with staff. |
-| Play review and device testing | Confirm the reusable reviewer login, install the signed build from Play on a physical Android device, and check the Console's testing requirements and pre-launch report. |
+| Play review and device testing | Verify reusable reviewer access for email-code sign-in, install the signed build from Play on a physical Android device, and check the Console's testing requirements and pre-launch report. |
 
 Keep the application ID for all Google Play releases. Check Play Console for
 the highest version code ever uploaded before building. Use the source version
@@ -50,8 +50,7 @@ production configuration and the separate public Firebase configuration.
 ```sh
 flutter build appbundle --release \
   --dart-define-from-file=config/production.json \
-  --dart-define-from-file=config/push-production.json \
-  --dart-define=ENABLE_PLAY_REVIEW_LOGIN=true
+  --dart-define-from-file=config/push-production.json
 tool/verify_android_release.sh build/app/outputs/bundle/release/app-release.aab
 ```
 

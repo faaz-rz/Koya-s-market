@@ -34,9 +34,6 @@ abstract final class AppEnvironment {
   /// release. Reintroducing it requires a separately audited payment SDK,
   /// privacy declarations, merchant configuration, and end-to-end testing.
   static const enableRazorpayPayments = false;
-  static const enablePlayReviewLogin = bool.fromEnvironment(
-    'ENABLE_PLAY_REVIEW_LOGIN',
-  );
   static const enableAdminDemo = bool.fromEnvironment('ENABLE_ADMIN_DEMO');
 
   static bool get hasSupabaseConfig =>

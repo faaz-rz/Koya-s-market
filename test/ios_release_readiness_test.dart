@@ -147,8 +147,8 @@ void main() {
     expect(File('web/privacy.html').existsSync(), isTrue);
     expect(File('web/delete-account.html').existsSync(), isTrue);
     expect(File('web/support.html').existsSync(), isTrue);
-    expect(reviewAccess, contains('App Store Connect only'));
-    expect(reviewAccess, contains('ordinary Supabase Auth customer'));
+    expect(reviewAccess, contains('App Store Connect'));
+    expect(reviewAccess, contains('using a six-digit email code'));
     expect(verifier, contains('PrivacyInfo.xcprivacy'));
     expect(verifier, contains('ALLOW_UNSIGNED_IOS_VERIFY'));
   });
@@ -176,7 +176,6 @@ void main() {
       'SUPABASE_ANON_KEY': 'public-release-validation-key',
       'PRIVACY_POLICY_URL': 'https://release-check.test/privacy',
       'ACCOUNT_DELETION_URL': 'https://release-check.test/delete-account',
-      'ENABLE_PLAY_REVIEW_LOGIN': 'true',
     };
     expect(validate(required).exitCode, 0);
 
@@ -189,7 +188,10 @@ void main() {
 
     final push = validate({...required, 'ENABLE_PUSH_NOTIFICATIONS': 'true'});
     expect(push.exitCode, isNot(0));
-    expect(push.stderr.toString(), contains('Push configuration is incomplete'));
+    expect(
+      push.stderr.toString(),
+      contains('Push configuration is incomplete'),
+    );
 
     final payment = validate({...required, 'ENABLE_RAZORPAY_PAYMENTS': 'true'});
     expect(payment.exitCode, isNot(0));

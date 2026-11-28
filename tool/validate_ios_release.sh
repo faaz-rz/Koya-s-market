@@ -28,7 +28,6 @@ supabase_url=""
 supabase_anon_key=""
 privacy_policy_url=""
 account_deletion_url=""
-review_login=""
 push_notifications=""
 razorpay_payments=""
 firebase_project=""
@@ -46,7 +45,6 @@ if [[ -n "${DART_DEFINES:-}" ]]; then
       SUPABASE_ANON_KEY=*) supabase_anon_key="${decoded_define#SUPABASE_ANON_KEY=}" ;;
       PRIVACY_POLICY_URL=*) privacy_policy_url="${decoded_define#PRIVACY_POLICY_URL=}" ;;
       ACCOUNT_DELETION_URL=*) account_deletion_url="${decoded_define#ACCOUNT_DELETION_URL=}" ;;
-      ENABLE_PLAY_REVIEW_LOGIN=*) review_login="${decoded_define#ENABLE_PLAY_REVIEW_LOGIN=}" ;;
       ENABLE_PUSH_NOTIFICATIONS=*) push_notifications="${decoded_define#ENABLE_PUSH_NOTIFICATIONS=}" ;;
       ENABLE_RAZORPAY_PAYMENTS=*) razorpay_payments="${decoded_define#ENABLE_RAZORPAY_PAYMENTS=}" ;;
       FIREBASE_PROJECT_ID=*) firebase_project="${decoded_define#FIREBASE_PROJECT_ID=}" ;;
@@ -70,10 +68,6 @@ fi
 if [[ "$account_deletion_url" != https://* ]] || is_placeholder "$account_deletion_url"; then
   missing+=("ACCOUNT_DELETION_URL (production HTTPS URL)")
 fi
-if [[ "$(lowercase "$review_login")" != "true" ]]; then
-  missing+=("ENABLE_PLAY_REVIEW_LOGIN=true")
-fi
-
 if (( ${#missing[@]} > 0 )); then
   missing_list=""
   for missing_value in "${missing[@]}"; do

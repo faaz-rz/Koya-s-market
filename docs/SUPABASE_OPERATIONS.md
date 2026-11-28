@@ -65,11 +65,8 @@ and save these hosted settings:
 
 These exact production paths are also recorded in `supabase/config.toml`.
 Editing that file or deploying SQL does not change the hosted Auth URL settings.
-Customers can sign in with a password or a typed email code. **Set or reset
-password with email** verifies the address before accepting a new password.
-Use a minimum length of 15 and enable Secure password change in hosted Auth.
-Keep double confirmation for email changes and Phone/SMS sign-in disabled.
-See [Supabase password security](https://supabase.com/docs/guides/auth/password-security).
+Customers sign in with a six-digit email code. Keep double confirmation for
+email changes and Phone/SMS sign-in disabled.
 
 Test a first signup, returning login, resend and expired code using an address
 outside your Supabase team. Complete one disposable customer's deletion with no
@@ -83,11 +80,10 @@ The first staff email supplied for this deployment is preapproved in the private
 staff-email approvals table. Enter it on **Staff sign in** and verify its email code. Verification consumes
 the approval and creates the staff role. Every privileged database action checks
 that this role is still active and the signed session records code verification.
-A password can start staff sign-in, which then requires a code from the approved
-email. Apply the staff authorization migration before deploying the new sign-in
-screens. Verify that password-only staff sessions cannot read other customers'
-orders or make staff changes before rollout. The private
-approval table cannot be read or changed by customers.
+The staff authorization migration enforces email-code verification on database
+actions. Verify the policy with an approved OTP session and a session without
+OTP in staging before rollout. Customers cannot read the private approval table
+or change who has staff access.
 
 Staff can search the order queue by bill reference, customer order number,
 customer or recipient name, or phone. The search uses the existing protected

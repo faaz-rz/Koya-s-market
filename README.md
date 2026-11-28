@@ -350,18 +350,16 @@ certificate is in `android/koyas-upload-certificate.pem`; keep the corresponding
 private keystore and password backed up securely before the first Play Console
 upload because future updates must use the same upload identity.
 
-Build and verify the signed bundle only after supplying the public Supabase
-values and the deployed legal-page URLs. The review-login flag exposes a normal
-email/password sign-in form for the dedicated non-staff account whose credentials
-are supplied privately in Play Console; no credential is embedded in the app.
+Build and verify the signed bundle after configuring the production Supabase
+values and legal-page URLs. Confirm reviewer access for the email-code app
+before submitting. See [Google Play reviewer access](play_store/APP_ACCESS.md).
 
 ```sh
 flutter build appbundle --release \
   --dart-define=SUPABASE_URL=https://YOUR_PROJECT.supabase.co \
   --dart-define=SUPABASE_ANON_KEY=YOUR_PUBLISHABLE_KEY \
   --dart-define=PRIVACY_POLICY_URL=https://YOUR_PUBLIC_DOMAIN/privacy \
-  --dart-define=ACCOUNT_DELETION_URL=https://YOUR_PUBLIC_DOMAIN/delete-account \
-  --dart-define=ENABLE_PLAY_REVIEW_LOGIN=true
+  --dart-define=ACCOUNT_DELETION_URL=https://YOUR_PUBLIC_DOMAIN/delete-account
 tool/verify_android_release.sh build/app/outputs/bundle/release/app-release.aab
 ```
 
@@ -418,8 +416,7 @@ flutter build ipa --release \
   --dart-define=SUPABASE_URL=https://YOUR_PROJECT.supabase.co \
   --dart-define=SUPABASE_ANON_KEY=YOUR_PUBLISHABLE_KEY \
   --dart-define=PRIVACY_POLICY_URL=https://YOUR_PUBLIC_DOMAIN/privacy \
-  --dart-define=ACCOUNT_DELETION_URL=https://YOUR_PUBLIC_DOMAIN/delete-account \
-  --dart-define=ENABLE_PLAY_REVIEW_LOGIN=true
+  --dart-define=ACCOUNT_DELETION_URL=https://YOUR_PUBLIC_DOMAIN/delete-account
 ```
 
 Use `flutter run --profile` for a physical-device demo before the production

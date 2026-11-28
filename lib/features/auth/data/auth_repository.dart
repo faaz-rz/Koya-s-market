@@ -97,36 +97,6 @@ class AuthRepository {
     return user;
   }
 
-  Future<User> signInWithPassword({
-    required String email,
-    required String password,
-  }) async {
-    final response = await _client.auth
-        .signInWithPassword(
-          email: email.trim().toLowerCase(),
-          password: password,
-        )
-        .timeout(requestTimeout);
-    final user = response.user;
-    if (user == null) throw const AuthException('Unable to sign in.');
-    return user;
-  }
-
-  Future<void> setPasswordAfterVerification({
-    required String userId,
-    required String password,
-  }) async {
-    if (currentUser?.id != userId || !hasEmailVerification) {
-      throw const AuthException('Verify your email again.');
-    }
-    final result = await _client.auth
-        .updateUser(UserAttributes(password: password))
-        .timeout(requestTimeout);
-    if (result.user?.id != userId || currentUser?.id != userId) {
-      throw const AuthException('Verify your email again.');
-    }
-  }
-
   Future<bool> isApprovedAdmin() async {
     final user = currentUser;
     if (user == null) return false;
