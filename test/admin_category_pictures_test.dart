@@ -14,6 +14,14 @@ void main() {
         'admin category pictures, filtering and editor at $width / $scale',
         (tester) async {
           tester.view.physicalSize = Size(width, 1000);
+          if (width == 1400) {
+            tester.view.physicalSize = const Size(1400, 640);
+            tester.platformDispatcher.platformBrightnessTestValue =
+                Brightness.dark;
+            addTearDown(
+              tester.platformDispatcher.clearPlatformBrightnessTestValue,
+            );
+          }
           tester.view.devicePixelRatio = 1;
           tester.platformDispatcher.textScaleFactorTestValue = scale;
           addTearDown(tester.view.resetPhysicalSize);
@@ -35,7 +43,17 @@ void main() {
           await tester.tap(find.byKey(const Key('admin-nav-analytics')));
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull, reason: 'Analytics metrics');
-          await tester.tap(find.byKey(const Key('admin-nav-inventory')));
+          for (final section in ['orders', 'pricing']) {
+            final destination = find.byKey(Key('admin-nav-$section'));
+            await tester.ensureVisible(destination);
+            await tester.tap(destination);
+            await tester.pumpAndSettle();
+            expect(tester.takeException(), isNull, reason: section);
+          }
+          final inventoryTab = find.byKey(const Key('admin-nav-inventory'));
+          await tester.ensureVisible(inventoryTab);
+          await tester.pumpAndSettle();
+          await tester.tap(inventoryTab);
           await tester.pumpAndSettle();
 
           final container = ProviderScope.containerOf(
@@ -45,9 +63,15 @@ void main() {
           final picker = find.byKey(const Key('admin-category-picker'));
           await tester.scrollUntilVisible(
             picker,
-            400,
-            scrollable: find.byType(Scrollable).first,
+            350,
+            scrollable: find
+                .descendant(
+                  of: find.byType(CustomScrollView),
+                  matching: find.byType(Scrollable),
+                )
+                .first,
           );
+          await tester.pumpAndSettle();
           expect(
             find.descendant(of: picker, matching: find.byType(CategoryPicture)),
             findsNWidgets(state.categories.length),
@@ -93,13 +117,23 @@ void main() {
             find.widgetWithText(DropdownButtonFormField<String>, category.name),
             findsOneWidget,
           );
-          final selectedPicture = tester.widget<CategoryPicture>(
-            find.descendant(
-              of: dropdown,
-              matching: find.byType(CategoryPicture),
-            ),
+          final picture = find.descendant(
+            of: dropdown,
+            matching: find.byType(CategoryPicture),
           );
-          expect(selectedPicture.visualKey, category.visualKey);
+          final label = find.descendant(
+            of: dropdown,
+            matching: find.text(category.name),
+          );
+          expect(
+            tester.widget<CategoryPicture>(picture).visualKey,
+            category.visualKey,
+          );
+          final fieldRect = tester.getRect(dropdown);
+          final labelRect = tester.getRect(label);
+          expect(tester.getSize(picture), const Size.square(32));
+          expect(labelRect.top, greaterThanOrEqualTo(fieldRect.top));
+          expect(labelRect.bottom, lessThanOrEqualTo(fieldRect.bottom));
           await tester.tap(dropdown);
           await tester.pumpAndSettle();
           final nextCategory = state.categories.firstWhere(
