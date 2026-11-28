@@ -250,7 +250,9 @@ void main() {
     expect(find.byKey(const Key('save-account-password')), findsNothing);
     await tester.enterText(find.byKey(const Key('login-otp')), '123456');
     await tap(tester, 'customer-login');
-    await tester.pumpAndSettle();
+    // The sign-in loader keeps animating behind the password dialog.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     for (final key in ['new-account-password', 'confirm-account-password']) {
       await tester.enterText(
         find.descendant(
