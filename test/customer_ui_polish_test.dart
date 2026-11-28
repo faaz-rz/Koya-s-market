@@ -77,7 +77,7 @@ void main() {
           );
           expect(
             find.text(
-              'Pickup from Koya Stores or get your order delivered today.',
+              'Shop for delivery or pickup',
             ),
             findsOneWidget,
           );
@@ -208,7 +208,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull, reason: '/home');
         await tester.scrollUntilVisible(
-          find.text('SHOP YOUR WAY'),
+          find.text('Everyday essentials'),
           160,
           scrollable: find
               .descendant(
@@ -276,6 +276,10 @@ void main() {
     await tester.drag(scroll, const Offset(0, -1100));
     await tester.pumpAndSettle();
     final built = find.byType(ProductCard).evaluate().length;
+    expect(
+      tester.getTopLeft(find.byKey(const Key('home-search'))).dy,
+      inInclusiveRange(0, 80),
+    );
     expect(built, greaterThan(0));
     expect(built, lessThan(24));
     expect(tester.takeException(), isNull);

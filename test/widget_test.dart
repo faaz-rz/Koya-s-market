@@ -521,15 +521,16 @@ void main() {
           width < 440 ? 2 : 3,
           reason: 'width $width',
         );
-        expect(find.text('ADD'), findsNothing);
+        expect(find.text('Add'), findsNWidgets(products.length));
         for (final product in products) {
           final addButton = find.byKey(Key('add-product-${product.id}'));
           expect(addButton, findsOneWidget, reason: 'width $width');
           expect(
-            tester.getSize(addButton),
-            const Size.square(48),
+            tester.getSize(addButton).height,
+            48,
             reason: 'width $width',
           );
+          expect(tester.getSize(addButton).width, greaterThan(48));
         }
         await tester.tap(find.byKey(const Key('add-product-responsive-1')));
         await tester.pump();

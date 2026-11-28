@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 abstract final class AppColors {
+  static const marketCream = Color(0xFFFFF8E7);
   static const heritageIvory = Color(0xFFFFFCF2);
 
   static const canvas = Color(0xFFF7F9F2);
@@ -56,6 +57,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
       Color.lerp(light, Color(dark), darkBlend)!;
 
   Color get canvas => _tone(AppColors.canvas, 0xFF0C1913);
+  Color get marketCream => _tone(AppColors.marketCream, 0xFF111E17);
   Color get heritageIvory => _tone(AppColors.heritageIvory, 0xFF0C1913);
   Color get surface => _tone(AppColors.surface, 0xFF152A20);
   Color get surfaceMuted => _tone(AppColors.surfaceMuted, 0xFF20372A);

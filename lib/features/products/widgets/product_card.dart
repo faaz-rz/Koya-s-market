@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/product_grid_layout.dart';
 import '../../../core/utils/price_format.dart';
@@ -57,68 +56,70 @@ class ProductCard extends ConsumerWidget {
                 if (product.subcategory.isNotEmpty) product.subcategory,
               ].join(' · ');
 
-        final showQuantityStepper =
-            available && !hasMultipleSizes && quantity > 0;
-        final quickAction = !available
-            ? Semantics(
-                label: 'Out of stock',
-                child: Tooltip(
-                  message: 'Out of stock',
-                  child: SizedBox.square(
-                    dimension: actionSize,
-                    child: Icon(
-                      Icons.remove_shopping_cart_outlined,
-                      color: AppColors.of(context).inkTertiary,
-                      size: compact ? 18 : 20,
-                    ),
+        final colors = AppColors.of(context);
+        final Widget cartControl;
+        if (!available) {
+          cartControl = Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                'Out of stock',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: colors.inkSecondary,
+                ),
+              ),
+            ),
+          );
+        } else if (!hasMultipleSizes && quantity > 0) {
+          cartControl = QuantityStepper(
+            key: Key('quantity-product-${product.id}'),
+            quantity: quantity,
+            compact: true,
+            onIncrement: () =>
+                ref.read(storeProvider.notifier).addToCart(product.id),
+            onDecrement: () =>
+                ref.read(storeProvider.notifier).decrementCart(product.id),
+          );
+        } else {
+          cartControl = Tooltip(
+            message: hasMultipleSizes
+                ? 'Choose size for $displayName'
+                : 'Add $displayName to cart',
+            child: OutlinedButton(
+              key: Key(
+                hasMultipleSizes
+                    ? 'choose-size-${product.id}'
+                    : 'add-product-${product.id}',
+              ),
+              onPressed: () {
+                if (hasMultipleSizes) {
+                  showProductVariantSheet(context: context, family: family!);
+                } else {
+                  ref.read(storeProvider.notifier).addToCart(product.id);
+                }
+              },
+              style: OutlinedButton.styleFrom(
+                backgroundColor: colors.brandSoft,
+                foregroundColor: colors.brand700,
+                side: BorderSide(color: colors.outlineStrong),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadii.sm),
+                ),
+              ),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  quantity > 0 ? 'Add · $quantity' : 'Add',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: colors.brand700,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-              )
-            : hasMultipleSizes
-            ? SizedBox.square(
-                dimension: actionSize,
-                child: IconButton.filled(
-                  key: Key('choose-size-${product.id}'),
-                  tooltip: 'Choose size for $displayName',
-                  onPressed: () => showProductVariantSheet(
-                    context: context,
-                    family: family!,
-                  ),
-                  style: IconButton.styleFrom(
-                    minimumSize: Size.zero,
-                    fixedSize: Size.square(actionSize),
-                    padding: EdgeInsets.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    backgroundColor: AppColors.of(context).brand600,
-                    foregroundColor: AppColors.of(context).surface,
-                  ),
-                  icon: Badge.count(
-                    count: quantity,
-                    isLabelVisible: quantity > 0,
-                    child: Icon(Icons.add_rounded, size: compact ? 20 : 22),
-                  ),
-                ),
-              )
-            : showQuantityStepper
-            ? null
-            : SizedBox.square(
-                dimension: actionSize,
-                child: IconButton.filled(
-                  key: Key('add-product-${product.id}'),
-                  tooltip: 'Add $displayName to cart',
-                  onPressed: () =>
-                      ref.read(storeProvider.notifier).addToCart(product.id),
-                  style: IconButton.styleFrom(
-                    minimumSize: Size.zero,
-                    fixedSize: Size.square(actionSize),
-                    padding: EdgeInsets.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    backgroundColor: AppColors.of(context).brand600,
-                    foregroundColor: AppColors.of(context).surface,
-                  ),
-                  icon: Icon(Icons.add_rounded, size: compact ? 20 : 22),
-                ),
-              );
+              ),
+            ),
+          );
+        }
 
         return Semantics(
           button: true,
@@ -149,7 +150,7 @@ class ProductCard extends ConsumerWidget {
                       if (priceProduct.discountPercent > 0)
                         Positioned(
                           left: compact ? 4 : 8,
-                          top: compact ? 4 : 8,
+                          bottom: compact ? 4 : 8,
                           child: _Badge(
                             label: '${priceProduct.discountPercent}% OFF',
                             compact: compact,
@@ -266,74 +267,42 @@ class ProductCard extends ConsumerWidget {
                 ],
                 const SizedBox(height: AppSpacing.sm),
                 SizedBox(
-                  height: actionSize,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  formatPrice(priceProduct.effectivePricePaise),
-                                  style: theme.textTheme.titleLarge?.copyWith(
-                                    fontSize: compact ? 16 : null,
-                                  ),
-                                ),
-                                if (priceProduct.discountPricePaise !=
-                                    null) ...[
-                                  const SizedBox(width: AppSpacing.xs),
-                                  Text(
-                                    formatPrice(priceProduct.pricePaise),
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: AppColors.of(context).inkTertiary,
-                                      fontSize: compact ? 9 : null,
-                                      decoration: TextDecoration.lineThrough,
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
+                  height: textScaler.scale(compact ? 16 : 20) * 1.45,
+                  width: double.infinity,
+                  child: FittedBox(
+                    alignment: Alignment.centerLeft,
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          formatPrice(priceProduct.effectivePricePaise),
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            color: colors.ink,
+                            fontSize: compact ? 16 : 20,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
-                      ),
-                      if (quickAction != null) ...[
-                        const SizedBox(width: AppSpacing.xs),
-                        quickAction,
-                      ],
-                    ],
-                  ),
-                ),
-                AnimatedSize(
-                  duration: AppMotion.duration(
-                    context,
-                    const Duration(milliseconds: 160),
-                  ),
-                  curve: Curves.easeOutCubic,
-                  alignment: Alignment.bottomCenter,
-                  child: showQuantityStepper
-                      ? Padding(
-                          padding: const EdgeInsets.only(top: AppSpacing.xs),
-                          child: SizedBox(
-                            key: Key('quantity-product-${product.id}'),
-                            width: double.infinity,
-                            height: actionSize,
-                            child: QuantityStepper(
-                              quantity: quantity,
-                              compact: true,
-                              onIncrement: () => ref
-                                  .read(storeProvider.notifier)
-                                  .addToCart(product.id),
-                              onDecrement: () => ref
-                                  .read(storeProvider.notifier)
-                                  .decrementCart(product.id),
+                        if (priceProduct.discountPricePaise != null) ...[
+                          const SizedBox(width: AppSpacing.xs),
+                          Text(
+                            formatPrice(priceProduct.pricePaise),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colors.inkTertiary,
+                              fontSize: compact ? 10 : null,
+                              decoration: TextDecoration.lineThrough,
                             ),
                           ),
-                        )
-                      : const SizedBox.shrink(),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                SizedBox(
+                  height: actionSize,
+                  width: double.infinity,
+                  child: cartControl,
                 ),
               ],
             ),

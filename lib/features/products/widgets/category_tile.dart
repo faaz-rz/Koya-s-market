@@ -167,6 +167,32 @@ class CategoryTile extends StatelessWidget {
         4;
   }
 
+  static SliverGridDelegate gridDelegate(
+    BuildContext context,
+    double width,
+    List<ProductCategory> categories,
+  ) {
+    const gap = AppSpacing.sm;
+    final scale = MediaQuery.textScalerOf(context).scale(12) / 12;
+    final minimumTile = scale <= 1.25 ? 62.0 : 86 * scale;
+    final preferred = width < 520 ? 4 : (width < 800 ? 5 : 6);
+    final columns = ((width + gap) / (minimumTile + gap))
+        .floor()
+        .clamp(1, preferred);
+    final tileWidth = (width - gap * (columns - 1)) / columns;
+    return SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: columns,
+      crossAxisSpacing: gap,
+      mainAxisSpacing: gap,
+      mainAxisExtent: extentFor(
+        context,
+        width: tileWidth,
+        categories: categories,
+        compact: true,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (horizontal) {

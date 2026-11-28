@@ -22,9 +22,14 @@ import '../widgets/product_card.dart';
 import '../widgets/product_visual.dart';
 
 class ProductListingScreen extends ConsumerStatefulWidget {
-  const ProductListingScreen({this.categoryId, super.key});
+  const ProductListingScreen({
+    this.categoryId,
+    this.focusSearch = true,
+    super.key,
+  });
 
   final String? categoryId;
+  final bool focusSearch;
 
   @override
   ConsumerState<ProductListingScreen> createState() =>
@@ -218,7 +223,7 @@ class _ProductListingScreenState extends ConsumerState<ProductListingScreen> {
                     key: const Key('product-search'),
                     controller: _searchController,
                     focusNode: _searchFocus,
-                    autofocus: widget.categoryId == null,
+                    autofocus: widget.focusSearch && widget.categoryId == null,
                     textInputAction: TextInputAction.search,
                     autocorrect: true,
                     enableSuggestions: true,

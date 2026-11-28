@@ -112,6 +112,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => CustomerBackdrop(
           child: ProductListingScreen(
             categoryId: state.uri.queryParameters['category'],
+            focusSearch: state.uri.queryParameters['browse'] != '1',
           ),
         ),
       ),
