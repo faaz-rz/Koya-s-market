@@ -236,8 +236,9 @@ void main() {
       tester,
       handler: (request) async {
         if (request.url.path == '/auth/v1/verify') return reply(signedIn());
-        if (request.url.path == '/auth/v1/user')
+        if (request.url.path == '/auth/v1/user') {
           return reply(signedIn()['user']!);
+        }
         if (request.url.path == '/rest/v1/rpc/sync_store') return reply(cold());
         return reply({});
       },

@@ -81,10 +81,12 @@ class _SetPasswordDialogState extends State<SetPasswordDialog> {
               label: 'New password',
               validator: (value) {
                 final password = value ?? '';
-                if (password.runes.length < 15)
+                if (password.runes.length < 15) {
                   return 'Use at least 15 characters';
-                if (utf8.encode(password).length > 72)
+                }
+                if (utf8.encode(password).length > 72) {
                   return 'Use a shorter password';
+                }
                 return null;
               },
             ),

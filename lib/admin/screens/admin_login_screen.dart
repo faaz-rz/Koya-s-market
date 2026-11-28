@@ -179,13 +179,17 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
 
   Future<void> _finishSignIn(AuthRepository auth) async {
     final userId = auth.currentUser?.id;
-    if (userId == null || !await auth.isApprovedAdmin()) {
+    final approved = userId != null && await auth.isApprovedAdmin();
+    if (!mounted) return;
+    if (auth.currentUser?.id != userId) {
+      throw const AuthException('Your session changed. Sign in again.');
+    }
+    if (!approved) {
       await auth.signOut();
       throw const StoreValidationException(
         'This account is not approved for staff access.',
       );
     }
-    if (!mounted) return;
     if (!auth.hasEmailVerification) {
       if (_step == _AdminLoginStep.emailOtp) {
         throw const AuthException('Verify your staff email again.');
