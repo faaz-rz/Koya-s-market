@@ -199,7 +199,7 @@ void main() {
     }
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byType(TextField).first);
+    await tester.tap(find.byKey(const Key('home-search')));
     await tester.pumpAndSettle();
     tester.view.viewInsets = const FakeViewPadding(bottom: 320);
     await tester.pumpAndSettle();

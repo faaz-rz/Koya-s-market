@@ -44,7 +44,7 @@ abstract final class ProductGridLayout {
       MediaQuery.textScalerOf(context).scale(14) / 14,
     );
     final compact = usesCompactCards(width, textScale: textScale);
-    final scaleAllowance = (textScale - 1) * (compact ? 92 : 120);
+    final scaleAllowance = (textScale - 1) * (compact ? 104 : 152);
     return (compact ? 240 : 324) + scaleAllowance;
   }
 
