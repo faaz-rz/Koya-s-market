@@ -11,8 +11,9 @@ No customer accounts or orders were created during deployment.
 ## Database state for 1.1.6
 
 Production has all 32 migrations through `20261009151549_customer_order_numbers`.
-The only pending repository migration is
-`20261121171338_delivery_radius.sql`. The installed app can use the existing
+The pending repository migrations are
+`20261121171338_delivery_radius.sql` and
+`20261128063704_staff_email_verification.sql`. The installed app can use the existing
 production checkout and store-sync APIs. It uses the store's configured PIN
 codes until the server publishes the delivery origin.
 
@@ -64,8 +65,11 @@ and save these hosted settings:
 
 These exact production paths are also recorded in `supabase/config.toml`.
 Editing that file or deploying SQL does not change the hosted Auth URL settings.
-Typed email codes remain the app's sign-in method; no browser callback route is
-required for code verification. See [Supabase redirect URLs](https://supabase.com/docs/guides/auth/redirect-urls).
+Customers can sign in with a password or a typed email code. **Set or reset
+password with email** verifies the address before accepting a new password.
+Use a minimum length of 15 and enable Secure password change in hosted Auth.
+Keep double confirmation for email changes and Phone/SMS sign-in disabled.
+See [Supabase password security](https://supabase.com/docs/guides/auth/password-security).
 
 Test a first signup, returning login, resend and expired code using an address
 outside your Supabase team. Complete one disposable customer's deletion with no
@@ -78,8 +82,16 @@ and isolated PostgreSQL.
 The first staff email supplied for this deployment is preapproved in the private
 staff-email approvals table. Enter it on **Staff sign in** and verify its email code. Verification consumes
 the approval and creates the staff role. Every privileged database action checks
-that this role is still active. No authenticator step is required. The private
+that this role is still active and the signed session records code verification.
+A password can start staff sign-in, which then requires a code from the approved
+email. Apply the staff authorization migration before deploying the new sign-in
+screens. Verify that password-only staff sessions cannot read other customers'
+orders or make staff changes before rollout. The private
 approval table cannot be read or changed by customers.
+
+Staff can search the order queue by bill reference, customer order number,
+customer or recipient name, or phone. The search uses the existing protected
+order history, including completed orders.
 
 For the second staff member, replace the two example values below and run this
 once in **SQL Editor**. Approve only a person you intend to give store access:

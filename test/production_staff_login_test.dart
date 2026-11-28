@@ -108,6 +108,9 @@ Future<LoginFixture> staffFixture(WidgetTester tester, {bool isAdmin = true}) =>
       tester,
       handler: (request) async {
         if (request.url.path == '/auth/v1/verify') return reply(signedIn());
+        if (request.url.path == '/auth/v1/token') {
+          return reply(signedIn(method: 'password'));
+        }
         if (request.url.path == '/rest/v1/rpc/sync_store') {
           return reply({...cold(), 'is_admin': isAdmin});
         }
@@ -116,6 +119,38 @@ Future<LoginFixture> staffFixture(WidgetTester tester, {bool isAdmin = true}) =>
     );
 
 void main() {
+  testWidgets(
+    'staff password still requires an email code before loading orders',
+    (tester) async {
+      final fixture = await staffFixture(tester);
+      final auth = StaffAuth(fixture);
+      await openStaff(tester, fixture, auth);
+      await tester.enterText(
+        find.byKey(const Key('admin-email')),
+        'alice@example.test',
+      );
+      await tap(tester, 'staff-sign-in-method');
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(const Key('admin-password')),
+          matching: find.byType(TextField),
+        ),
+        'sample-long-password',
+      );
+      await tap(tester, 'admin-login');
+      await tester.pumpAndSettle();
+      expect(fixture.calls('/auth/v1/token'), 1);
+      expect(fixture.calls('/auth/v1/otp'), 1);
+      expect(fixture.calls('/rest/v1/rpc/sync_store'), 0);
+      expect(find.text('Protected dashboard opened'), findsNothing);
+
+      await tester.enterText(find.byKey(const Key('admin-otp')), '123456');
+      await tap(tester, 'admin-login');
+      await tester.pumpAndSettle();
+      expect(find.text('Protected dashboard opened'), findsOneWidget);
+    },
+  );
+
   testWidgets(
     'staff guard ignores inactivity and network failures but revocation clears access',
     (tester) async {

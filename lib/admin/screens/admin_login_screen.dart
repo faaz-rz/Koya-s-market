@@ -14,6 +14,8 @@ import '../../core/widgets/koyas_button.dart';
 import '../../core/widgets/koyas_logo.dart';
 import '../../features/auth/data/auth_repository.dart';
 import '../../features/auth/data/otp_send_limiter.dart';
+import '../../features/auth/widgets/account_password_field.dart';
+import '../../features/auth/widgets/set_password_dialog.dart';
 import '../../features/store/data/supabase_store_repository.dart';
 import '../../features/store/providers/store_provider.dart';
 
@@ -40,9 +42,12 @@ class AdminLoginScreen extends ConsumerStatefulWidget {
 class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
   final _emailController = TextEditingController();
   final _otpController = TextEditingController();
+  final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   _AdminLoginStep _step = _AdminLoginStep.email;
   bool _loading = false;
+  bool _usePassword = false;
+  bool _setPassword = false;
   bool _messageIsError = false;
   String? _message;
   Timer? _resendTimer;
@@ -81,6 +86,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
     _resendTimer?.cancel();
     _emailController.dispose();
     _otpController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -89,13 +95,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
     setState(() => _loading = true);
     final auth = _auth;
     try {
-      if (!await auth.isApprovedAdmin()) {
-        await auth.signOut();
-        throw const StoreValidationException(
-          'This account is not approved for staff access.',
-        );
-      }
-      await _openDashboard(auth);
+      await _finishSignIn(auth);
     } catch (error) {
       _showError(error);
     } finally {
@@ -107,7 +107,9 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
     if (_loading) return;
     // A code may have succeeded before a later staff-access/store request
     // failed. Resume that session instead of replaying a consumed email code.
-    if (_remote && _auth.currentUser != null) {
+    if (_remote &&
+        _auth.currentUser != null &&
+        (_step == _AdminLoginStep.email || _auth.hasEmailVerification)) {
       await _resumeSignedInAdmin();
       return;
     }
@@ -131,38 +133,79 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
     try {
       switch (_step) {
         case _AdminLoginStep.email:
-          await auth.sendEmailOtp(
-            _emailController.text,
-            // Email verification creates the account; the database alone
-            // decides whether a preapproved address receives staff access.
-            shouldCreateUser: true,
-          );
-          if (mounted) {
-            _startResendTimer();
-            setState(() {
-              _step = _AdminLoginStep.emailOtp;
-              _message = 'A six-digit code was sent to your staff email.';
-            });
+          if (_usePassword) {
+            final password = _passwordController.text;
+            _passwordController.clear();
+            await auth.signInWithPassword(
+              email: _emailController.text,
+              password: password,
+            );
+            await _finishSignIn(auth);
+          } else {
+            await _requestCode(auth, shouldCreateUser: true);
           }
         case _AdminLoginStep.emailOtp:
           await auth.verifyEmailOtp(
             email: _emailController.text,
             token: _otpController.text,
           );
-          if (!await auth.isApprovedAdmin()) {
-            await auth.signOut();
-            throw const StoreValidationException(
-              'This account is not approved for staff access.',
-            );
-          }
+          if (!mounted) return;
           _otpController.clear();
-          await _openDashboard(auth);
+          await _finishSignIn(auth);
       }
     } catch (error) {
       _showError(error);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _requestCode(
+    AuthRepository auth, {
+    required bool shouldCreateUser,
+  }) async {
+    await auth.sendEmailOtp(
+      _emailController.text,
+      shouldCreateUser: shouldCreateUser,
+    );
+    if (!mounted) return;
+    _startResendTimer();
+    setState(() {
+      _step = _AdminLoginStep.emailOtp;
+      _message = 'A six-digit code was sent to your staff email.';
+      _messageIsError = false;
+    });
+  }
+
+  Future<void> _finishSignIn(AuthRepository auth) async {
+    final userId = auth.currentUser?.id;
+    if (userId == null || !await auth.isApprovedAdmin()) {
+      await auth.signOut();
+      throw const StoreValidationException(
+        'This account is not approved for staff access.',
+      );
+    }
+    if (!mounted) return;
+    if (!auth.hasEmailVerification) {
+      if (_step == _AdminLoginStep.emailOtp) {
+        throw const AuthException('Verify your staff email again.');
+      }
+      await _requestCode(auth, shouldCreateUser: false);
+      return;
+    }
+    if (_setPassword) {
+      _setPassword = false;
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => SetPasswordDialog(auth: auth, userId: userId),
+      );
+    }
+    if (!mounted) return;
+    if (auth.currentUser?.id != userId || !auth.hasEmailVerification) {
+      throw const AuthException('Your session changed. Sign in again.');
+    }
+    await _openDashboard(auth);
   }
 
   Future<void> _openDashboard(AuthRepository auth) async {
@@ -221,7 +264,10 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
     if (_loading || _resendSeconds > 0) return;
     setState(() => _loading = true);
     try {
-      await _auth.sendEmailOtp(_emailController.text);
+      await _auth.sendEmailOtp(
+        _emailController.text,
+        shouldCreateUser: _auth.currentUser == null,
+      );
       if (!mounted) return;
       _startResendTimer();
       setState(() {
@@ -245,11 +291,14 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
       ref.read(storeProvider.notifier).logout();
       _emailController.clear();
       _otpController.clear();
+      _passwordController.clear();
       _resendTimer?.cancel();
       _resendSeconds = 0;
       if (mounted) {
         setState(() {
           _step = _AdminLoginStep.email;
+          _usePassword = false;
+          _setPassword = false;
           _message = null;
           _messageIsError = false;
         });
@@ -267,11 +316,30 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
           ? 'Open staff dashboard demo'
           : 'Production configuration required';
     }
-    if (_auth.currentUser != null) return 'Open staff dashboard';
+    if (_auth.currentUser != null && _auth.hasEmailVerification) {
+      return 'Open staff dashboard';
+    }
     return switch (_step) {
+      _AdminLoginStep.email when _auth.currentUser != null =>
+        'Send verification code',
+      _AdminLoginStep.email when _usePassword => 'Sign in with password',
+      _AdminLoginStep.email when _setPassword => 'Send code to set password',
       _AdminLoginStep.email => 'Send secure code',
       _AdminLoginStep.emailOtp => 'Verify email',
     };
+  }
+
+  void _changeSignInMethod({
+    bool usePassword = false,
+    bool setPassword = false,
+  }) {
+    setState(() {
+      _usePassword = usePassword;
+      _setPassword = setPassword;
+      _passwordController.clear();
+      _message = null;
+      _messageIsError = false;
+    });
   }
 
   @override
@@ -321,7 +389,10 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                         TextFormField(
                           key: const Key('admin-email'),
                           controller: _emailController,
-                          enabled: !_loading && _step == _AdminLoginStep.email,
+                          enabled:
+                              !_loading &&
+                              _step == _AdminLoginStep.email &&
+                              (!configured || _auth.currentUser == null),
                           keyboardType: TextInputType.emailAddress,
                           autocorrect: false,
                           enableSuggestions: false,
@@ -341,6 +412,20 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                             return null;
                           },
                         ),
+                        if (configured &&
+                            _usePassword &&
+                            _step == _AdminLoginStep.email &&
+                            _auth.currentUser == null) ...[
+                          const SizedBox(height: AppSpacing.lg),
+                          AccountPasswordField(
+                            key: const Key('admin-password'),
+                            controller: _passwordController,
+                            enabled: !_loading,
+                            validator: (value) => value?.isNotEmpty == true
+                                ? null
+                                : 'Enter your password',
+                          ),
+                        ],
                         if (_step == _AdminLoginStep.emailOtp) ...[
                           const SizedBox(height: AppSpacing.lg),
                           TextFormField(
@@ -389,6 +474,34 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                               ? _continue
                               : null,
                         ),
+                        if (configured &&
+                            _step == _AdminLoginStep.email &&
+                            _auth.currentUser == null) ...[
+                          TextButton(
+                            key: const Key('staff-sign-in-method'),
+                            onPressed: _loading
+                                ? null
+                                : () => _changeSignInMethod(
+                                    usePassword: !_usePassword,
+                                  ),
+                            child: Text(
+                              _usePassword
+                                  ? 'Use verification code'
+                                  : 'Use password',
+                            ),
+                          ),
+                          if (_usePassword)
+                            TextButton(
+                              key: const Key('staff-set-password'),
+                              onPressed: _loading
+                                  ? null
+                                  : () =>
+                                        _changeSignInMethod(setPassword: true),
+                              child: const Text(
+                                'Set or reset password with email',
+                              ),
+                            ),
+                        ],
                         if (_step == _AdminLoginStep.emailOtp)
                           TextButton(
                             key: const Key('admin-resend-code'),
@@ -401,7 +514,8 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                                   : 'Resend email code',
                             ),
                           ),
-                        if (_step != _AdminLoginStep.email) ...[
+                        if (_step != _AdminLoginStep.email ||
+                            (configured && _auth.currentUser != null)) ...[
                           const SizedBox(height: AppSpacing.sm),
                           TextButton(
                             key: const Key('admin-use-another-email'),
@@ -422,7 +536,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                             Expanded(
                               child: Text(
                                 configured
-                                    ? 'Sign in with your approved staff email and its verification code. The dashboard stays open until you sign out.'
+                                    ? 'Staff access requires a code from your approved email, including when you sign in with a password.'
                                     : AppEnvironment.allowAdminDemo
                                     ? 'Demo mode uses sample data and cannot change the live store.'
                                     : 'This release is locked because Supabase production configuration is missing.',

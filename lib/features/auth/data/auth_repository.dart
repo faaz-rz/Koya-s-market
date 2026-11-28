@@ -61,6 +61,13 @@ class AuthRepository {
 
   User? get currentUser => _client.auth.currentUser;
 
+  bool get hasEmailVerification =>
+      (currentUser?.phone ?? '').isEmpty &&
+      _client.auth.mfa
+          .getAuthenticatorAssuranceLevel()
+          .currentAuthenticationMethods
+          .any((method) => method.method == AMRMethod.otp);
+
   int otpResendSeconds(String email) => _sendLimiter.remainingSeconds(email);
 
   Future<void> sendEmailOtp(String email, {bool shouldCreateUser = true}) =>
@@ -95,11 +102,29 @@ class AuthRepository {
     required String password,
   }) async {
     final response = await _client.auth
-        .signInWithPassword(email: email.trim(), password: password)
+        .signInWithPassword(
+          email: email.trim().toLowerCase(),
+          password: password,
+        )
         .timeout(requestTimeout);
     final user = response.user;
     if (user == null) throw const AuthException('Unable to sign in.');
     return user;
+  }
+
+  Future<void> setPasswordAfterVerification({
+    required String userId,
+    required String password,
+  }) async {
+    if (currentUser?.id != userId || !hasEmailVerification) {
+      throw const AuthException('Verify your email again.');
+    }
+    final result = await _client.auth
+        .updateUser(UserAttributes(password: password))
+        .timeout(requestTimeout);
+    if (result.user?.id != userId || currentUser?.id != userId) {
+      throw const AuthException('Verify your email again.');
+    }
   }
 
   Future<bool> isApprovedAdmin() async {

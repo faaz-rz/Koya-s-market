@@ -810,6 +810,19 @@ void main() {
       OrderStatus.cancelled,
     );
 
+    final search = find.byKey(const Key('admin-order-search'));
+    await tester.ensureVisible(search);
+    await tester.enterText(search, '#KOY34619');
+    await tester.pumpAndSettle();
+    expect(paidDetails, findsOneWidget);
+    expect(details, findsNothing);
+    await tester.enterText(search, '+91 98490 11223');
+    await tester.pumpAndSettle();
+    expect(details, findsOneWidget);
+    expect(paidDetails, findsNothing);
+    await tester.tap(find.byTooltip('Clear search'));
+    await tester.pumpAndSettle();
+
     final reject = find.byKey(const Key('admin-reject-KOY34621'));
     await tester.ensureVisible(reject);
     await tester.tap(reject);

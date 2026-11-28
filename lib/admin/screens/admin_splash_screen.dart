@@ -54,6 +54,10 @@ class _AdminSplashScreenState extends ConsumerState<AdminSplashScreen> {
         if (mounted) context.go('/login?reason=unauthorized');
         return;
       }
+      if (!auth.hasEmailVerification) {
+        if (mounted) context.go('/login');
+        return;
+      }
       final bundle = await SupabaseStoreRepository().loadStore();
       if (!mounted || auth.currentUser?.id != bundle.profile.id) {
         return;

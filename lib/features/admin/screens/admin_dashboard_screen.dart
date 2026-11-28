@@ -228,17 +228,6 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       );
     }
 
-    final visibleOrders = store.orders
-        .where((order) {
-          return switch (_filter) {
-            'Pickup' => order.fulfilmentType.name == 'pickup',
-            'Delivery' => order.fulfilmentType.name == 'delivery',
-            'Completed' => _terminal(order.status),
-            'Active' => !_terminal(order.status),
-            _ => true,
-          };
-        })
-        .toList(growable: false);
     final activeCount = store.orders
         .where((order) => !_terminal(order.status))
         .length;
@@ -277,7 +266,6 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           todayRevenue: todayRevenue,
           lowStockCount: lowStock.length,
           outOfStockCount: outOfStockCount,
-          visibleOrders: visibleOrders,
           filter: _filter,
           onFilterChanged: (value) => setState(() => _filter = value),
           analyticsPeriod: _analyticsPeriod,
@@ -467,7 +455,6 @@ class _DashboardContent extends ConsumerWidget {
     required this.todayRevenue,
     required this.lowStockCount,
     required this.outOfStockCount,
-    required this.visibleOrders,
     required this.filter,
     required this.onFilterChanged,
     required this.analyticsPeriod,
@@ -484,7 +471,6 @@ class _DashboardContent extends ConsumerWidget {
   final int todayRevenue;
   final int lowStockCount;
   final int outOfStockCount;
-  final List<CustomerOrder> visibleOrders;
   final String filter;
   final ValueChanged<String> onFilterChanged;
   final AdminAnalyticsPeriod analyticsPeriod;
@@ -563,7 +549,7 @@ class _DashboardContent extends ConsumerWidget {
         onEditCartOffer: (offer) => _editCartOffer(context, ref, offer: offer),
       ),
       AdminSection.orders => _OrdersSection(
-        visibleOrders: visibleOrders,
+        orders: store.orders,
         filter: filter,
         onFilterChanged: onFilterChanged,
         terminal: terminal,
@@ -1567,9 +1553,9 @@ class _PricingSection extends StatelessWidget {
   }
 }
 
-class _OrdersSection extends StatelessWidget {
+class _OrdersSection extends StatefulWidget {
   const _OrdersSection({
-    required this.visibleOrders,
+    required this.orders,
     required this.filter,
     required this.onFilterChanged,
     required this.terminal,
@@ -1579,7 +1565,7 @@ class _OrdersSection extends StatelessWidget {
     required this.onMarkPaid,
   });
 
-  final List<CustomerOrder> visibleOrders;
+  final List<CustomerOrder> orders;
   final String filter;
   final ValueChanged<String> onFilterChanged;
   final bool Function(OrderStatus) terminal;
@@ -1589,48 +1575,124 @@ class _OrdersSection extends StatelessWidget {
   final ValueChanged<CustomerOrder> onMarkPaid;
 
   @override
+  State<_OrdersSection> createState() => _OrdersSectionState();
+}
+
+class _OrdersSectionState extends State<_OrdersSection> {
+  final _search = TextEditingController();
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  String _digits(String value) => value.replaceAll(RegExp(r'[^0-9]'), '');
+
+  @override
   Widget build(BuildContext context) {
+    final query = _search.text.trim().toLowerCase().replaceFirst(
+      RegExp(r'^#\s*'),
+      '',
+    );
+    final phone = RegExp(r'^\+?[0-9 ()-]+$').hasMatch(query)
+        ? _digits(query)
+        : '';
+    final matches = widget.orders.where((order) {
+      if (query.isEmpty) {
+        return switch (widget.filter) {
+          'Pickup' => order.fulfilmentType == FulfilmentType.pickup,
+          'Delivery' => order.fulfilmentType == FulfilmentType.delivery,
+          'Completed' => widget.terminal(order.status),
+          'Active' => !widget.terminal(order.status),
+          _ => true,
+        };
+      }
+      final reference = order.displayReference.toLowerCase();
+      return reference == query ||
+          reference == 'koy$query' ||
+          order.customerDisplayNumber == query ||
+          order.customerName.toLowerCase().contains(query) ||
+          order.deliveryRecipientName.toLowerCase().contains(query) ||
+          (phone.length >= 4 &&
+              (_digits(order.customerPhone).contains(phone) ||
+                  _digits(order.deliveryRecipientPhone).contains(phone)));
+    });
+    final visibleOrders = (query.isEmpty ? matches : matches.take(51)).toList();
+
     return Column(
       key: const Key('admin-orders-section'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Align(
-          alignment: Alignment.centerRight,
-          child: PopupMenuButton<String>(
-            initialValue: filter,
-            onSelected: onFilterChanged,
-            itemBuilder: (context) => [
-              for (final value in const [
-                'Active',
-                'All',
-                'Pickup',
-                'Delivery',
-                'Completed',
-              ])
-                PopupMenuItem(value: value, child: Text(value)),
-            ],
-            child: Chip(
-              avatar: const Icon(Icons.filter_list_rounded, size: 18),
-              label: Text(filter),
-            ),
+        TextField(
+          key: const Key('admin-order-search'),
+          controller: _search,
+          onChanged: (_) => setState(() {}),
+          autocorrect: false,
+          enableSuggestions: false,
+          maxLength: 120,
+          textInputAction: TextInputAction.search,
+          decoration: InputDecoration(
+            labelText: 'Search all orders',
+            counterText: '',
+            hintText: 'Bill number, customer name or phone',
+            prefixIcon: const Icon(Icons.search_rounded),
+            suffixIcon: _search.text.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: 'Clear search',
+                    onPressed: () => setState(_search.clear),
+                    icon: const Icon(Icons.clear_rounded),
+                  ),
           ),
         ),
+        if (query.isEmpty)
+          Align(
+            alignment: Alignment.centerRight,
+            child: PopupMenuButton<String>(
+              initialValue: widget.filter,
+              onSelected: widget.onFilterChanged,
+              itemBuilder: (context) => [
+                for (final value in const [
+                  'Active',
+                  'All',
+                  'Pickup',
+                  'Delivery',
+                  'Completed',
+                ])
+                  PopupMenuItem(value: value, child: Text(value)),
+              ],
+              child: Chip(
+                avatar: const Icon(Icons.filter_list_rounded, size: 18),
+                label: Text(widget.filter),
+              ),
+            ),
+          ),
         const SizedBox(height: AppSpacing.md),
         if (visibleOrders.isEmpty)
-          const KoyasSurface(child: Text('No orders match this filter.'))
+          KoyasSurface(
+            child: Text(
+              query.isEmpty
+                  ? 'No orders match this filter.'
+                  : 'No orders match this search.',
+            ),
+          )
         else
-          for (final order in visibleOrders)
+          for (final order
+              in query.isEmpty ? visibleOrders : visibleOrders.take(50))
             Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.md),
               child: _AdminOrderRow(
                 order: order,
-                canAdvance: !terminal(order.status),
-                onAdvance: () => onAdvance(order),
-                onReject: () => onReject(order),
-                onCancel: () => onCancel(order),
-                onMarkPaid: () => onMarkPaid(order),
+                canAdvance: !widget.terminal(order.status),
+                onAdvance: () => widget.onAdvance(order),
+                onReject: () => widget.onReject(order),
+                onCancel: () => widget.onCancel(order),
+                onMarkPaid: () => widget.onMarkPaid(order),
               ),
             ),
+        if (query.isNotEmpty && visibleOrders.length > 50)
+          const Text('Showing 50 matches. Refine your search to find more.'),
       ],
     );
   }

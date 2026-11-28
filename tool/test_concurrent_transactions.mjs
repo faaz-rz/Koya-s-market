@@ -38,12 +38,14 @@ async function connect() {
   await client.query("set statement_timeout='15s'");
   return client;
 }
-async function transaction(user, fn, role = 'authenticated', aal = 'aal1') {
+async function transaction(user, fn, role = 'authenticated', aal = 'aal1', method = 'otp') {
   const client = await connect();
   try {
     await client.query('begin');
     await client.query(`set local role ${role}`);
-    await client.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: user, aal })]);
+    await client.query("select set_config('request.jwt.claims', $1, true)", [
+      JSON.stringify({ sub: user, aal, amr: [{ method }] }),
+    ]);
     const result = await fn(client);
     await client.query('commit');
     return result;
