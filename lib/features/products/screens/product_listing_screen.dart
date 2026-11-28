@@ -610,6 +610,7 @@ class _SearchResults extends StatelessWidget {
         : categoryName == null
         ? '${families.length} products available to browse'
         : '${families.length} products in $categoryName';
+    final inset = context.isCompact ? AppSpacing.md : AppSpacing.xl;
     return Column(
       children: [
         Padding(
@@ -643,16 +644,11 @@ class _SearchResults extends StatelessWidget {
           child: LayoutBuilder(
             builder: (context, constraints) => GridView.builder(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.xl,
-                0,
-                AppSpacing.xl,
-                AppSpacing.xxxl,
-              ),
+              padding: EdgeInsets.fromLTRB(inset, 0, inset, AppSpacing.xxxl),
               itemCount: families.length,
               gridDelegate: ProductGridLayout.delegate(
                 context,
-                constraints.maxWidth - (AppSpacing.xl * 2),
+                constraints.maxWidth - inset * 2,
               ),
               itemBuilder: (_, index) => ProductCard(
                 product: families[index].representative,

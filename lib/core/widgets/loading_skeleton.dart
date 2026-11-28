@@ -9,41 +9,38 @@ class ProductLoadingSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const inset = AppSpacing.md;
     return Semantics(
       label: 'Loading products',
       child: LayoutBuilder(
         builder: (context, constraints) => GridView.builder(
-          padding: const EdgeInsets.all(AppSpacing.xl),
+          padding: const EdgeInsets.all(inset),
           itemCount: 6,
           gridDelegate: ProductGridLayout.delegate(
             context,
-            constraints.maxWidth - (AppSpacing.xl * 2),
+            constraints.maxWidth - inset * 2,
           ),
-          itemBuilder: (context, index) => Container(
-            padding: EdgeInsets.all(
-              ProductGridLayout.usesCompactCards(
-                    constraints.maxWidth - (AppSpacing.xl * 2),
-                  )
-                  ? AppSpacing.sm
-                  : AppSpacing.md,
-            ),
-            decoration: BoxDecoration(
-              color: AppColors.of(context).surface,
-              borderRadius: BorderRadius.circular(AppRadii.xl),
-              border: Border.all(color: AppColors.of(context).outline),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: _SkeletonBlock(radius: AppRadii.lg)),
-                const SizedBox(height: AppSpacing.md),
-                const _SkeletonBlock(width: 130, height: 18),
-                const SizedBox(height: AppSpacing.sm),
-                const _SkeletonBlock(width: 76, height: 12),
-                const SizedBox(height: AppSpacing.lg),
-                const _SkeletonBlock(height: 40, radius: AppRadii.full),
-              ],
-            ),
+          itemBuilder: (context, index) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Expanded(child: _SkeletonBlock(radius: AppRadii.md)),
+              const SizedBox(height: AppSpacing.xs),
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: _SkeletonBlock(
+                  width: 64,
+                  height: ProductGridLayout.actionHeight(
+                    MediaQuery.textScalerOf(context),
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              const _SkeletonBlock(width: 52, height: 20),
+              const SizedBox(height: AppSpacing.xs),
+              const _SkeletonBlock(width: 112, height: 16),
+              const SizedBox(height: AppSpacing.xs),
+              const _SkeletonBlock(width: 84, height: 16),
+            ],
           ),
         ),
       ),

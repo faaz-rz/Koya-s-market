@@ -170,6 +170,20 @@ void main() {
     expect(families.single.sizeLabels, <String>['2 × 100 g', '4 × 100 g']);
   });
 
+  test('a billing price does not become a pack quantity', () {
+    final products = [
+      _product(id: 'p-125', name: 'Fabric Conditioner (₹125 Pack)', unit: '1 pc'),
+      _product(id: 'p-225', name: 'Fabric Conditioner (₹225 Pack)', unit: '1 pc'),
+    ];
+    final families = ProductVariants.collapse(
+      visibleProducts: products,
+      catalogue: products,
+    );
+
+    expect(families, hasLength(2));
+    expect(ProductVariants.variantLabel(products.first), isNull);
+  });
+
   testWidgets('selected quantity controls the exact SKU added to cart', (
     tester,
   ) async {

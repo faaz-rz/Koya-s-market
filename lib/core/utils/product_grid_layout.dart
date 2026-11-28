@@ -8,7 +8,19 @@ import '../theme/app_spacing.dart';
 /// Uses compact columns where space permits, with fewer columns on narrow
 /// screens or at large text sizes so names and cart controls remain usable.
 abstract final class ProductGridLayout {
-  static const compactCardBreakpoint = 190.0;
+  static const titleLines = 3;
+  static const titleLineHeight = 1.25;
+  static const priceLineHeight = 1.2;
+  static const packLineHeight = 1.15;
+  static const packFontSize = 12.0;
+  static const addFontSize = 13.0;
+  static const optionsFontSize = 10.0;
+  static const minimumActionHeight = 48.0;
+
+  static double titleFontSize(double cardWidth) => cardWidth < 180 ? 13 : 15;
+  static double priceFontSize(double cardWidth) => cardWidth < 180 ? 19 : 21;
+  static double photoHeight(double cardWidth) =>
+      (cardWidth * 1.05).clamp(104.0, 204.0);
 
   static int columnsForWidth(double width, {double textScale = 1}) {
     final preferred = width < 600
@@ -20,7 +32,7 @@ abstract final class ProductGridLayout {
         : 6;
     // At large text sizes, preserve room for names and accessible cart controls
     // instead of squeezing two heavily truncated cards onto a narrow phone.
-    final minimum = 128 + math.max(0, textScale - 1.35) * 100;
+    final minimum = 108 + math.max(0, textScale - 1.05) * 100;
     final spacing = spacingForWidth(width);
     final fitting = ((width + spacing) / (minimum + spacing)).floor();
     return fitting.clamp(1, preferred);
@@ -35,17 +47,30 @@ abstract final class ProductGridLayout {
     return (width - (spacing * (columns - 1))) / columns;
   }
 
-  static bool usesCompactCards(double width, {double textScale = 1}) =>
-      cardWidthFor(width, textScale: textScale) < compactCardBreakpoint;
+  static double actionHeight(TextScaler scaler) {
+    final packHeight = scaler.scale(packFontSize) * packLineHeight * 2;
+    final addHeight =
+        (scaler.scale(addFontSize) + scaler.scale(optionsFontSize)) *
+        packLineHeight;
+    return math.max(
+      minimumActionHeight,
+      math.max(packHeight, addHeight).ceil() + AppSpacing.sm,
+    );
+  }
 
   static double mainAxisExtent(BuildContext context, double width) {
-    final textScale = math.max(
-      1.0,
-      MediaQuery.textScalerOf(context).scale(14) / 14,
-    );
-    final compact = usesCompactCards(width, textScale: textScale);
-    final scaleAllowance = (textScale - 1) * (compact ? 104 : 152);
-    return (compact ? 240 : 324) + scaleAllowance;
+    final scaler = MediaQuery.textScalerOf(context);
+    final cardWidth = cardWidthFor(width, textScale: scaler.scale(14) / 14);
+    // Flutter can round each of the title's lines up to a whole pixel.
+    final titleLine = scaler.scale(titleFontSize(cardWidth)) * titleLineHeight;
+    final priceHeight =
+        scaler.scale(priceFontSize(cardWidth)) * priceLineHeight;
+    return photoHeight(cardWidth) +
+        actionHeight(scaler) +
+        priceHeight.ceil() +
+        titleLine.ceil() * titleLines +
+        AppSpacing.md +
+        AppSpacing.xxs;
   }
 
   static SliverGridDelegate delegate(BuildContext context, double width) {
@@ -54,7 +79,7 @@ abstract final class ProductGridLayout {
     return SliverGridDelegateWithFixedCrossAxisCount(
       crossAxisCount: columnsForWidth(width, textScale: scale),
       mainAxisExtent: mainAxisExtent(context, width),
-      mainAxisSpacing: spacing,
+      mainAxisSpacing: AppSpacing.lg,
       crossAxisSpacing: spacing,
     );
   }

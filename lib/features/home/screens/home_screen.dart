@@ -34,6 +34,7 @@ class HomeScreen extends ConsumerWidget {
     ).take(8).toList(growable: false);
     final featured = ref.watch(_homeFeaturedProvider);
     final inset = context.isCompact ? AppSpacing.lg : AppSpacing.xxxl;
+    final productInset = context.isCompact ? AppSpacing.md : inset;
     final colors = AppColors.of(context);
 
     return ColoredBox(
@@ -121,13 +122,16 @@ class HomeScreen extends ConsumerWidget {
                   SliverLayoutBuilder(
                     builder: (context, constraints) => SliverPadding(
                       padding: EdgeInsets.fromLTRB(
-                        inset, 0, inset, AppSpacing.xxxl,
+                        productInset,
+                        0,
+                        productInset,
+                        AppSpacing.xxxl,
                       ),
                       sliver: SliverGrid.builder(
                         itemCount: featured.length,
                         gridDelegate: ProductGridLayout.delegate(
                           context,
-                          constraints.crossAxisExtent - inset * 2,
+                          constraints.crossAxisExtent - productInset * 2,
                         ),
                         itemBuilder: (_, index) => ProductCard(
                           key: ValueKey(featured[index].representative.id),
