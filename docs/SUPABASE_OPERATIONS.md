@@ -8,6 +8,22 @@ CLI deployments do not replay the schema. The 3,380-row billing catalogue was
 uploaded in eight bounded, idempotent batches because of the tool request limit.
 No customer accounts or orders were created during deployment.
 
+## Database state for 1.1.6
+
+Production has all 32 migrations through `20261009151549_customer_order_numbers`.
+The pending repository migrations are
+`20261121171338_delivery_radius.sql` and
+`20261128063704_staff_email_verification.sql`. The installed app can use the existing
+production checkout and store-sync APIs. It uses the store's configured PIN
+codes until the server publishes the delivery origin.
+
+The staging project `hwoysylcqakppwlhhzzy` was seeded through a separate
+migration history and lacks the current checkout and store-sync APIs. Use a
+staging database with the production migration baseline to verify the radius
+change before production rollout.
+
+## Production website
+
 Production website: [koya-s-market.faazlance.workers.dev](https://koya-s-market.faazlance.workers.dev).
 The native app's privacy and deletion URLs are recorded in
 `config/production.json`. That file contains only public frontend configuration;
@@ -49,8 +65,11 @@ and save these hosted settings:
 
 These exact production paths are also recorded in `supabase/config.toml`.
 Editing that file or deploying SQL does not change the hosted Auth URL settings.
-Typed email codes remain the app's sign-in method; no browser callback route is
-required for code verification. See [Supabase redirect URLs](https://supabase.com/docs/guides/auth/redirect-urls).
+Customers can sign in with a password or a typed email code. **Set or reset
+password with email** verifies the address before accepting a new password.
+Use a minimum length of 15 and enable Secure password change in hosted Auth.
+Keep double confirmation for email changes and Phone/SMS sign-in disabled.
+See [Supabase password security](https://supabase.com/docs/guides/auth/password-security).
 
 Test a first signup, returning login, resend and expired code using an address
 outside your Supabase team. Complete one disposable customer's deletion with no
@@ -63,8 +82,16 @@ and isolated PostgreSQL.
 The first staff email supplied for this deployment is preapproved in the private
 staff-email approvals table. Enter it on **Staff sign in** and verify its email code. Verification consumes
 the approval and creates the staff role. Every privileged database action checks
-that this role is still active. No authenticator step is required. The private
+that this role is still active and the signed session records code verification.
+A password can start staff sign-in, which then requires a code from the approved
+email. Apply the staff authorization migration before deploying the new sign-in
+screens. Verify that password-only staff sessions cannot read other customers'
+orders or make staff changes before rollout. The private
 approval table cannot be read or changed by customers.
+
+Staff can search the order queue by bill reference, customer order number,
+customer or recipient name, or phone. The search uses the existing protected
+order history, including completed orders.
 
 For the second staff member, replace the two example values below and run this
 once in **SQL Editor**. Approve only a person you intend to give store access:
@@ -171,6 +198,19 @@ Upload. Choose Git integration if you want pushes to deploy automatically.
 Cloudflare has not been deployed or authenticated from this chat.
 
 ## Daily store work
+
+Home delivery eligibility uses the saved address pin and a **5 km straight-line
+radius** around the store. The delivery-radius migration stores the origin in
+`store_settings` and enforces the rule in the checkout transaction. PIN codes
+are part of the address. Customers with older addresses need to add or place a
+map pin before ordering delivery. Pickup works without a pin.
+
+Before applying the radius migration to production, confirm the listed Bapu
+Ghat Road map pin against the storefront. Verify in staging that pickup still
+works, delivery accepts the boundary and rejects outside or unpinned addresses,
+and a previously committed checkout still returns its order on retry. Release
+the matching customer app with the migration so the address screen explains
+the radius and offers manual map placement.
 
 Use the **staff dashboard** for orders, payment collection, inventory, prices,
 offers and delivery settings. Supabase handles accounts and data; it is not the
@@ -296,10 +336,11 @@ This is device persistence, not cross-device synchronization. Clearing app data
 or browser storage can remove it. The client/server still validate prices,
 offers, stock, basket bounds and account ownership when ordering.
 
-When adding or editing a delivery address, a customer may tap **Use current
-location**. Location is requested only for that foreground action and the user
-can continue with a typed address. The saved record contains latitude,
-longitude, estimated accuracy and capture time. The checkout order copies this
+When adding or editing a delivery address, a customer can place a pin on the
+map or tap **Use current location**. GPS permission is requested only for that
+foreground action. Customers can type or correct the written address after
+choosing the pin. The record includes latitude, longitude, estimated GPS
+accuracy when available, and the capture time. The checkout order copies the
 pin into an immutable snapshot, so later address edits cannot move an existing
 delivery. Approved staff see a **Directions to delivery pin** link in order
 details. Confirm the written address and landmark when the accuracy is

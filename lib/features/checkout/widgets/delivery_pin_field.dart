@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/widgets/four_dot_loader.dart';
+import '../../store/providers/store_provider.dart';
+import '../models/delivery_area.dart';
 import '../models/delivery_pin.dart';
 import '../services/delivery_location_service.dart';
 import '../services/delivery_address_lookup.dart';
@@ -29,7 +31,10 @@ class DeliveryPinField extends ConsumerStatefulWidget {
 class _DeliveryPinFieldState extends ConsumerState<DeliveryPinField> {
   bool _busy = false;
   DeliveryLocationFailure? _error;
-  Future<void> _capture() async {
+  Future<void> _capture({
+    DeliveryPin? mapStart,
+    bool requirePlacement = false,
+  }) async {
     if (_busy) return;
     setState(() {
       _busy = true;
@@ -37,17 +42,18 @@ class _DeliveryPinFieldState extends ConsumerState<DeliveryPinField> {
     });
     widget.onBusyChanged(true);
     try {
-      final pin = await ref.read(deliveryLocationServiceProvider).capture();
+      final pin =
+          mapStart ?? await ref.read(deliveryLocationServiceProvider).capture();
       if (!mounted) return;
       final selection = await ref.read(deliveryLocationPickerProvider)(
         context,
         pin,
+        requirePlacement: requirePlacement,
       );
       if (!mounted || selection == null) return;
       widget.onChanged(selection.pin);
-      widget.onAddressResolved?.call(
-        selection.address ?? const ResolvedDeliveryAddress(),
-      );
+      final address = selection.address;
+      if (address != null) widget.onAddressResolved?.call(address);
     } on DeliveryLocationFailure catch (error) {
       if (mounted) setState(() => _error = error);
     } catch (_) {
@@ -69,6 +75,9 @@ class _DeliveryPinFieldState extends ConsumerState<DeliveryPinField> {
   @override
   Widget build(BuildContext context) {
     final pin = widget.pin;
+    final area =
+        ref.watch(storeProvider.select((store) => store.deliveryArea)) ??
+        DeliveryArea.storeOrigin;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -78,7 +87,7 @@ class _DeliveryPinFieldState extends ConsumerState<DeliveryPinField> {
         ),
         const SizedBox(height: 6),
         const Text(
-          'Use this while you are at the delivery address. Saving shares this pin with store staff for this address and its orders.',
+          'Set the pin at the entrance. Store staff use it to find your delivery address.',
         ),
         const SizedBox(height: 8),
         OutlinedButton.icon(
@@ -94,6 +103,24 @@ class _DeliveryPinFieldState extends ConsumerState<DeliveryPinField> {
                 ? 'Use current location'
                 : 'Refresh current location',
           ),
+        ),
+        TextButton.icon(
+          key: const Key('place-delivery-pin-on-map'),
+          onPressed: _busy || !widget.enabled
+              ? null
+              : () => _capture(
+                  mapStart:
+                      pin ??
+                      DeliveryPin(
+                        latitude: area.latitude,
+                        longitude: area.longitude,
+                        accuracyMeters: 0,
+                        capturedAt: DateTime.now().toUtc(),
+                      ),
+                  requirePlacement: pin == null,
+                ),
+          icon: const Icon(Icons.edit_location_alt_outlined),
+          label: Text(pin == null ? 'Find address on map' : 'Move pin on map'),
         ),
         if (pin != null) ...[
           Text(pin.accuracyLabel),

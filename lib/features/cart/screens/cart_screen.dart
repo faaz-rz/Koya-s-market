@@ -34,7 +34,10 @@ class CartScreen extends ConsumerWidget {
     final store = ref.watch(storeProvider);
     final savedCart = ref.watch(savedCartStatusProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Your cart')),
+      appBar: AppBar(centerTitle: false, title: const Text('Your cart')),
+      bottomNavigationBar: !savedCart.restoring && store.cartItems.isNotEmpty
+          ? _CartCheckoutBar(store: store)
+          : null,
       body: savedCart.restoring
           ? const Center(
               child: Column(
@@ -283,9 +286,7 @@ class _OrderSummary extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final store = ref.watch(storeProvider);
-    final shortfall = store.minimumOrderPaise - store.subtotalPaise;
     return KoyasSurface(
-      elevated: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -331,41 +332,62 @@ class _OrderSummary extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.lg),
           const OfferRedemptionPanel(),
-          const SizedBox(height: AppSpacing.lg),
-          if (shortfall > 0)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: AppColors.of(context).warningSoft,
-                borderRadius: BorderRadius.circular(AppRadii.md),
-              ),
-              child: Text(
-                'Add ${formatPrice(shortfall)} more to reach the ${formatPrice(store.minimumOrderPaise)} minimum.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.of(context).warning,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          const SizedBox(height: AppSpacing.lg),
-          KoyasButton(
-            label: 'Choose fulfilment',
-            icon: Icons.arrow_forward_rounded,
-            onPressed: shortfall <= 0
-                ? () => context.push('/checkout/fulfilment')
-                : null,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Center(
-            child: Text(
-              'Free pickup · Secure checkout',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.of(context).inkSecondary,
-              ),
-            ),
-          ),
         ],
+      ),
+    );
+  }
+}
+
+class _CartCheckoutBar extends StatelessWidget {
+  const _CartCheckoutBar({required this.store});
+
+  final StoreState store;
+
+  @override
+  Widget build(BuildContext context) {
+    final shortfall = store.minimumOrderPaise - store.subtotalPaise;
+    final colors = AppColors.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border(top: BorderSide(color: colors.outline)),
+      ),
+      child: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.md,
+          AppSpacing.lg,
+          AppSpacing.md,
+        ),
+        child: Align(
+          heightFactor: 1,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (shortfall > 0) ...[
+                  Text(
+                    'Add ${formatPrice(shortfall)} more to reach the minimum order.',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: colors.warning),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                ],
+                KoyasButton(
+                  label: 'Choose fulfilment',
+                  icon: Icons.arrow_forward_rounded,
+                  onPressed: shortfall <= 0
+                      ? () => context.push('/checkout/fulfilment')
+                      : null,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

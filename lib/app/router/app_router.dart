@@ -102,6 +102,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: '/profile',
                 builder: (context, state) =>
                     const CustomerBackdrop(child: ProfileScreen()),
+                routes: [
+                  GoRoute(
+                    path: 'addresses',
+                    builder: (context, state) => const CustomerBackdrop(
+                      child: ProfileScreen(addressesOnly: true),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -112,6 +120,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => CustomerBackdrop(
           child: ProductListingScreen(
             categoryId: state.uri.queryParameters['category'],
+            focusSearch: state.uri.queryParameters['browse'] != '1',
           ),
         ),
       ),

@@ -32,6 +32,13 @@ void main() {
     expect(find.byKey(const Key('admin-category-inventory')), findsNothing);
     expect(find.byTooltip('Sign out'), findsOneWidget);
     expect(find.text('Customer app'), findsNothing);
+
+    final openQueue = find.byKey(const Key('admin-overview-open-orders'));
+    await tester.ensureVisible(openQueue);
+    await tester.tap(openQueue);
+    await tester.pumpAndSettle();
+    expect(find.text('Order queue'), findsOneWidget);
+    expect(find.byKey(const Key('admin-overview-section')), findsNothing);
   });
 
   testWidgets('admin filters inventory by category and adjusts stock', (
@@ -749,6 +756,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    final quickPrint = find.byKey(const Key('admin-print-order-KOY34621'));
+    await tester.ensureVisible(quickPrint);
+    await tester.tap(quickPrint);
+    await tester.pumpAndSettle();
+    expect(detailsDialog, findsNothing);
+    expect(printedOrders, [originalOrder, originalOrder]);
+
     final markPaid = find.byKey(const Key('admin-mark-paid-KOY34619'));
     await tester.ensureVisible(markPaid);
     expect(find.byKey(const Key('admin-advance-KOY34619')), findsNothing);
@@ -795,6 +809,19 @@ void main() {
           .status,
       OrderStatus.cancelled,
     );
+
+    final search = find.byKey(const Key('admin-order-search'));
+    await tester.ensureVisible(search);
+    await tester.enterText(search, '#KOY34619');
+    await tester.pumpAndSettle();
+    expect(paidDetails, findsOneWidget);
+    expect(details, findsNothing);
+    await tester.enterText(search, '+91 98490 11223');
+    await tester.pumpAndSettle();
+    expect(details, findsOneWidget);
+    expect(paidDetails, findsNothing);
+    await tester.tap(find.byTooltip('Clear search'));
+    await tester.pumpAndSettle();
 
     final reject = find.byKey(const Key('admin-reject-KOY34621'));
     await tester.ensureVisible(reject);

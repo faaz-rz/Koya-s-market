@@ -228,17 +228,6 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       );
     }
 
-    final visibleOrders = store.orders
-        .where((order) {
-          return switch (_filter) {
-            'Pickup' => order.fulfilmentType.name == 'pickup',
-            'Delivery' => order.fulfilmentType.name == 'delivery',
-            'Completed' => _terminal(order.status),
-            'Active' => !_terminal(order.status),
-            _ => true,
-          };
-        })
-        .toList(growable: false);
     final activeCount = store.orders
         .where((order) => !_terminal(order.status))
         .length;
@@ -277,7 +266,6 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           todayRevenue: todayRevenue,
           lowStockCount: lowStock.length,
           outOfStockCount: outOfStockCount,
-          visibleOrders: visibleOrders,
           filter: _filter,
           onFilterChanged: (value) => setState(() => _filter = value),
           analyticsPeriod: _analyticsPeriod,
@@ -299,6 +287,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                       _AdminSidebar(
                         selected: widget.section,
                         onSelected: selectSection,
+                        activeOrders: activeCount,
                       ),
                       const VerticalDivider(width: 1),
                       Expanded(child: content),
@@ -322,39 +311,104 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
 }
 
 class _AdminSidebar extends StatelessWidget {
-  const _AdminSidebar({required this.selected, required this.onSelected});
+  const _AdminSidebar({
+    required this.selected,
+    required this.onSelected,
+    required this.activeOrders,
+  });
 
   final AdminSection selected;
   final ValueChanged<AdminSection> onSelected;
+  final int activeOrders;
 
   @override
   Widget build(BuildContext context) {
-    return NavigationRail(
+    final colors = AppColors.of(context);
+    final text = Theme.of(context).textTheme;
+    return Material(
       key: const Key('admin-side-navigation'),
-      extended: true,
-      minExtendedWidth: 248,
-      selectedIndex: selected.index,
-      onDestinationSelected: (index) => onSelected(AdminSection.values[index]),
-      leading: const Padding(
-        padding: EdgeInsets.fromLTRB(
-          AppSpacing.xl,
-          AppSpacing.lg,
-          AppSpacing.xl,
-          AppSpacing.xxxl,
+      color: colors.surface,
+      child: SizedBox(
+        width: 224,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final navigation = Padding(
+              padding: const EdgeInsets.fromLTRB(14, 22, 14, 14),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 28),
+                    child: Row(
+                      children: [
+                        const KoyasLogo(compact: true),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Koya Stores', style: text.titleSmall),
+                              Text(
+                                'Staff workspace',
+                                style: text.bodySmall?.copyWith(
+                                  color: colors.inkSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  for (final section in AdminSection.values)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                      child: ListTile(
+                        key: Key(section.keyName),
+                        selected: selected == section,
+                        selectedTileColor: colors.brandSoft,
+                        selectedColor: colors.brand700,
+                        textColor: colors.inkSecondary,
+                        iconColor: colors.inkSecondary,
+                        minLeadingWidth: 24,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppRadii.lg),
+                        ),
+                        leading: Icon(
+                          selected == section
+                              ? section.selectedIcon
+                              : section.icon,
+                          size: 22,
+                        ),
+                        title: Text(
+                          section.navigationLabel,
+                          style: text.labelLarge,
+                        ),
+                        trailing:
+                            section == AdminSection.orders && activeOrders > 0
+                            ? Badge(
+                                backgroundColor: colors.warningSoft,
+                                textColor: colors.warning,
+                                label: Semantics(
+                                  label: '$activeOrders active orders',
+                                  child: Text(
+                                    activeOrders > 99 ? '99+' : '$activeOrders',
+                                  ),
+                                ),
+                              )
+                            : null,
+                        onTap: () => onSelected(section),
+                      ),
+                    ),
+                ],
+              ),
+            );
+            return constraints.maxHeight <
+                    MediaQuery.textScalerOf(context).scale(470)
+                ? SingleChildScrollView(primary: false, child: navigation)
+                : navigation;
+          },
         ),
-        child: KoyasLogo(compact: true),
       ),
-      destinations: [
-        for (final section in AdminSection.values)
-          NavigationRailDestination(
-            icon: Icon(section.icon, key: Key(section.keyName)),
-            selectedIcon: Icon(
-              section.selectedIcon,
-              key: Key('${section.keyName}-selected'),
-            ),
-            label: Text(section.navigationLabel),
-          ),
-      ],
     );
   }
 }
@@ -401,7 +455,6 @@ class _DashboardContent extends ConsumerWidget {
     required this.todayRevenue,
     required this.lowStockCount,
     required this.outOfStockCount,
-    required this.visibleOrders,
     required this.filter,
     required this.onFilterChanged,
     required this.analyticsPeriod,
@@ -418,7 +471,6 @@ class _DashboardContent extends ConsumerWidget {
   final int todayRevenue;
   final int lowStockCount;
   final int outOfStockCount;
-  final List<CustomerOrder> visibleOrders;
   final String filter;
   final ValueChanged<String> onFilterChanged;
   final AdminAnalyticsPeriod analyticsPeriod;
@@ -440,9 +492,15 @@ class _DashboardContent extends ConsumerWidget {
               order.fulfilmentType.name == 'pickup' && !terminal(order.status),
         )
         .length;
-    final completedOrders = store.orders
-        .where((order) => terminal(order.status))
+    final fulfilledOrders = store.orders
+        .where(
+          (order) =>
+              order.status == OrderStatus.delivered ||
+              order.status == OrderStatus.collected,
+        )
         .length;
+    void openOrders() =>
+        context.go('/orders?focus=${DateTime.now().microsecondsSinceEpoch}');
     final monthRevenue = store.orders
         .where(
           (order) =>
@@ -457,10 +515,14 @@ class _DashboardContent extends ConsumerWidget {
         activeCount: activeCount,
         todayRevenue: todayRevenue,
         pickupOrders: pickupOrders,
-        completedOrders: completedOrders,
+        fulfilledOrders: fulfilledOrders,
         monthRevenue: monthRevenue,
         lowStockCount: lowStockCount,
         outOfStockCount: outOfStockCount,
+        activeOrders: store.orders.where((order) => !terminal(order.status)),
+        products: store.products,
+        onOpenOrders: openOrders,
+        onOpenInventory: () => context.go(AdminSection.inventory.path),
       ),
       AdminSection.analytics => _AdminAnalyticsPanel(
         analytics: AdminSalesAnalyticsCalculator.calculate(
@@ -487,7 +549,7 @@ class _DashboardContent extends ConsumerWidget {
         onEditCartOffer: (offer) => _editCartOffer(context, ref, offer: offer),
       ),
       AdminSection.orders => _OrdersSection(
-        visibleOrders: visibleOrders,
+        orders: store.orders,
         filter: filter,
         onFilterChanged: onFilterChanged,
         terminal: terminal,
@@ -513,56 +575,67 @@ class _DashboardContent extends ConsumerWidget {
             _adjustStock(context, ref, product, delta),
       ),
     };
+    final heading = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(section.title, style: Theme.of(context).textTheme.headlineLarge),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          section == AdminSection.overview
+              ? DateFormat('EEEE, d MMMM').format(now)
+              : section.description,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: AppColors.of(context).inkSecondary,
+          ),
+        ),
+      ],
+    );
+    final actions = Wrap(
+      spacing: AppSpacing.xs,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        if (onRefresh != null)
+          IconButton(
+            tooltip: 'Refresh orders and inventory',
+            onPressed: refreshing ? null : onRefresh,
+            icon: refreshing
+                ? const SizedBox.square(
+                    dimension: 20,
+                    child: FourDotLoader(size: 22),
+                  )
+                : const Icon(Icons.refresh_rounded),
+          ),
+        const AppearanceButton(),
+        IconButton.filledTonal(
+          tooltip: 'Sign out',
+          onPressed: onSignOut,
+          icon: const Icon(Icons.logout_rounded),
+        ),
+      ],
+    );
     return CustomScrollView(
       key: PageStorageKey<String>('admin-section-${section.name}'),
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.all(AppSpacing.xxl),
+          padding: EdgeInsets.all(
+            MediaQuery.sizeOf(context).width < 600
+                ? AppSpacing.lg
+                : AppSpacing.xxl,
+          ),
           sliver: SliverList.list(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          section.title,
-                          style: Theme.of(context).textTheme.headlineLarge,
-                        ),
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(
-                          section == AdminSection.overview
-                              ? '${section.description} ${DateFormat('EEEE, d MMMM').format(now)}.'
-                              : section.description,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: AppColors.of(context).inkSecondary,
-                              ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (onRefresh != null) ...[
-                    IconButton(
-                      tooltip: 'Refresh orders and inventory',
-                      onPressed: refreshing ? null : onRefresh,
-                      icon: refreshing
-                          ? const SizedBox.square(
-                              dimension: 20,
-                              child: FourDotLoader(size: 22),
-                            )
-                          : const Icon(Icons.refresh_rounded),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                  ],
-                  const AppearanceButton(),
-                  IconButton.filledTonal(
-                    tooltip: 'Sign out',
-                    onPressed: onSignOut,
-                    icon: const Icon(Icons.logout_rounded),
-                  ),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) => constraints.maxWidth >= 560
+                    ? Row(
+                        children: [
+                          Expanded(child: heading),
+                          actions,
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [heading, actions],
+                      ),
               ),
               if (AppEnvironment.hasSupabaseConfig)
                 const Align(
@@ -570,11 +643,7 @@ class _DashboardContent extends ConsumerWidget {
                   child: ResourceUsageButton(),
                 ),
               const SizedBox(height: AppSpacing.md),
-              StaffOrderAlertBar(
-                onOpenOrders: () => context.go(
-                  '/orders?focus=${DateTime.now().microsecondsSinceEpoch}',
-                ),
-              ),
+              StaffOrderAlertBar(onOpenOrders: openOrders),
               const SizedBox(height: AppSpacing.xxxl),
               KeyedSubtree(
                 key: ValueKey<AdminSection>(section),
@@ -1150,89 +1219,267 @@ class _OverviewSection extends StatelessWidget {
     required this.activeCount,
     required this.todayRevenue,
     required this.pickupOrders,
-    required this.completedOrders,
+    required this.fulfilledOrders,
     required this.monthRevenue,
     required this.lowStockCount,
     required this.outOfStockCount,
+    required this.activeOrders,
+    required this.products,
+    required this.onOpenOrders,
+    required this.onOpenInventory,
   });
 
   final int ordersToday;
   final int activeCount;
   final int todayRevenue;
   final int pickupOrders;
-  final int completedOrders;
+  final int fulfilledOrders;
   final int monthRevenue;
   final int lowStockCount;
   final int outOfStockCount;
+  final Iterable<CustomerOrder> activeOrders;
+  final List<Product> products;
+  final VoidCallback onOpenOrders, onOpenInventory;
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final text = Theme.of(context).textTheme;
+    final queue = activeOrders.toList()
+      ..sort((a, b) {
+        final priority = (a.status == OrderStatus.placed ? 0 : 1).compareTo(
+          b.status == OrderStatus.placed ? 0 : 1,
+        );
+        return priority != 0 ? priority : a.createdAt.compareTo(b.createdAt);
+      });
+    final stock =
+        products
+            .where((product) => product.active && product.stockQuantity <= 12)
+            .toList()
+          ..sort((a, b) => a.stockQuantity.compareTo(b.stockQuantity));
+    final orderPanel = _OverviewPanel(
+      title: 'Orders in progress',
+      icon: Icons.receipt_long_outlined,
+      children: [
+        if (queue.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+            child: Text('New orders will appear here.'),
+          ),
+        for (final order in queue.take(4))
+          ListTile(
+            key: Key('admin-overview-order-${order.id}'),
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              'Order ${order.customerDisplayNumber}',
+              style: text.titleSmall,
+            ),
+            subtitle: Text(
+              '${order.fulfilmentType == FulfilmentType.pickup ? 'Pickup' : 'Delivery'} · ${order.status.label}',
+            ),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => showDialog<void>(
+              context: context,
+              builder: (_) => _AdminOrderDetailsDialog(order: order),
+            ),
+          ),
+      ],
+    );
+    final stockPanel = _OverviewPanel(
+      title: 'Stock to review',
+      icon: Icons.inventory_2_outlined,
+      children: [
+        Text(
+          '$lowStockCount low · $outOfStockCount out of stock',
+          style: text.bodyMedium?.copyWith(color: colors.inkSecondary),
+        ),
+        for (final product in stock.take(3))
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: SizedBox.square(
+              dimension: 40,
+              child: ProductVisual(
+                product: product,
+                iconSize: 21,
+                radius: AppRadii.md,
+              ),
+            ),
+            title: Text(
+              product.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Text(
+              product.stockQuantity == 0
+                  ? 'Out of stock'
+                  : '${product.stockQuantity} left',
+              style: text.bodySmall?.copyWith(
+                color: product.stockQuantity == 0
+                    ? colors.error
+                    : colors.warning,
+              ),
+            ),
+          ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: onOpenInventory,
+            icon: const Icon(Icons.arrow_forward_rounded),
+            label: const Text('Open inventory'),
+          ),
+        ),
+      ],
+    );
     return LayoutBuilder(
       key: const Key('admin-overview-section'),
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 1050
+        final twoColumns =
+            constraints.maxWidth >= 480 ||
+            (constraints.maxWidth >= 340 &&
+                MediaQuery.textScalerOf(context).scale(14) <= 18);
+        final columns = constraints.maxWidth >= 930
             ? 4
-            : constraints.maxWidth >= 480
+            : twoColumns
             ? 2
             : 1;
-        return _AdminMetricGrid(
-          columns: columns,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _MetricCard(
-              label: 'Orders today',
-              value: '$ordersToday',
-              icon: Icons.today_rounded,
-              color: AppColors.of(context).info,
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF123527), Color(0xFF195E46)],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(AppRadii.xl),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.xxl),
+                child: Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: AppSpacing.xl,
+                  runSpacing: AppSpacing.lg,
+                  children: [
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '$activeCount active ${activeCount == 1 ? 'order' : 'orders'}',
+                          style: text.headlineMedium?.copyWith(
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          '$pickupOrders pickup · ${activeCount - pickupOrders} delivery',
+                          style: text.bodyMedium?.copyWith(
+                            color: const Color(0xFFCBE6D7),
+                          ),
+                        ),
+                      ],
+                    ),
+                    FilledButton.icon(
+                      key: const Key('admin-overview-open-orders'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFFE0F3E8),
+                        foregroundColor: const Color(0xFF123527),
+                      ),
+                      onPressed: onOpenOrders,
+                      icon: const Icon(Icons.arrow_forward_rounded),
+                      label: const Text('Open order queue'),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            _MetricCard(
-              label: 'Active orders',
-              value: '$activeCount',
-              icon: Icons.receipt_long_rounded,
-              color: AppColors.of(context).brand600,
+            const SizedBox(height: AppSpacing.lg),
+            _AdminMetricGrid(
+              columns: columns,
+              children: [
+                _MetricCard(
+                  label: 'Orders today',
+                  value: '$ordersToday',
+                  icon: Icons.today_rounded,
+                  color: AppColors.of(context).info,
+                ),
+                _MetricCard(
+                  label: 'Paid today',
+                  value: formatPrice(todayRevenue),
+                  icon: Icons.trending_up_rounded,
+                  color: AppColors.of(context).success,
+                ),
+                _MetricCard(
+                  label: 'Fulfilled orders',
+                  value: '$fulfilledOrders',
+                  icon: Icons.task_alt_rounded,
+                  color: AppColors.of(context).success,
+                ),
+                _MetricCard(
+                  label: 'Paid this month',
+                  value: formatPrice(monthRevenue),
+                  icon: Icons.calendar_month_outlined,
+                  color: AppColors.of(context).brand600,
+                ),
+              ],
             ),
-            _MetricCard(
-              label: 'Paid today',
-              value: formatPrice(todayRevenue),
-              icon: Icons.trending_up_rounded,
-              color: AppColors.of(context).success,
-            ),
-            _MetricCard(
-              label: 'Pickup queue',
-              value: '$pickupOrders',
-              icon: Icons.storefront_outlined,
-              color: AppColors.of(context).offer,
-            ),
-            _MetricCard(
-              label: 'Completed',
-              value: '$completedOrders',
-              icon: Icons.task_alt_rounded,
-              color: AppColors.of(context).success,
-            ),
-            _MetricCard(
-              label: 'Paid this month',
-              value: formatPrice(monthRevenue),
-              icon: Icons.calendar_month_outlined,
-              color: AppColors.of(context).brand600,
-            ),
-            _MetricCard(
-              label: 'Low stock',
-              value: '$lowStockCount items',
-              icon: Icons.inventory_2_outlined,
-              color: lowStockCount > 0
-                  ? AppColors.of(context).warning
-                  : AppColors.of(context).success,
-            ),
-            _MetricCard(
-              label: 'Out of stock',
-              value: '$outOfStockCount items',
-              icon: Icons.remove_shopping_cart_outlined,
-              color: outOfStockCount > 0
-                  ? AppColors.of(context).error
-                  : AppColors.of(context).success,
-            ),
+            const SizedBox(height: AppSpacing.xxl),
+            if (constraints.maxWidth >= 780)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 3, child: orderPanel),
+                  const SizedBox(width: AppSpacing.lg),
+                  Expanded(flex: 2, child: stockPanel),
+                ],
+              )
+            else ...[
+              orderPanel,
+              const SizedBox(height: AppSpacing.lg),
+              stockPanel,
+            ],
           ],
         );
       },
+    );
+  }
+}
+
+class _OverviewPanel extends StatelessWidget {
+  const _OverviewPanel({
+    required this.title,
+    required this.icon,
+    required this.children,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return KoyasSurface(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: AppColors.of(context).brand700, size: 21),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          ...children,
+        ],
+      ),
     );
   }
 }
@@ -1306,9 +1553,9 @@ class _PricingSection extends StatelessWidget {
   }
 }
 
-class _OrdersSection extends StatelessWidget {
+class _OrdersSection extends StatefulWidget {
   const _OrdersSection({
-    required this.visibleOrders,
+    required this.orders,
     required this.filter,
     required this.onFilterChanged,
     required this.terminal,
@@ -1318,7 +1565,7 @@ class _OrdersSection extends StatelessWidget {
     required this.onMarkPaid,
   });
 
-  final List<CustomerOrder> visibleOrders;
+  final List<CustomerOrder> orders;
   final String filter;
   final ValueChanged<String> onFilterChanged;
   final bool Function(OrderStatus) terminal;
@@ -1328,48 +1575,124 @@ class _OrdersSection extends StatelessWidget {
   final ValueChanged<CustomerOrder> onMarkPaid;
 
   @override
+  State<_OrdersSection> createState() => _OrdersSectionState();
+}
+
+class _OrdersSectionState extends State<_OrdersSection> {
+  final _search = TextEditingController();
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  String _digits(String value) => value.replaceAll(RegExp(r'[^0-9]'), '');
+
+  @override
   Widget build(BuildContext context) {
+    final query = _search.text.trim().toLowerCase().replaceFirst(
+      RegExp(r'^#\s*'),
+      '',
+    );
+    final phone = RegExp(r'^\+?[0-9 ()-]+$').hasMatch(query)
+        ? _digits(query)
+        : '';
+    final matches = widget.orders.where((order) {
+      if (query.isEmpty) {
+        return switch (widget.filter) {
+          'Pickup' => order.fulfilmentType == FulfilmentType.pickup,
+          'Delivery' => order.fulfilmentType == FulfilmentType.delivery,
+          'Completed' => widget.terminal(order.status),
+          'Active' => !widget.terminal(order.status),
+          _ => true,
+        };
+      }
+      final reference = order.displayReference.toLowerCase();
+      return reference == query ||
+          reference == 'koy$query' ||
+          order.customerDisplayNumber == query ||
+          order.customerName.toLowerCase().contains(query) ||
+          order.deliveryRecipientName.toLowerCase().contains(query) ||
+          (phone.length >= 4 &&
+              (_digits(order.customerPhone).contains(phone) ||
+                  _digits(order.deliveryRecipientPhone).contains(phone)));
+    });
+    final visibleOrders = (query.isEmpty ? matches : matches.take(51)).toList();
+
     return Column(
       key: const Key('admin-orders-section'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Align(
-          alignment: Alignment.centerRight,
-          child: PopupMenuButton<String>(
-            initialValue: filter,
-            onSelected: onFilterChanged,
-            itemBuilder: (context) => [
-              for (final value in const [
-                'Active',
-                'All',
-                'Pickup',
-                'Delivery',
-                'Completed',
-              ])
-                PopupMenuItem(value: value, child: Text(value)),
-            ],
-            child: Chip(
-              avatar: const Icon(Icons.filter_list_rounded, size: 18),
-              label: Text(filter),
-            ),
+        TextField(
+          key: const Key('admin-order-search'),
+          controller: _search,
+          onChanged: (_) => setState(() {}),
+          autocorrect: false,
+          enableSuggestions: false,
+          maxLength: 120,
+          textInputAction: TextInputAction.search,
+          decoration: InputDecoration(
+            labelText: 'Search all orders',
+            counterText: '',
+            hintText: 'Bill number, customer name or phone',
+            prefixIcon: const Icon(Icons.search_rounded),
+            suffixIcon: _search.text.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: 'Clear search',
+                    onPressed: () => setState(_search.clear),
+                    icon: const Icon(Icons.clear_rounded),
+                  ),
           ),
         ),
+        if (query.isEmpty)
+          Align(
+            alignment: Alignment.centerRight,
+            child: PopupMenuButton<String>(
+              initialValue: widget.filter,
+              onSelected: widget.onFilterChanged,
+              itemBuilder: (context) => [
+                for (final value in const [
+                  'Active',
+                  'All',
+                  'Pickup',
+                  'Delivery',
+                  'Completed',
+                ])
+                  PopupMenuItem(value: value, child: Text(value)),
+              ],
+              child: Chip(
+                avatar: const Icon(Icons.filter_list_rounded, size: 18),
+                label: Text(widget.filter),
+              ),
+            ),
+          ),
         const SizedBox(height: AppSpacing.md),
         if (visibleOrders.isEmpty)
-          const KoyasSurface(child: Text('No orders match this filter.'))
+          KoyasSurface(
+            child: Text(
+              query.isEmpty
+                  ? 'No orders match this filter.'
+                  : 'No orders match this search.',
+            ),
+          )
         else
-          for (final order in visibleOrders)
+          for (final order
+              in query.isEmpty ? visibleOrders : visibleOrders.take(50))
             Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.md),
               child: _AdminOrderRow(
                 order: order,
-                canAdvance: !terminal(order.status),
-                onAdvance: () => onAdvance(order),
-                onReject: () => onReject(order),
-                onCancel: () => onCancel(order),
-                onMarkPaid: () => onMarkPaid(order),
+                canAdvance: !widget.terminal(order.status),
+                onAdvance: () => widget.onAdvance(order),
+                onReject: () => widget.onReject(order),
+                onCancel: () => widget.onCancel(order),
+                onMarkPaid: () => widget.onMarkPaid(order),
               ),
             ),
+        if (query.isNotEmpty && visibleOrders.length > 50)
+          const Text('Showing 50 matches. Refine your search to find more.'),
       ],
     );
   }
@@ -2420,7 +2743,18 @@ class _MetricCard extends StatelessWidget {
   }
 }
 
-class _AdminOrderRow extends StatelessWidget {
+String? _tryPrintOrderBill(WidgetRef ref, CustomerOrder order) {
+  try {
+    ref.read(orderBillPrinterProvider)(order);
+    return null;
+  } on StateError catch (error) {
+    return error.message;
+  } catch (_) {
+    return 'The bill could not be opened. Please try again.';
+  }
+}
+
+class _AdminOrderRow extends ConsumerWidget {
   const _AdminOrderRow({
     required this.order,
     required this.canAdvance,
@@ -2474,7 +2808,7 @@ class _AdminOrderRow extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return KoyasSurface(
       key: Key('admin-order-${order.id}'),
       child: Wrap(
@@ -2583,6 +2917,19 @@ class _AdminOrderRow extends StatelessWidget {
             ),
             icon: const Icon(Icons.visibility_outlined, size: 18),
             label: const Text('View details'),
+          ),
+          OutlinedButton.icon(
+            key: Key('admin-print-order-${order.id}'),
+            onPressed: () {
+              final message = _tryPrintOrderBill(ref, order);
+              if (message != null) {
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text(message)));
+              }
+            },
+            icon: const Icon(Icons.print_outlined, size: 18),
+            label: const Text('Print bill'),
           ),
           if (_canRecordPayment)
             FilledButton.icon(
@@ -2887,16 +3234,8 @@ class _AdminOrderDetailsDialogState
                   FilledButton.icon(
                     key: Key('admin-print-bill-${order.id}'),
                     onPressed: () {
-                      setState(() => _printError = null);
-                      try {
-                        ref.read(orderBillPrinterProvider)(order);
-                      } catch (error) {
-                        setState(
-                          () => _printError = error is StateError
-                              ? error.message
-                              : 'The bill could not be opened. Please try again.',
-                        );
-                      }
+                      final message = _tryPrintOrderBill(ref, order);
+                      setState(() => _printError = message);
                     },
                     icon: const Icon(Icons.print_outlined),
                     label: const Text('Print bill'),
@@ -4731,366 +5070,353 @@ class _ProductEditorDialogState extends State<_ProductEditorDialog> {
 
   @override
   Widget build(BuildContext context) {
+    const inset = AppSpacing.lg;
+    const padding = AppSpacing.xxl;
+    final width = (MediaQuery.sizeOf(context).width - 2 * (inset + padding))
+        .clamp(0.0, 560.0)
+        .toDouble();
+    final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
+    final stackFields = width < 360 * textScale;
     return AlertDialog(
+      key: const Key('admin-product-editor'),
+      insetPadding: const EdgeInsets.all(inset),
+      contentPadding: const EdgeInsets.fromLTRB(
+        padding,
+        inset,
+        padding,
+        padding,
+      ),
+      scrollable: true,
       title: Text(widget.product == null ? 'Add product' : 'Edit product'),
       content: SizedBox(
-        width: 560,
+        width: width,
         child: Form(
           key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  key: const Key('admin-product-image-preview'),
-                  width: double.infinity,
-                  height: widget.product == null && _selectedImage == null
-                      ? null
-                      : 180,
-                  constraints: const BoxConstraints(minHeight: 180),
-                  padding: const EdgeInsets.all(AppSpacing.sm),
-                  decoration: BoxDecoration(
-                    color: AppColors.of(context).canvas,
-                    borderRadius: BorderRadius.circular(AppRadii.lg),
-                    border: Border.all(color: AppColors.of(context).outline),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: _selectedImage != null
-                      ? Image.memory(_selectedImage!.bytes, fit: BoxFit.contain)
-                      : widget.product != null && !_removeImage
-                      ? ProductVisual(product: widget.product!)
-                      : const Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.add_photo_alternate_outlined,
-                                size: 40,
-                              ),
-                              SizedBox(height: AppSpacing.sm),
-                              Text('No product picture selected'),
-                            ],
-                          ),
-                        ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                key: const Key('admin-product-image-preview'),
+                width: double.infinity,
+                height: widget.product == null && _selectedImage == null
+                    ? null
+                    : 180,
+                constraints: const BoxConstraints(minHeight: 180),
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: AppColors.of(context).canvas,
+                  borderRadius: BorderRadius.circular(AppRadii.lg),
+                  border: Border.all(color: AppColors.of(context).outline),
                 ),
-                const SizedBox(height: AppSpacing.sm),
+                clipBehavior: Clip.antiAlias,
+                child: _selectedImage != null
+                    ? Image.memory(_selectedImage!.bytes, fit: BoxFit.contain)
+                    : widget.product != null && !_removeImage
+                    ? ProductVisual(product: widget.product!)
+                    : const Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.add_photo_alternate_outlined, size: 40),
+                            SizedBox(height: AppSpacing.sm),
+                            Text('No product picture selected'),
+                          ],
+                        ),
+                      ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  key: const Key('admin-pick-product-image'),
+                  onPressed: _pickingImage ? null : _pickImage,
+                  icon: _pickingImage
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: FourDotLoader(size: 22),
+                        )
+                      : const Icon(Icons.photo_library_outlined),
+                  label: Text(
+                    _selectedImage != null ||
+                            (!_removeImage &&
+                                (widget.product?.imageUrl?.isNotEmpty == true ||
+                                    widget.product?.imageAsset.isNotEmpty ==
+                                        true ||
+                                    widget.product?.imagePath.isNotEmpty ==
+                                        true))
+                        ? 'Replace picture'
+                        : 'Add picture',
+                  ),
+                ),
+              ),
+              if (_selectedImage != null ||
+                  (!_removeImage &&
+                      (widget.product?.imageUrl?.isNotEmpty == true ||
+                          widget.product?.imageAsset.isNotEmpty == true ||
+                          widget.product?.imagePath.isNotEmpty == true))) ...[
+                const SizedBox(height: AppSpacing.xs),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: OutlinedButton.icon(
-                    key: const Key('admin-pick-product-image'),
-                    onPressed: _pickingImage ? null : _pickImage,
-                    icon: _pickingImage
-                        ? const SizedBox.square(
-                            dimension: 18,
-                            child: FourDotLoader(size: 22),
-                          )
-                        : const Icon(Icons.photo_library_outlined),
-                    label: Text(
-                      _selectedImage != null ||
-                              (!_removeImage &&
-                                  (widget.product?.imageUrl?.isNotEmpty ==
-                                          true ||
-                                      widget.product?.imageAsset.isNotEmpty ==
-                                          true ||
-                                      widget.product?.imagePath.isNotEmpty ==
-                                          true))
-                          ? 'Replace picture'
-                          : 'Add picture',
-                    ),
-                  ),
-                ),
-                if (_selectedImage != null ||
-                    (!_removeImage &&
-                        (widget.product?.imageUrl?.isNotEmpty == true ||
-                            widget.product?.imageAsset.isNotEmpty == true ||
-                            widget.product?.imagePath.isNotEmpty == true))) ...[
-                  const SizedBox(height: AppSpacing.xs),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      key: const Key('admin-remove-product-image'),
-                      onPressed: () => setState(() {
-                        _selectedImage = null;
-                        _removeImage = true;
-                      }),
-                      icon: const Icon(Icons.delete_outline_rounded),
-                      label: const Text('Remove picture'),
-                    ),
-                  ),
-                ],
-                if (_removeImage && widget.product != null) ...[
-                  const SizedBox(height: AppSpacing.xs),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      onPressed: () => setState(() => _removeImage = false),
-                      icon: const Icon(Icons.undo_rounded),
-                      label: const Text('Keep current picture'),
-                    ),
-                  ),
-                ],
-                if (_selectedImage != null) ...[
-                  const SizedBox(height: AppSpacing.xs),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      '${_selectedImage!.fileName} · ${(_selectedImage!.bytes.length / 1024).ceil()} KB',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.of(context).inkSecondary,
-                      ),
-                    ),
-                  ),
-                ],
-                if (_imageError != null) ...[
-                  const SizedBox(height: AppSpacing.xs),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      _imageError!,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.of(context).error,
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: AppSpacing.md),
-                TextFormField(
-                  key: const Key('admin-product-name'),
-                  controller: _name,
-                  validator: (value) =>
-                      _requiredLength(value, min: 2, max: 200),
-                  decoration: const InputDecoration(
-                    labelText: 'Storefront product name',
-                    helperText: 'This is the name customers will see.',
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                DropdownButtonFormField<String>(
-                  key: const Key('admin-product-category'),
-                  initialValue: _categoryId,
-                  isExpanded: true,
-                  itemHeight: null,
-                  decoration: const InputDecoration(labelText: 'Category'),
-                  items: widget.categories
-                      .map(
-                        (category) => DropdownMenuItem(
-                          value: category.id,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: Row(
-                              children: [
-                                CategoryPicture(
-                                  visualKey: category.visualKey,
-                                  width: 32,
-                                  height: 32,
-                                  padding: 1,
-                                  radius: 6,
-                                ),
-                                const SizedBox(width: AppSpacing.sm),
-                                Expanded(child: Text(category.name)),
-                              ],
-                            ),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    if (value != null) setState(() => _categoryId = value);
-                  },
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        key: const Key('admin-product-brand'),
-                        controller: _brand,
-                        validator: (value) => _optionalLength(value, 120),
-                        decoration: const InputDecoration(labelText: 'Brand'),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.md),
-                    Expanded(
-                      child: TextFormField(
-                        key: const Key('admin-product-subcategory'),
-                        controller: _subcategory,
-                        validator: (value) => _optionalLength(value, 120),
-                        decoration: const InputDecoration(
-                          labelText: 'Subcategory',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.md),
-                TextFormField(
-                  key: const Key('admin-product-description'),
-                  controller: _description,
-                  validator: (value) =>
-                      _requiredLength(value, min: 2, max: 2000),
-                  maxLines: 2,
-                  decoration: const InputDecoration(labelText: 'Description'),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                TextFormField(
-                  key: const Key('admin-product-unit'),
-                  controller: _unit,
-                  validator: (value) => _requiredLength(value, min: 1, max: 80),
-                  decoration: const InputDecoration(
-                    labelText: 'Unit',
-                    hintText: '1 kg, 500 ml, 12 pieces',
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                ExpansionTile(
-                  key: const Key('admin-advanced-product-details'),
-                  tilePadding: EdgeInsets.zero,
-                  childrenPadding: const EdgeInsets.only(bottom: AppSpacing.md),
-                  initiallyExpanded:
-                      _itemCode.text.isNotEmpty || _barcode.text.isNotEmpty,
-                  leading: const Icon(Icons.tune_rounded),
-                  title: const Text('Billing, barcode & SKU details'),
-                  subtitle: const Text(
-                    'Optional internal names and codes used by staff.',
-                  ),
-                  children: [
-                    TextFormField(
-                      key: const Key('admin-product-billing-name'),
-                      controller: _billingName,
-                      validator: (value) => _optionalLength(value, 200),
-                      decoration: const InputDecoration(
-                        labelText: 'Billing name',
-                        hintText: 'Defaults to the storefront name',
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    TextFormField(
-                      key: const Key('admin-product-print-name'),
-                      controller: _printName,
-                      validator: (value) => _optionalLength(value, 200),
-                      decoration: const InputDecoration(
-                        labelText: 'Receipt / print name',
-                        hintText: 'Defaults to the storefront name',
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            key: const Key('admin-product-item-code'),
-                            controller: _itemCode,
-                            validator: (value) => _optionalLength(value, 80),
-                            decoration: const InputDecoration(
-                              labelText: 'SKU / item code',
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.md),
-                        Expanded(
-                          child: TextFormField(
-                            key: const Key('admin-product-barcode'),
-                            controller: _barcode,
-                            validator: (value) => _optionalLength(value, 80),
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'Barcode',
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        key: const Key('admin-product-price'),
-                        controller: _price,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        validator: (value) {
-                          final amount = _paise(value ?? '');
-                          return amount == null ||
-                                  amount <= 0 ||
-                                  amount > 100000000
-                              ? 'Enter a valid price'
-                              : null;
-                        },
-                        decoration: const InputDecoration(
-                          labelText: 'Price (₹)',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.md),
-                    Expanded(
-                      child: TextFormField(
-                        key: const Key('admin-product-discount'),
-                        controller: _discount,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return null;
-                          }
-                          final discount = _paise(value);
-                          final price = _paise(_price.text);
-                          return discount == null ||
-                                  discount <= 0 ||
-                                  price == null ||
-                                  discount >= price
-                              ? 'Must be below price'
-                              : null;
-                        },
-                        decoration: const InputDecoration(
-                          labelText: 'Offer price (₹, optional)',
-                          helperText:
-                              'Leave empty to sell at the regular price.',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.md),
-                TextFormField(
-                  key: const Key('admin-product-stock'),
-                  controller: _stock,
-                  keyboardType: TextInputType.number,
-                  validator: (value) {
-                    final stock = int.tryParse(value ?? '');
-                    return stock == null || stock < 0 || stock > 999999
-                        ? 'Enter a valid stock quantity'
-                        : null;
-                  },
-                  decoration: const InputDecoration(
-                    labelText: 'Stock quantity',
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                SwitchListTile.adaptive(
-                  contentPadding: EdgeInsets.zero,
-                  value: _featured,
-                  onChanged: (value) => setState(() => _featured = value),
-                  title: const Text('Featured on home'),
-                ),
-                SwitchListTile.adaptive(
-                  key: const Key('admin-product-active'),
-                  contentPadding: EdgeInsets.zero,
-                  value: _active,
-                  onChanged: (value) => setState(() => _active = value),
-                  title: const Text('Visible in customer catalogue'),
-                  subtitle: Text(
-                    _active
-                        ? 'Customers can find and buy this product.'
-                        : 'Archived products remain available to staff only.',
+                  child: TextButton.icon(
+                    key: const Key('admin-remove-product-image'),
+                    onPressed: () => setState(() {
+                      _selectedImage = null;
+                      _removeImage = true;
+                    }),
+                    icon: const Icon(Icons.delete_outline_rounded),
+                    label: const Text('Remove picture'),
                   ),
                 ),
               ],
-            ),
+              if (_removeImage && widget.product != null) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => setState(() => _removeImage = false),
+                    icon: const Icon(Icons.undo_rounded),
+                    label: const Text('Keep current picture'),
+                  ),
+                ),
+              ],
+              if (_selectedImage != null) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '${_selectedImage!.fileName} · ${(_selectedImage!.bytes.length / 1024).ceil()} KB',
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: AppColors.of(context).inkSecondary),
+                  ),
+                ),
+              ],
+              if (_imageError != null) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    _imageError!,
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: AppColors.of(context).error),
+                  ),
+                ),
+              ],
+              const SizedBox(height: AppSpacing.md),
+              TextFormField(
+                key: const Key('admin-product-name'),
+                controller: _name,
+                validator: (value) => _requiredLength(value, min: 2, max: 200),
+                decoration: const InputDecoration(
+                  labelText: 'Storefront product name',
+                  helperText: 'This is the name customers will see.',
+                  helperMaxLines: 3,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              DropdownButtonFormField<String>(
+                key: const Key('admin-product-category'),
+                initialValue: _categoryId,
+                isExpanded: true,
+                isDense: false,
+                itemHeight: null,
+                decoration: const InputDecoration(
+                  labelText: 'Category',
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg,
+                    vertical: AppSpacing.sm,
+                  ),
+                ),
+                items: widget.categories
+                    .map(
+                      (category) => DropdownMenuItem(
+                        value: category.id,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: AppSpacing.xs,
+                          ),
+                          child: Row(
+                            children: [
+                              CategoryPicture(
+                                visualKey: category.visualKey,
+                                width: 32,
+                                height: 32,
+                                padding: 1,
+                                radius: 6,
+                              ),
+                              const SizedBox(width: AppSpacing.sm),
+                              Expanded(child: Text(category.name)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) setState(() => _categoryId = value);
+                },
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _ProductEditorFieldPair(
+                stacked: stackFields,
+                first: TextFormField(
+                  key: const Key('admin-product-brand'),
+                  controller: _brand,
+                  validator: (value) => _optionalLength(value, 120),
+                  decoration: const InputDecoration(labelText: 'Brand'),
+                ),
+                second: TextFormField(
+                  key: const Key('admin-product-subcategory'),
+                  controller: _subcategory,
+                  validator: (value) => _optionalLength(value, 120),
+                  decoration: const InputDecoration(labelText: 'Subcategory'),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextFormField(
+                key: const Key('admin-product-description'),
+                controller: _description,
+                validator: (value) => _requiredLength(value, min: 2, max: 2000),
+                maxLines: 2,
+                decoration: const InputDecoration(labelText: 'Description'),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextFormField(
+                key: const Key('admin-product-unit'),
+                controller: _unit,
+                validator: (value) => _requiredLength(value, min: 1, max: 80),
+                decoration: const InputDecoration(
+                  labelText: 'Unit',
+                  hintText: '1 kg, 500 ml, 12 pieces',
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              ExpansionTile(
+                key: const Key('admin-advanced-product-details'),
+                tilePadding: EdgeInsets.zero,
+                childrenPadding: const EdgeInsets.only(bottom: AppSpacing.md),
+                initiallyExpanded:
+                    _itemCode.text.isNotEmpty || _barcode.text.isNotEmpty,
+                leading: const Icon(Icons.tune_rounded),
+                title: const Text('Billing, barcode & SKU details'),
+                subtitle: const Text(
+                  'Optional internal names and codes used by staff.',
+                ),
+                children: [
+                  TextFormField(
+                    key: const Key('admin-product-billing-name'),
+                    controller: _billingName,
+                    validator: (value) => _optionalLength(value, 200),
+                    decoration: const InputDecoration(
+                      labelText: 'Billing name',
+                      hintText: 'Defaults to the storefront name',
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  TextFormField(
+                    key: const Key('admin-product-print-name'),
+                    controller: _printName,
+                    validator: (value) => _optionalLength(value, 200),
+                    decoration: const InputDecoration(
+                      labelText: 'Receipt / print name',
+                      hintText: 'Defaults to the storefront name',
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  _ProductEditorFieldPair(
+                    stacked: stackFields,
+                    first: TextFormField(
+                      key: const Key('admin-product-item-code'),
+                      controller: _itemCode,
+                      validator: (value) => _optionalLength(value, 80),
+                      decoration: const InputDecoration(
+                        labelText: 'SKU / item code',
+                      ),
+                    ),
+                    second: TextFormField(
+                      key: const Key('admin-product-barcode'),
+                      controller: _barcode,
+                      validator: (value) => _optionalLength(value, 80),
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Barcode'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _ProductEditorFieldPair(
+                stacked: stackFields,
+                first: TextFormField(
+                  key: const Key('admin-product-price'),
+                  controller: _price,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  validator: (value) {
+                    final amount = _paise(value ?? '');
+                    return amount == null || amount <= 0 || amount > 100000000
+                        ? 'Enter a valid price'
+                        : null;
+                  },
+                  decoration: const InputDecoration(labelText: 'Price (₹)'),
+                ),
+                second: TextFormField(
+                  key: const Key('admin-product-discount'),
+                  controller: _discount,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return null;
+                    }
+                    final discount = _paise(value);
+                    final price = _paise(_price.text);
+                    return discount == null ||
+                            discount <= 0 ||
+                            price == null ||
+                            discount >= price
+                        ? 'Must be below price'
+                        : null;
+                  },
+                  decoration: const InputDecoration(
+                    labelText: 'Offer price (₹)',
+                    helperText: 'Optional',
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextFormField(
+                key: const Key('admin-product-stock'),
+                controller: _stock,
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  final stock = int.tryParse(value ?? '');
+                  return stock == null || stock < 0 || stock > 999999
+                      ? 'Enter a valid stock quantity'
+                      : null;
+                },
+                decoration: const InputDecoration(labelText: 'Stock quantity'),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                value: _featured,
+                onChanged: (value) => setState(() => _featured = value),
+                title: const Text('Featured on home'),
+              ),
+              SwitchListTile.adaptive(
+                key: const Key('admin-product-active'),
+                contentPadding: EdgeInsets.zero,
+                value: _active,
+                onChanged: (value) => setState(() => _active = value),
+                title: const Text('Visible in customer catalogue'),
+                subtitle: Text(
+                  _active
+                      ? 'Customers can find and buy this product.'
+                      : 'Archived products remain available to staff only.',
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -5104,6 +5430,39 @@ class _ProductEditorDialogState extends State<_ProductEditorDialog> {
           onPressed: _save,
           child: const Text('Save product'),
         ),
+      ],
+    );
+  }
+}
+
+class _ProductEditorFieldPair extends StatelessWidget {
+  const _ProductEditorFieldPair({
+    required this.stacked,
+    required this.first,
+    required this.second,
+  });
+
+  final bool stacked;
+  final Widget first;
+  final Widget second;
+
+  @override
+  Widget build(BuildContext context) {
+    if (stacked) {
+      return Column(
+        children: [
+          first,
+          const SizedBox(height: AppSpacing.md),
+          second,
+        ],
+      );
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: first),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(child: second),
       ],
     );
   }

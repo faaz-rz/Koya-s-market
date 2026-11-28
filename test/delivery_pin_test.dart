@@ -1,13 +1,62 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:koyas_supermarket/core/theme/app_theme.dart';
+import 'package:koyas_supermarket/core/widgets/koyas_button.dart';
 import 'package:koyas_supermarket/features/checkout/models/checkout_models.dart';
+import 'package:koyas_supermarket/features/checkout/models/delivery_area.dart';
 import 'package:koyas_supermarket/features/checkout/models/delivery_pin.dart';
+import 'package:koyas_supermarket/features/checkout/screens/delivery_checkout_screen.dart';
+import 'package:koyas_supermarket/features/checkout/services/delivery_address_lookup.dart';
 import 'package:koyas_supermarket/features/checkout/services/delivery_location_service.dart';
 import 'package:koyas_supermarket/features/checkout/widgets/address_editor_dialog.dart';
+import 'package:koyas_supermarket/features/checkout/widgets/delivery_location_picker.dart';
+import 'package:koyas_supermarket/features/store/providers/store_provider.dart';
+
+const deliveryArea = DeliveryArea(17.37601003, 78.41978797);
+
+DeliveryPin pinAtDistance(double meters) => DeliveryPin(
+  latitude: deliveryArea.latitude + meters * 180 / (math.pi * 6371008.8),
+  longitude: deliveryArea.longitude,
+  accuracyMeters: 0,
+  capturedAt: DateTime.utc(2026),
+);
+
+class DeliveryCheckoutStore extends StoreController {
+  DeliveryCheckoutStore({this.useDeliveryRadius = true});
+
+  final bool useDeliveryRadius;
+
+  @override
+  StoreState build() {
+    CustomerAddress address(String label, [DeliveryPin? pin]) =>
+        CustomerAddress(
+          id: label,
+          label: label,
+          recipientName: 'Customer',
+          phone: '9876543210',
+          line1: 'Market Road',
+          city: 'Hyderabad',
+          pincode: '500008',
+          deliveryPin: pin,
+        );
+
+    return super.build().copyWith(
+      fulfilmentType: FulfilmentType.delivery,
+      deliveryArea: useDeliveryRadius ? deliveryArea : null,
+      serviceablePincodes: useDeliveryRadius ? const {} : const {'500008'},
+      selectedAddressId: 'No pin',
+      addresses: [
+        address('No pin'),
+        address('Outside radius', pinAtDistance(5001)),
+        address('At 5 km', pinAtDistance(5000)),
+      ],
+    );
+  }
+}
 
 class TestLocation extends GeolocatorPlatform {
   bool service = true;
@@ -64,6 +113,119 @@ void main() {
     GeolocatorPlatform.instance = location;
   });
   tearDown(() => GeolocatorPlatform.instance = original);
+
+  test(
+    'delivery radius includes the 5 km boundary and requires a valid pin',
+    () {
+      expect(deliveryArea.issueFor(pinAtDistance(4999)), isNull);
+      expect(deliveryArea.issueFor(pinAtDistance(5000)), isNull);
+      expect(
+        deliveryArea.issueFor(pinAtDistance(5001)),
+        DeliveryArea.outsideRadius,
+      );
+      expect(deliveryArea.issueFor(null), DeliveryArea.pinRequired);
+      expect(DeliveryArea.fromSettings({}), isNull);
+    },
+  );
+
+  testWidgets('checkout enables payment only for an address within 5 km', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [storeProvider.overrideWith(DeliveryCheckoutStore.new)],
+        child: MaterialApp(
+          theme: AppTheme.customer,
+          home: const DeliveryCheckoutScreen(),
+        ),
+      ),
+    );
+    final payment = find.widgetWithText(KoyasButton, 'Continue to payment');
+    expect(find.text('Add a delivery pin'), findsOneWidget);
+    expect(tester.widget<KoyasButton>(payment).onPressed, isNull);
+
+    await tester.tap(find.text('Outside radius'));
+    await tester.pumpAndSettle();
+    expect(find.text(DeliveryArea.outsideRadius), findsOneWidget);
+    expect(tester.widget<KoyasButton>(payment).onPressed, isNull);
+
+    await tester.tap(find.text('At 5 km'));
+    await tester.pumpAndSettle();
+    expect(find.text(DeliveryArea.outsideRadius), findsNothing);
+    expect(tester.widget<KoyasButton>(payment).onPressed, isNotNull);
+  });
+
+  testWidgets(
+    'address editor warns immediately after confirming an out-of-range pin',
+    (tester) async {
+      var selectedPin = pinAtDistance(5001);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            storeProvider.overrideWith(DeliveryCheckoutStore.new),
+            deliveryLocationPickerProvider.overrideWithValue(
+              (_, _, {required requirePlacement}) async =>
+                  DeliveryLocationSelection(pin: selectedPin),
+            ),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.customer,
+            home: const DeliveryCheckoutScreen(),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Add new'));
+      await tester.pumpAndSettle();
+      final movePin = find.byKey(const Key('place-delivery-pin-on-map'));
+      await tester.tap(movePin);
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          'This location is outside our delivery area. Please choose an address within 5 km of Koya Stores.',
+        ),
+        findsOneWidget,
+      );
+
+      selectedPin = pinAtDistance(5000);
+      await tester.tap(movePin);
+      await tester.pumpAndSettle();
+      expect(find.text(DeliveryArea.outsideRadius), findsNothing);
+    },
+  );
+
+  testWidgets('address editor warns after entering an unsupported PIN code', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          storeProvider.overrideWith(
+            () => DeliveryCheckoutStore(useDeliveryRadius: false),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.customer,
+          home: const DeliveryCheckoutScreen(),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Add new'));
+    await tester.pumpAndSettle();
+    final pincode = find.byKey(const Key('address-pincode'));
+    final warning = find.textContaining('Delivery is unavailable for PIN code');
+    await tester.ensureVisible(pincode);
+    await tester.enterText(pincode, '99999');
+    await tester.pump();
+    expect(warning, findsNothing);
+
+    await tester.enterText(pincode, '999999');
+    await tester.pump();
+    expect(warning, findsOneWidget);
+
+    await tester.enterText(pincode, '500008');
+    await tester.pump();
+    expect(warning, findsNothing);
+  });
 
   test(
     'single foreground fix asks permission only when needed and returns finite coordinates with accuracy',
@@ -180,10 +342,7 @@ void main() {
       );
       await tester.tap(find.text('Edit'));
       await tester.pumpAndSettle();
-      final line = find.widgetWithText(
-        TextFormField,
-        'Flat, building and street',
-      );
+      final line = find.widgetWithText(TextFormField, 'Building and street');
       await tester.ensureVisible(line);
       await tester.enterText(line, '99 New Street');
       await tester.pump();

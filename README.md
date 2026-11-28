@@ -21,8 +21,9 @@ Customer screens:
   totals; the default is no minimum
 - Pickup or home-delivery selection
 - Pickup goes directly to payment, followed by a ready-for-pickup notification
-- Delivery address add/edit/delete/default, PIN serviceability, instructions,
-  dates, and slots; optional foreground GPS delivery pin with reported accuracy
+- Delivery address add/edit/delete/default, instructions, dates, and slots.
+  Production delivery requires an address pin within 5 km of the store.
+  Customers can place the pin on the map or use foreground GPS.
 - In-app pickup, out-for-delivery, delivered and cancelled status alerts;
   optional sound/device notification while the app is open
 - Cash or UPI at pickup and cash or UPI on delivery in the first production
@@ -108,12 +109,11 @@ flutter run -d chrome -t lib/admin_main.dart
 Staff demo: enter an email address and select **Open staff dashboard demo**.
 The customer app contains no admin route or admin-dashboard shortcut.
 
-To print an order, open **Orders → View details → Print bill**. The browser
-opens a black-and-white receipt and its print dialog, where staff can choose
-a printer or **Save as PDF**. The bill fits an 80 mm receipt roll and can also
-be printed on A4. Choose the matching paper size and turn off browser headers
-and footers. If pop-ups are blocked, allow them for the staff website and try
-again. Printing does not change the order or record a payment.
+In **Orders**, select **Print bill** next to an order. The browser opens an
+itemized receipt and its print dialog. Select your printer and match its paper
+size (58 mm, 80 mm or A4), or choose **Save as PDF**. Turn off browser headers
+and footers. If the browser blocks the receipt window, allow pop-ups for the
+staff website and try again. Use **Mark payment received** to record payment.
 
 For a physical stock count, find the exact product and pack size, type its
 **Total stock**, then select **Save**. Enter `0` to remove it from sale, or enter
@@ -337,9 +337,9 @@ failure webhook cannot downgrade an already captured payment.
 
 ## Release preparation
 
-Android builds target SDK 36 and support Android 7.0 (API 24) and newer. The
-release toolchain uses Java 17, NDK 28.2, and Flutter's supported AGP 8
-compatibility path while native plugins complete their AGP 9 migrations.
+Android builds target SDK 36, compile with SDK 37 and support Android 7.0
+(API 24) and newer. The release toolchain uses AGP 9.3.2 and NDK 28.2, with
+Java and Kotlin targeting JVM 17.
 
 Android release builds never fall back to the Flutter debug key. Signing can be
 provided with an ignored `android/key.properties` file (start from
@@ -367,8 +367,10 @@ tool/verify_android_release.sh build/app/outputs/bundle/release/app-release.aab
 
 For `.aab` manifest inspection, install Google's official Bundletool command or
 set `BUNDLETOOL_JAR` to the local `bundletool-all.jar`. The verifier checks the
-signature, non-debuggable state, application ID, version, Internet permission
-and target SDK 36 from the built artifact itself.
+upload certificate, non-debuggable state, application ID, version, permissions,
+target SDK 36 and 16 KB native-library alignment. See
+[Google Play submission](play_store/PLAY_CONSOLE_SUBMISSION.md) for the release
+command with push notifications and the Console requirements.
 
 Before that build, apply all Supabase migrations and deploy the deletion
 function:

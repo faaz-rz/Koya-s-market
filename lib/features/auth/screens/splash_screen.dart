@@ -1,6 +1,6 @@
 import '../../../core/services/network_status.dart';
-import '../../../core/widgets/four_dot_loader.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -44,9 +44,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
           return;
         }
         final bundle = await SupabaseStoreRepository().loadStore();
-        if (!mounted ||
-            Supabase.instance.client.auth.currentUser?.id !=
-                bundle.profile.id) {
+        if (!mounted) return;
+        final currentId = Supabase.instance.client.auth.currentUser?.id;
+        if (currentId == null) {
+          context.go('/login');
+          return;
+        }
+        if (currentId != bundle.profile.id) {
+          setState(() => _error = 'Your sign-in changed. Please try again.');
           return;
         }
         ref.read(storeProvider.notifier).hydrateRemoteBundle(bundle);
@@ -71,52 +76,74 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.of(context).brand500,
-      body: SafeArea(
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 560),
-                  child: const AspectRatio(
-                    aspectRatio: 2,
-                    child: Image(
-                      image: AssetImage(KoyasLogo.fullAsset),
-                      fit: BoxFit.cover,
-                      filterQuality: FilterQuality.high,
+    final colors = AppColors.of(context);
+    final text = Theme.of(context).textTheme;
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: colors.isDark
+          ? SystemUiOverlayStyle.light
+          : SystemUiOverlayStyle.dark,
+      child: Scaffold(
+        backgroundColor: colors.marketCream,
+        body: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(AppSpacing.xxl),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 320),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(AppRadii.xl),
+                      child: Image.asset(
+                        KoyasLogo.symbolAsset,
+                        width: 72,
+                        height: 72,
+                        excludeFromSemantics: true,
+                        cacheWidth: 216,
+                        cacheHeight: 216,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: AppSpacing.xl),
+                    Text(
+                      'Koya Stores',
+                      key: const Key('launch-store-name'),
+                      textAlign: TextAlign.center,
+                      style: text.headlineMedium?.copyWith(
+                        color: colors.ink,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xxl),
+                    if (_error case final error?) ...[
+                      Semantics(
+                        liveRegion: true,
+                        child: Text(error, textAlign: TextAlign.center),
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      KoyasButton(
+                        label: 'Try again',
+                        expand: false,
+                        onPressed: _route,
+                      ),
+                    ] else
+                      SizedBox(
+                        width: 72,
+                        child: LinearProgressIndicator(
+                          semanticsLabel: 'Opening Koya Stores',
+                          minHeight: 4,
+                          value: MediaQuery.disableAnimationsOf(context)
+                              ? 0.5
+                              : null,
+                          borderRadius: BorderRadius.circular(AppRadii.full),
+                          backgroundColor: colors.brandSoft,
+                          color: colors.brand600,
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              if (_error != null) ...[
-                const SizedBox(height: AppSpacing.xxl),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 320),
-                  child: Text(
-                    _error!,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.of(context).surface,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                KoyasButton(
-                  label: 'Try again',
-                  expand: false,
-                  onPressed: _route,
-                ),
-              ],
-              if (_routing)
-                Padding(
-                  padding: EdgeInsets.all(AppSpacing.lg),
-                  child: FourDotLoader(color: AppColors.of(context).surface),
-                ),
-            ],
+            ),
           ),
         ),
       ),

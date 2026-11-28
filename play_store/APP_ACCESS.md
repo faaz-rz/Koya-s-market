@@ -8,8 +8,12 @@ operator's inbox.
 
 1. In the production Supabase project, create one ordinary customer Auth user
    with email/password credentials. Do not add this user to `public.admins`.
-2. Give the account a normal customer profile and keep it free of active orders
-   before submission.
+2. Give the account a normal customer profile and a saved test delivery address
+   with a valid pin inside the store's service radius. The app prompts new
+   customers without a saved address to set one up before browsing. Verify the
+   reviewer can open the Home screen from a fresh install and browse from
+   outside the delivery area. Keep the account free of active orders before
+   submission and tell staff how to identify and handle review orders.
 3. Store its random password in the team's password manager. Never add it to
    source control, Dart defines, screenshots or release notes.
 4. Build with `--dart-define=ENABLE_PLAY_REVIEW_LOGIN=true`. Android release
@@ -31,8 +35,9 @@ operator's inbox.
 2. On the sign-in screen, tap **App review access** below the OTP button.
 3. Enter the reusable email and password supplied above.
 4. Tap **Sign in for review**.
-5. The account opens the customer Home screen. No OTP, phone verification or
-   special location is required.
+5. The account opens the customer Home screen using its saved address. Pickup
+   is available without location permission. To review delivery, select the
+   saved test address and choose an available slot.
 
 If Google requests access to staff-only features, create a separate least-
 privilege review process rather than promoting this customer account. Never

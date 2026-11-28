@@ -71,6 +71,14 @@ export async function runSyncChecks({ owner, transaction, fixture, anotherUser, 
     assert.ok(customer.orders.flatMap(b => b.rows).every(row => row.user_id === f.user));
     const emailOnly = await transaction(admin, c => sync(c, fingerprints(staff)), 'authenticated', 'aal1');
     assert.equal(emailOnly.is_admin, true);
+    const passwordOnly = await transaction(admin, c => sync(c, fingerprints(staff)), 'authenticated', 'aal1', 'password');
+    assert.equal(passwordOnly.is_admin, false);
+    assert.ok(passwordOnly.orders.flatMap(b => b.rows).every(row => row.user_id === admin));
+    assert.ok(passwordOnly.catalogue.flatMap(b => b.rows).every(row => row[14] === true && row.slice(16).every(v => v === null)));
+    await assert.rejects(
+      transaction(admin, c => c.query('select public.admin_resource_usage()'), 'authenticated', 'aal1', 'password'),
+      /Admin access required/,
+    );
     await owner.query('update public.admins set active=false where user_id=$1', [admin]);
     try {
       const revoked = await transaction(admin, c => sync(c, fingerprints(staff)), 'authenticated', 'aal1');

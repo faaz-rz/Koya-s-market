@@ -1,12 +1,11 @@
-import '../../notifications/widgets/customer_order_alerts.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/koyas_button.dart';
+import '../../notifications/widgets/customer_order_alerts.dart';
 import '../../store/providers/store_provider.dart';
 import '../models/order.dart';
 import '../widgets/order_card.dart';
@@ -36,8 +35,18 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
         : orders;
     return Scaffold(
       appBar: AppBar(
+        centerTitle: false,
         automaticallyImplyLeading: false,
         title: const Text('Your orders'),
+        actions: [
+          IconButton(
+            key: const Key('order-alert-settings'),
+            tooltip: 'Order alerts',
+            onPressed: () => showOrderAlertSettings(context),
+            icon: const Icon(Icons.notifications_none_rounded),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+        ],
       ),
       body: orders.isEmpty
           ? EmptyState(
@@ -63,14 +72,6 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const CustomerAlertSettings(),
-                      Text(
-                        'View your order details or quickly reorder your essentials.',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.of(context).inkSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
                       SegmentedButton<bool>(
                         segments: const [
                           ButtonSegment(
@@ -83,7 +84,7 @@ class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
                         onSelectionChanged: (value) =>
                             setState(() => _activeOnly = value.first),
                       ),
-                      const SizedBox(height: AppSpacing.xxl),
+                      const SizedBox(height: AppSpacing.lg),
                       if (visible.isEmpty)
                         const Padding(
                           padding: EdgeInsets.symmetric(

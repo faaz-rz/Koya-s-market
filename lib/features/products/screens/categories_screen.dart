@@ -21,23 +21,29 @@ class CategoriesScreen extends ConsumerWidget {
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: AppBreakpoints.medium),
-          child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.xl,
-              AppSpacing.sm,
-              AppSpacing.xl,
-              AppSpacing.xxl,
+          child: LayoutBuilder(
+            builder: (context, constraints) => GridView.builder(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.sm,
+                AppSpacing.lg,
+                AppSpacing.xxl,
+              ),
+              itemCount: categories.length,
+              gridDelegate: CategoryTile.gridDelegate(
+                context,
+                constraints.maxWidth - AppSpacing.lg * 2,
+                categories,
+              ),
+              itemBuilder: (_, index) {
+                final category = categories[index];
+                return CategoryTile(
+                  category: category,
+                  compact: true,
+                  onTap: () => context.push('/products?category=${category.id}'),
+                );
+              },
             ),
-            itemCount: categories.length,
-            separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.md),
-            itemBuilder: (_, index) {
-              final category = categories[index];
-              return CategoryTile(
-                category: category,
-                horizontal: true,
-                onTap: () => context.push('/products?category=${category.id}'),
-              );
-            },
           ),
         ),
       ),

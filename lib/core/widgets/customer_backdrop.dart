@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 
-/// Static, lightweight atmosphere: no blur, animated gradients or extra images.
 class CustomerBackdrop extends StatelessWidget {
   const CustomerBackdrop({required this.child, super.key});
 
@@ -12,28 +11,18 @@ class CustomerBackdrop extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
     return DecoratedBox(
-      decoration: BoxDecoration(color: colors.canvas),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: RadialGradient(
-            center: const Alignment(-1.1, -0.9),
-            radius: 1.5,
-            colors: [colors.mint, colors.mint.withValues(alpha: 0)],
-            stops: const [0, 0.85],
-          ),
-        ),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: RadialGradient(
-              center: const Alignment(1.2, 0.9),
-              radius: 1.2,
-              colors: [colors.peach, colors.peach.withValues(alpha: 0)],
-              stops: const [0, 0.8],
-            ),
-          ),
-          child: child,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color.lerp(colors.canvas, colors.mint, 0.35)!,
+            colors.canvas,
+          ],
+          stops: const [0, 0.26],
         ),
       ),
+      child: child,
     );
   }
 }

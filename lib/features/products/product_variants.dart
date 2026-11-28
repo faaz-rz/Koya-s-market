@@ -205,8 +205,16 @@ abstract final class ProductVariants {
     return left.effectivePricePaise.compareTo(right.effectivePricePaise);
   }
 
-  static _ProductSize? _sizeFor(Product product) =>
-      _sizeFromText(product.name) ?? _sizeFromText(product.unit);
+  static _ProductSize? _sizeFor(Product product) {
+    final name = product.name.replaceAll(_pricePackPattern, '');
+    final namedSize = _sizeFromText(name);
+    if (namedSize != null) return namedSize;
+    final unitSize = _sizeFromText(product.unit);
+    // The default piece count on a price-labelled SKU says nothing about
+    // its size. Keep each of these packs directly purchasable.
+    if (name != product.name && unitSize?.label == 'Pack of 1') return null;
+    return unitSize;
+  }
 
   static _ProductSize? _sizeFromText(String value) {
     final compoundMatch = _compoundQuantityPattern.firstMatch(value);

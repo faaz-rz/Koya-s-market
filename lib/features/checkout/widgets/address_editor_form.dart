@@ -3,7 +3,11 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/koyas_button.dart';
 import '../models/checkout_models.dart';
 import '../models/delivery_pin.dart';
+import 'delivery_address_notice.dart';
 import 'delivery_pin_field.dart';
+
+typedef DeliveryCoverageCheck =
+    String? Function({String? pincode, DeliveryPin? pin});
 
 /// Shared by first sign-in, saved addresses and checkout. Location is optional.
 class AddressEditorForm extends StatefulWidget {
@@ -17,6 +21,7 @@ class AddressEditorForm extends StatefulWidget {
     this.makeDefault = false,
     this.showSaveButton = true,
     this.onLocatingChanged,
+    this.checkDeliveryCoverage,
     super.key,
   });
   final ValueChanged<CustomerAddress> onSave;
@@ -25,11 +30,14 @@ class AddressEditorForm extends StatefulWidget {
   final bool saving, makeDefault;
   final bool showSaveButton;
   final ValueChanged<bool>? onLocatingChanged;
+  final DeliveryCoverageCheck? checkDeliveryCoverage;
   @override
   AddressEditorFormState createState() => AddressEditorFormState();
 }
 
 class AddressEditorFormState extends State<AddressEditorForm> {
+  static final _pincodePattern = RegExp(r'^\d{6}$');
+
   final _form = GlobalKey<FormState>();
   final _focus = <Key, FocusNode>{
     for (final name in ['line', 'city', 'pincode', 'name', 'phone', 'label'])
@@ -45,7 +53,7 @@ class AddressEditorFormState extends State<AddressEditorForm> {
       _pincode,
       _instructions;
   DeliveryPin? _pin;
-  bool _locating = false, _pinCleared = false;
+  bool _locating = false, _pinCleared = false, _pinChosenInEditor = false;
   @override
   void initState() {
     super.initState();
@@ -84,7 +92,7 @@ class AddressEditorFormState extends State<AddressEditorForm> {
   String? _required(String? value) =>
       value == null || value.trim().isEmpty ? 'This field is required' : null;
   void _addressChanged(String _) {
-    if (_pin != null) {
+    if (_pin != null && !_pinChosenInEditor) {
       setState(() {
         _pin = null;
         _pinCleared = true;
@@ -151,20 +159,22 @@ class AddressEditorFormState extends State<AddressEditorForm> {
           onChanged: (pin) => setState(() {
             _pin = pin;
             _pinCleared = false;
+            _pinChosenInEditor = pin != null;
           }),
           onAddressResolved: (address) {
             // Controller assignment does not run the manual-edit listener,
             // so the confirmed pin remains attached to the resolved address.
-            _flat.clear();
-            _line.text = address.street;
-            _city.text = address.city;
-            _pincode.text = address.pincode;
+            if (address.street.isNotEmpty) _line.text = address.street;
+            if (address.city.isNotEmpty) _city.text = address.city;
+            if (address.pincode.isNotEmpty) _pincode.text = address.pincode;
           },
           onBusyChanged: (busy) {
             setState(() => _locating = busy);
             widget.onLocatingChanged?.call(busy);
           },
         ),
+        if (widget.checkDeliveryCoverage?.call(pin: _pin) case final issue?)
+          DeliveryAddressNotice(message: issue),
         if (_pinCleared)
           const Text(
             'Address changed. Capture a new pin at this address if needed.',
@@ -177,7 +187,7 @@ class AddressEditorFormState extends State<AddressEditorForm> {
           maxLength: 60,
           textInputAction: TextInputAction.next,
           decoration: const InputDecoration(
-            labelText: 'Flat / house number (optional)',
+            labelText: 'House, flat or floor (optional)',
             counterText: '',
           ),
         ),
@@ -189,10 +199,12 @@ class AddressEditorFormState extends State<AddressEditorForm> {
           enabled: !widget.saving && !_locating,
           maxLength: 200,
           onChanged: _addressChanged,
-          validator: _required,
+          validator: (value) => (value?.trim().runes.length ?? 0) < 3
+              ? 'Enter the building or street'
+              : null,
           textInputAction: TextInputAction.next,
           decoration: const InputDecoration(
-            labelText: 'Flat, building and street',
+            labelText: 'Building and street',
             counterText: '',
             errorMaxLines: 2,
           ),
@@ -205,7 +217,8 @@ class AddressEditorFormState extends State<AddressEditorForm> {
           enabled: !widget.saving && !_locating,
           maxLength: 80,
           onChanged: _addressChanged,
-          validator: _required,
+          validator: (value) =>
+              (value?.trim().runes.length ?? 0) < 2 ? 'Enter the city' : null,
           textInputAction: TextInputAction.next,
           decoration: const InputDecoration(
             labelText: 'City',
@@ -223,7 +236,7 @@ class AddressEditorFormState extends State<AddressEditorForm> {
           onChanged: _addressChanged,
           keyboardType: TextInputType.number,
           textInputAction: TextInputAction.next,
-          validator: (v) => RegExp(r'^\d{6}$').hasMatch(v?.trim() ?? '')
+          validator: (v) => _pincodePattern.hasMatch(v?.trim() ?? '')
               ? null
               : 'Enter a valid 6-digit PIN',
           decoration: const InputDecoration(
@@ -232,6 +245,22 @@ class AddressEditorFormState extends State<AddressEditorForm> {
             errorMaxLines: 2,
           ),
         ),
+        if (widget.checkDeliveryCoverage case final check?)
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _pincode,
+            builder: (context, value, child) {
+              final pincode = value.text.trim();
+              final issue = _pincodePattern.hasMatch(pincode)
+                  ? check(pincode: pincode)
+                  : null;
+              return issue == null
+                  ? const SizedBox.shrink()
+                  : Padding(
+                      padding: const EdgeInsets.only(top: AppSpacing.sm),
+                      child: DeliveryAddressNotice(message: issue),
+                    );
+            },
+          ),
         const SizedBox(height: AppSpacing.md),
         TextFormField(
           controller: _instructions,

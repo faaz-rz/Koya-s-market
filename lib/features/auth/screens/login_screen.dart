@@ -17,6 +17,8 @@ import '../../../core/widgets/koyas_logo.dart';
 import '../../../core/widgets/appearance_selector.dart';
 import '../data/auth_repository.dart';
 import '../data/otp_send_limiter.dart';
+import '../widgets/account_password_field.dart';
+import '../widgets/set_password_dialog.dart';
 import '../../store/providers/store_provider.dart';
 import '../../store/data/supabase_store_repository.dart';
 
@@ -41,8 +43,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     text: AppEnvironment.hasSupabaseConfig ? '' : 'ezlin@example.com',
   );
   final _otpController = TextEditingController();
+  final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _otpSent = false;
+  bool _usePassword = false;
+  bool _setPassword = false;
   bool _verified = false;
   bool _loading = false;
   bool _loadingStore = false;
@@ -72,6 +77,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _cooldownTimer?.cancel();
     _emailController.dispose();
     _otpController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -88,6 +94,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       try {
         if (_verified) {
           await _completeRemoteSignIn();
+        } else if (_usePassword) {
+          final password = _passwordController.text;
+          _passwordController.clear();
+          await _auth!.signInWithPassword(
+            email: _emailController.text,
+            password: password,
+          );
+          if (!mounted) return;
+          setState(() => _verified = true);
+          await _completeRemoteSignIn();
         } else if (!_otpSent) {
           await _auth!.sendEmailOtp(_emailController.text);
           if (mounted) {
@@ -97,7 +113,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             });
           }
         } else {
-          await _auth!.verifyEmailOtp(
+          final user = await _auth!.verifyEmailOtp(
             email: _emailController.text,
             token: _otpController.text,
           );
@@ -106,6 +122,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             _verified = true;
             _otpController.clear();
           });
+          if (_setPassword) {
+            await showDialog<void>(
+              context: context,
+              barrierDismissible: false,
+              builder: (_) => SetPasswordDialog(auth: _auth!, userId: user.id),
+            );
+          }
+          if (!mounted) return;
           await _completeRemoteSignIn();
         }
       } catch (error) {
@@ -174,6 +198,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         'Your session expired. Request a new email code.',
       TimeoutException() =>
         'This is taking longer than expected. Please try again.',
+      _ when _usePassword =>
+        'The email or password was not accepted. Try again or use a code.',
       _ when _otpSent =>
         'That code was not accepted or has expired. Check it or request a new code.',
       _ => 'Could not send a code. Please try again shortly.',
@@ -183,6 +209,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _messageIsError = true;
       _loadingStore = false;
     });
+  }
+
+  void _changeSignInMethod({
+    bool usePassword = false,
+    bool setPassword = false,
+  }) {
+    setState(() {
+      _usePassword = usePassword;
+      _setPassword = setPassword;
+      _passwordController.clear();
+      _authMessage = null;
+      _messageIsError = false;
+    });
+    _updateCooldown();
   }
 
   void _updateCooldown() {
@@ -243,8 +283,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       setState(() {
         _otpSent = false;
         _verified = false;
+        _usePassword = false;
+        _setPassword = false;
         _loadingStore = false;
         _otpController.clear();
+        _passwordController.clear();
         _emailController.clear();
         _authMessage = null;
         _messageIsError = false;
@@ -412,6 +455,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         return null;
                       },
                     ),
+                    if (_remote && _usePassword && !_verified) ...[
+                      const SizedBox(height: AppSpacing.lg),
+                      AccountPasswordField(
+                        key: const Key('customer-password'),
+                        controller: _passwordController,
+                        enabled: !_loading,
+                        validator: (value) => value?.isNotEmpty == true
+                            ? null
+                            : 'Enter your password',
+                      ),
+                    ],
                     if (_otpSent && !_verified) ...[
                       const SizedBox(height: AppSpacing.lg),
                       TextFormField(
@@ -483,16 +537,47 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       : 'Open store')
                                 : _otpSent
                                 ? 'Verify and continue'
+                                : _usePassword
+                                ? 'Sign in with password'
                                 : _resendSeconds > 0
                                 ? 'Request code in ${_resendSeconds}s'
+                                : _setPassword
+                                ? 'Send code to set password'
                                 : 'Send secure code')
                           : 'Continue to Koya Stores',
                       loading: _loading,
                       icon: Icons.arrow_forward_rounded,
-                      onPressed: !_otpSent && !_verified && _resendSeconds > 0
+                      onPressed:
+                          !_usePassword &&
+                              !_otpSent &&
+                              !_verified &&
+                              _resendSeconds > 0
                           ? null
                           : _continue,
                     ),
+                    if (_remote && !_otpSent && !_verified) ...[
+                      TextButton(
+                        key: const Key('customer-sign-in-method'),
+                        onPressed: _loading
+                            ? null
+                            : () => _changeSignInMethod(
+                                usePassword: !_usePassword,
+                              ),
+                        child: Text(
+                          _usePassword
+                              ? 'Use verification code'
+                              : 'Use password',
+                        ),
+                      ),
+                      if (_usePassword)
+                        TextButton(
+                          key: const Key('customer-set-password'),
+                          onPressed: _loading
+                              ? null
+                              : () => _changeSignInMethod(setPassword: true),
+                          child: const Text('Set or reset password with email'),
+                        ),
+                    ],
                     if (_remote &&
                         !_verified &&
                         AppEnvironment.enablePlayReviewLogin) ...[

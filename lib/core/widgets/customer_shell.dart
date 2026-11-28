@@ -102,7 +102,7 @@ class CustomerShell extends ConsumerWidget {
                         boxShadow: AppShadows.of(context),
                       ),
                       child: NavigationBar(
-                        height: 76,
+                        height: 68,
                         indicatorColor: AppColors.of(context).brandSoft,
                         labelBehavior:
                             MediaQuery.textScalerOf(context).scale(12) > 18
@@ -138,36 +138,14 @@ class CustomerShell extends ConsumerWidget {
                           ),
                           NavigationDestination(
                             key: const Key('customer-open-cart'),
-                            label: '',
+                            label: 'Cart',
                             tooltip: 'Open cart',
                             icon: Semantics(
                               label: 'Open cart',
                               child: Badge.count(
                                 count: cartCount,
                                 isLabelVisible: cartCount > 0,
-                                child: Container(
-                                  width: 52,
-                                  height: 52,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: [
-                                        AppColors.of(context).brand600,
-                                        AppColors.of(context).brand500,
-                                      ],
-                                    ),
-                                    boxShadow: AppShadows.of(
-                                      context,
-                                      elevated: true,
-                                    ),
-                                  ),
-                                  child: Icon(
-                                    Icons.shopping_cart_outlined,
-                                    color: AppColors.of(context).onBrand,
-                                  ),
-                                ),
+                                child: const Icon(Icons.shopping_bag_outlined),
                               ),
                             ),
                           ),

@@ -118,13 +118,24 @@ String buildOrderBillHtml(CustomerOrder order) {
       .toolbar { display: none; }
       .bill { width: 72mm; max-width: 100%; padding: 0; margin: 0; }
     }
+    @media (max-width: 64mm) {
+      body { font-size: 11px; }
+      .bill { width: 48mm; padding: 0; }
+      h1 { font-size: 18px; }
+      .items { font-size: 9px; }
+      .items th, .items td { padding: 4px 1px; }
+      .items th:first-child { width: 36%; }
+      .items th:nth-child(3), .items th:nth-child(4) { width: 26%; }
+      .unit, .totals { font-size: 10px; }
+      .grand-total th, .grand-total td { font-size: 12px; }
+    }
   </style>
 </head>
 <body>
   <nav class="toolbar" aria-label="Bill actions">
     <button id="print-bill" type="button">Print / Save PDF</button>
     <button id="close-bill" type="button">Close</button>
-    <p>Select your printer's paper size (80 mm receipt or A4).<br>
+    <p>Match the paper size to your printer (58 mm, 80 mm or A4).<br>
     For a clean bill, turn off browser headers and footers.</p>
   </nav>
   <main class="bill">

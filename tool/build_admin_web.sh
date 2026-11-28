@@ -32,7 +32,8 @@ case "$SUPABASE_ANON_KEY" in
     ;;
 esac
 
-readonly koyas_flutter_version='3.47.1'
+koyas_flutter_version="$(cat "$(dirname "${BASH_SOURCE[0]}")/../.flutter-version")"
+readonly koyas_flutter_version
 koyas_flutter_bin="$(command -v flutter || true)"
 
 if [[ -z "$koyas_flutter_bin" ]]; then

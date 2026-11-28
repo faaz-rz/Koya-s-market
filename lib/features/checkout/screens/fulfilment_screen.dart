@@ -71,6 +71,14 @@ class FulfilmentScreen extends ConsumerWidget {
                     icon: Icons.delivery_dining_rounded,
                     onTap: () => _select(context, ref, FulfilmentType.delivery),
                   ),
+                  if (store.deliveryEnabled && store.deliveryArea != null) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      store.deliveryArea == null
+                          ? 'Home delivery in supported PIN codes.'
+                          : 'Home delivery within 5 km of Koya Stores.',
+                    ),
+                  ],
                   const SizedBox(height: AppSpacing.xxl),
                   KoyasSurface(
                     color: AppColors.of(context).surfaceMuted,

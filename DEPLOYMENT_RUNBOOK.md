@@ -231,10 +231,12 @@ Install official bundletool, then verify the final artifact:
 tool/verify_android_release.sh build/app/outputs/bundle/release/app-release.aab
 ```
 
-The verifier requires package `com.koyas.koyas_supermarket`, version
-`1.1.5 (9)`, target API 36, Internet permission, a non-debug signature, and a
-non-debuggable bundle. Upload it to Play Console internal testing first and
-physically test the Play-delivered build before production submission.
+The verifier requires package `com.koyas.koyas_supermarket`, the version in
+`pubspec.yaml`, target API 36, the registered upload certificate, the intended
+permissions, a non-debuggable bundle and 16 KB alignment. Upload to Play Console
+internal testing first and physically test the Play-delivered build. See the
+[Google Play submission guide](play_store/PLAY_CONSOLE_SUBMISSION.md) for the
+release command with push notifications and closed-test requirements.
 
 ### iOS
 
@@ -262,9 +264,10 @@ under `app_store/` and `play_store/` for the store forms and listing assets.
    login creates the customer account/profile.
 2. The customer browses in-stock products, applies an eligible offer, and
    chooses pickup or delivery.
-3. Delivery requires a serviceable PIN, recipient name/phone, address, date,
-   slot, and optional instructions. Orders use snapshots so later profile edits
-   do not alter fulfilment details.
+3. Delivery requires a saved map pin within 5 km of the store, recipient name
+   and phone, written address including PIN code, date and slot. Customers can
+   add instructions. Orders use snapshots so later profile edits do not alter
+   fulfilment details.
 4. The customer chooses cash or UPI at handover. This release never collects
    money inside the app.
 5. Customers can track/cancel eligible orders, manage addresses, open the

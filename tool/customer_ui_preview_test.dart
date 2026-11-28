@@ -9,21 +9,35 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:koyas_supermarket/app/app.dart';
 import 'package:koyas_supermarket/app/router/app_router.dart';
+import 'package:koyas_supermarket/features/checkout/models/delivery_area.dart';
 import 'package:koyas_supermarket/features/products/product_variants.dart';
 import 'package:koyas_supermarket/features/products/widgets/product_variant_sheet.dart';
 import 'package:koyas_supermarket/features/store/providers/store_provider.dart';
 
+const _playListing = bool.fromEnvironment('CAPTURE_PLAY_LISTING');
+
 class PreviewStore extends StoreController {
   void requireAddress() =>
       state = state.copyWith(addresses: [], selectedAddressId: '');
+
+  void configurePlayListing() {
+    state = state.copyWith(
+      deliveryArea: const DeliveryArea(17.37601003, 78.41978797),
+      profile: state.profile!.copyWith(name: 'Sample shopper', phone: ''),
+    );
+  }
 }
 
 void main() {
   for (final viewport in [
-    (width: 390.0, scale: 1.0, brightness: Brightness.light),
-    (width: 320.0, scale: 2.0, brightness: Brightness.light),
-    (width: 390.0, scale: 1.0, brightness: Brightness.dark),
-    (width: 320.0, scale: 2.0, brightness: Brightness.dark),
+    if (_playListing)
+      (width: 405.0, scale: 1.0, brightness: Brightness.light)
+    else ...[
+      (width: 390.0, scale: 1.0, brightness: Brightness.light),
+      (width: 320.0, scale: 2.0, brightness: Brightness.light),
+      (width: 390.0, scale: 1.0, brightness: Brightness.dark),
+      (width: 320.0, scale: 2.0, brightness: Brightness.dark),
+    ],
   ]) {
     testWidgets('customer UI at ${viewport.width}px, text ${viewport.scale}', (
       tester,
@@ -35,7 +49,7 @@ void main() {
           ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
         await Future.wait([font.load(), icons.load()]);
       });
-      tester.view.physicalSize = Size(viewport.width, 844);
+      tester.view.physicalSize = Size(viewport.width, _playListing ? 720 : 844);
       tester.view.devicePixelRatio = 1;
       tester.platformDispatcher.textScaleFactorTestValue = viewport.scale;
       tester.platformDispatcher.platformBrightnessTestValue =
@@ -49,8 +63,9 @@ void main() {
         overrides: [storeProvider.overrideWith(PreviewStore.new)],
       );
       addTearDown(container.dispose);
-      final controller = container.read(storeProvider.notifier);
-      controller.loginDemo();
+      final controller = container.read(storeProvider.notifier) as PreviewStore;
+      controller.loginDemo(email: _playListing ? 'shopper@example.test' : null);
+      if (_playListing) controller.configurePlayListing();
       final router = container.read(appRouterProvider)..go('/home');
       const capture = Key('customer-ui-capture');
       await tester.pumpWidget(
@@ -63,9 +78,10 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      final prefix =
-          '${viewport.width.toInt()}-${viewport.scale.toInt()}x'
-          '${viewport.brightness == Brightness.dark ? '-dark' : ''}';
+      final prefix = _playListing
+          ? 'play'
+          : '${viewport.width.toInt()}-${viewport.scale.toInt()}x'
+                '${viewport.brightness == Brightness.dark ? '-dark' : ''}';
       await _capture(tester, capture, '$prefix-home');
       router.go('/categories');
       await tester.pumpAndSettle();
@@ -116,6 +132,17 @@ void main() {
       ]) {
         router.go(route.path);
         await tester.pumpAndSettle();
+        if (_playListing && route.name == 'cart') {
+          await tester.ensureVisible(find.text('Choose fulfilment'));
+          await tester.pumpAndSettle();
+        }
+        if (_playListing && route.name == 'profile') {
+          controller.removeFromCart(selected.id);
+          await tester.ensureVisible(
+            find.byKey(const Key('profile-privacy-policy')),
+          );
+          await tester.pumpAndSettle();
+        }
         await _capture(tester, capture, '$prefix-${route.name}');
       }
       controller.logout();
@@ -123,7 +150,7 @@ void main() {
       await tester.pumpAndSettle();
       await _capture(tester, capture, '$prefix-login');
       controller.loginDemo();
-      (controller as PreviewStore).requireAddress();
+      controller.requireAddress();
       router.go('/address/setup');
       await tester.pumpAndSettle();
       await _capture(tester, capture, '$prefix-address-setup');
@@ -146,7 +173,7 @@ Future<void> _capture(WidgetTester tester, Key key, String name) async {
     final boundary = tester.renderObject<RenderRepaintBoundary>(
       find.byKey(key),
     );
-    final image = await boundary.toImage(pixelRatio: 2);
+    final image = await boundary.toImage(pixelRatio: _playListing ? 8 / 3 : 2);
     final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
     final file = File('build/qa/customer-ui/$name.png');
     await file.parent.create(recursive: true);

@@ -155,7 +155,11 @@ void main() {
         UncontrolledProviderScope(container: c, child: const KoyasApp()),
       );
       await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('order-alert-settings')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('enable-customer-alerts')).first);
+      await tester.pumpAndSettle();
+      await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       final initial = c.read(storeProvider);
       final controller = c.read(storeProvider.notifier) as AlertTestStore;

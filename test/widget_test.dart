@@ -199,7 +199,7 @@ void main() {
     }
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byType(TextField).first);
+    await tester.tap(find.byKey(const Key('home-search')));
     await tester.pumpAndSettle();
     tester.view.viewInsets = const FakeViewPadding(bottom: 320);
     await tester.pumpAndSettle();
@@ -423,9 +423,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text(name), findsOneWidget);
-    expect(find.text(brand), findsOneWidget);
+    expect(find.text(brand), findsNothing);
+    expect(find.text('200 ml'), findsOneWidget);
     expect(tester.widget<Text>(find.text(name)).maxLines, 3);
-    expect(tester.widget<Text>(find.text(brand)).maxLines, 2);
+    expect(
+      tester.getTopLeft(find.text('₹10')).dy,
+      lessThan(tester.getTopLeft(find.text(name)).dy),
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -434,7 +438,13 @@ void main() {
     (tester) async {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      const widths = <double>[320, 360, 412, 480, 599];
+      const viewports = [
+        (width: 320.0, scale: 1.0, columns: 2),
+        (width: 390.0, scale: 1.0, columns: 3),
+        (width: 412.0, scale: 1.3, columns: 2),
+        (width: 480.0, scale: 1.3, columns: 3),
+        (width: 320.0, scale: 2.0, columns: 1),
+      ];
       const products = <Product>[
         Product(
           id: 'responsive-1',
@@ -474,7 +484,7 @@ void main() {
         ),
       ];
 
-      for (final width in widths) {
+      for (final (:width, :scale, :columns) in viewports) {
         final container = ProviderContainer();
         addTearDown(container.dispose);
         final controller = container.read(storeProvider.notifier);
@@ -491,7 +501,7 @@ void main() {
               home: MediaQuery(
                 data: MediaQueryData(
                   size: Size(width, 900),
-                  textScaler: const TextScaler.linear(1.3),
+                  textScaler: TextScaler.linear(scale),
                 ),
                 child: Scaffold(
                   body: LayoutBuilder(
@@ -518,17 +528,18 @@ void main() {
             grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
         expect(
           delegate.crossAxisCount,
-          width < 440 ? 2 : 3,
-          reason: 'width $width',
+          columns,
+          reason: 'width $width at ${scale}x',
         );
-        expect(find.text('ADD'), findsNothing);
-        for (final product in products) {
+        for (final product in products.take(columns)) {
           final addButton = find.byKey(Key('add-product-${product.id}'));
-          expect(addButton, findsOneWidget, reason: 'width $width');
+          expect(addButton, findsOneWidget);
+          final size = tester.getSize(addButton);
+          expect(size.width, greaterThanOrEqualTo(48));
+          expect(size.height, greaterThanOrEqualTo(48));
           expect(
-            tester.getSize(addButton),
-            const Size.square(48),
-            reason: 'width $width',
+            size.width,
+            lessThan(tester.getSize(find.byType(ProductCard).first).width),
           );
         }
         await tester.tap(find.byKey(const Key('add-product-responsive-1')));

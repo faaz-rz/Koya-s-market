@@ -8,6 +8,7 @@ import '../../../core/config/usage_policy.dart';
 import '../../../core/utils/transaction_request.dart';
 
 import '../../checkout/models/checkout_models.dart';
+import '../../checkout/models/delivery_area.dart';
 import '../../offers/models/store_offer.dart';
 import '../../orders/models/order.dart';
 import '../../products/models/category.dart';
@@ -32,6 +33,7 @@ class RemoteStoreBundle {
     required this.deliverySlots,
     required this.isAdmin,
     required this.serviceablePincodes,
+    this.deliveryArea,
     required this.minimumOrderPaise,
     required this.baseDeliveryChargePaise,
     required this.freeDeliveryThresholdPaise,
@@ -52,6 +54,7 @@ class RemoteStoreBundle {
   final List<FulfilmentSlot> deliverySlots;
   final bool isAdmin;
   final Set<String> serviceablePincodes;
+  final DeliveryArea? deliveryArea;
   final int minimumOrderPaise;
   final int settingsRevision;
   final int baseDeliveryChargePaise;
@@ -386,6 +389,7 @@ class SupabaseStoreRepository {
       serviceablePincodes: pincodeRows
           .map((row) => row['pincode'] as String)
           .toSet(),
+      deliveryArea: DeliveryArea.fromSettings(settingsRow),
       settingsRevision: (settingsRow['revision'] as num?)?.toInt() ?? 0,
       minimumOrderPaise: settingsRow['minimum_order_paise'] as int,
       baseDeliveryChargePaise: settingsRow['delivery_charge_paise'] as int,
@@ -458,6 +462,20 @@ class SupabaseStoreRepository {
         rethrow;
       }
       final message = error.message.toLowerCase();
+      if (error.code == 'PT422') {
+        if (message == 'a delivery pin is required') {
+          throw TransactionValidationException(
+            DeliveryArea.pinRequired,
+            error.code,
+          );
+        }
+        if (message == 'delivery pin is outside the 5 km radius') {
+          throw TransactionValidationException(
+            DeliveryArea.outsideRadius,
+            error.code,
+          );
+        }
+      }
       if (message.contains('offer code was not found')) {
         throw TransactionValidationException(
           'Offer code was not found.',
@@ -981,6 +999,7 @@ extension RemoteStoreHydration on StoreController {
       deliverySlots: bundle.deliverySlots,
       isAdmin: bundle.isAdmin,
       serviceablePincodes: bundle.serviceablePincodes,
+      deliveryArea: bundle.deliveryArea,
       minimumOrderPaise: bundle.minimumOrderPaise,
       settingsRevision: bundle.settingsRevision,
       baseDeliveryChargePaise: bundle.baseDeliveryChargePaise,

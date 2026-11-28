@@ -4,6 +4,11 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  final releaseVersion = RegExp(
+    r'^version:[ \t]+([^\s+]+)\+([1-9][0-9]*)[ \t]*$',
+    multiLine: true,
+  ).firstMatch(File('pubspec.yaml').readAsStringSync());
+
   test(
     'Android release identity, permission, API and safety gates are fixed',
     () {
@@ -19,7 +24,6 @@ void main() {
       final wrapper = File(
         'android/gradle/wrapper/gradle-wrapper.properties',
       ).readAsStringSync();
-      final pubspec = File('pubspec.yaml').readAsStringSync();
 
       expect(
         manifest,
@@ -58,7 +62,11 @@ void main() {
           '"androidx.test.espresso:espresso-core:3.3+" -> useVersion("3.3.0")',
         ),
       );
-    expect(pubspec, contains('version: 1.1.5+24'));
+      expect(
+        releaseVersion,
+        isNotNull,
+        reason: 'Set version and build number in pubspec.yaml',
+      );
     },
   );
 
@@ -84,7 +92,15 @@ void main() {
     expect(deletion, contains('What is deleted'));
     expect(config['buildCommand'], 'bash tool/build_admin_web.sh');
     expect(config['outputDirectory'], 'build/web');
-    expect(buildScript, contains("koyas_flutter_version='3.47.1'"));
+    expect(
+      File('.flutter-version').readAsStringSync().trim(),
+      matches(r'^\d+\.\d+\.\d+$'),
+    );
+    expect(buildScript, contains('.flutter-version'));
+    expect(
+      File('.github/workflows/security.yml').readAsStringSync(),
+      contains('cat .flutter-version'),
+    );
     expect(buildScript, contains('sb_secret_*|*service_role*'));
     expect(buildScript, contains('-t lib/admin_main.dart'));
     expect(
@@ -117,6 +133,42 @@ void main() {
     expect(screenshots, hasLength(6));
     for (final screenshot in screenshots) {
       expect(_jpegDimensions(screenshot), (width: 1080, height: 1920));
+      expect(screenshot.lengthSync(), lessThanOrEqualTo(8 * 1024 * 1024));
+    }
+  });
+
+  test('Play icon, feature graphic and listing copy meet upload limits', () {
+    final icon = File('play_store/assets/app-icon-512.png');
+    expect(_pngHeader(icon), (width: 512, height: 512, depth: 8, colorType: 6));
+    expect(icon.lengthSync(), lessThanOrEqualTo(1024 * 1024));
+    final graphic = File('play_store/assets/feature-graphic-1024x500.png');
+    expect(_pngHeader(graphic), (
+      width: 1024,
+      height: 500,
+      depth: 8,
+      colorType: 2,
+    ));
+
+    expect(
+      releaseVersion,
+      isNotNull,
+      reason: 'Set version and build number in pubspec.yaml',
+    );
+    final limits = {
+      'title.txt': 30,
+      'short_description.txt': 80,
+      'full_description.txt': 4000,
+      'release_notes_${releaseVersion!.group(1)}.txt': 500,
+    };
+    for (final entry in limits.entries) {
+      final copy = File(
+        'play_store/listing/en-US/${entry.key}',
+      ).readAsStringSync().trim();
+      expect(
+        copy.runes.length,
+        inInclusiveRange(1, entry.value),
+        reason: entry.key,
+      );
     }
   });
 
@@ -181,6 +233,22 @@ void main() {
     expect(access, contains("password in the team's password manager"));
     expect(access, contains('source control, Dart defines'));
   });
+}
+
+({int width, int height, int depth, int colorType}) _pngHeader(File file) {
+  final bytes = file.readAsBytesSync();
+  if (bytes.length < 26 ||
+      base64Encode(bytes.sublist(0, 8)) != 'iVBORw0KGgo=' ||
+      ascii.decode(bytes.sublist(12, 16)) != 'IHDR') {
+    throw FormatException('Not a PNG: ${file.path}');
+  }
+  final header = bytes.buffer.asByteData(bytes.offsetInBytes, bytes.length);
+  return (
+    width: header.getUint32(16),
+    height: header.getUint32(20),
+    depth: header.getUint8(24),
+    colorType: header.getUint8(25),
+  );
 }
 
 ({int width, int height}) _jpegDimensions(File file) {

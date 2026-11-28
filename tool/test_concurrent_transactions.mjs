@@ -16,8 +16,9 @@ const { default: EmbeddedPostgres } = await import(pathToFileURL(require.resolve
 const { Client } = require('pg');
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const directory = await mkdtemp(path.join(tmpdir(), 'koyas-pg-test-'));
-const port = await new Promise(resolve => {
+const port = await new Promise((resolve, reject) => {
   const server = net.createServer();
+  server.once('error', reject);
   server.listen(0, '127.0.0.1', () => {
     const chosen = server.address().port;
     server.close(() => resolve(chosen));
@@ -37,12 +38,14 @@ async function connect() {
   await client.query("set statement_timeout='15s'");
   return client;
 }
-async function transaction(user, fn, role = 'authenticated', aal = 'aal1') {
+async function transaction(user, fn, role = 'authenticated', aal = 'aal1', method = 'otp') {
   const client = await connect();
   try {
     await client.query('begin');
     await client.query(`set local role ${role}`);
-    await client.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: user, aal })]);
+    await client.query("select set_config('request.jwt.claims', $1, true)", [
+      JSON.stringify({ sub: user, aal, amr: [{ method }] }),
+    ]);
     const result = await fn(client);
     await client.query('commit');
     return result;
@@ -51,13 +54,15 @@ async function transaction(user, fn, role = 'authenticated', aal = 'aal1') {
   } finally { await client.end(); clients.delete(client); }
 }
 let admin, category, owner, slotSequence = 0;
-async function fixture(stock = 10, capacity = 100) {
+let databaseStarted = false;
+async function fixture(stock = 10, capacity = 100, fulfilmentType = 'pickup') {
   const user = randomUUID(), product = randomUUID(), slot = randomUUID();
   await owner.query('insert into auth.users(id) values ($1)', [user]);
   await owner.query(`insert into public.products(id,category_id,name,description,unit,price_paise,stock_quantity)
     values($1,$2,'Concurrency product','Test inventory','1 pack',1000,$3)`, [product, category, stock]);
   await owner.query(`insert into public.fulfilment_slots(id,fulfilment_type,label,start_time,end_time,max_orders)
-    values($1,'pickup','Concurrency slot',time '00:00' + make_interval(secs => $3),'23:59',$2)`, [slot, capacity, ++slotSequence]);
+    values($1,$2,'Concurrency slot',time '00:00' + make_interval(secs => $3),'23:59',$4)`,
+    [slot, fulfilmentType, ++slotSequence, capacity]);
   return { user, product, slot };
 }
 async function anotherUser() {
@@ -84,7 +89,10 @@ function businessRejections(results, message) {
 }
 
 try {
-  await database.initialise(); await database.start(); owner = await connect();
+  await database.initialise();
+  await database.start();
+  databaseStarted = true;
+  owner = await connect();
   console.log((await owner.query('select version()')).rows[0].version);
   await owner.query(`
     create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
@@ -309,6 +317,8 @@ try {
   console.log('All concurrency and sync checks passed. No remote database was contacted.');
 } finally {
   await Promise.all([...clients].map(c => c.end().catch(() => {})));
-  await database.stop();
-  console.log(`Stopped disposable PostgreSQL. Local test data/logs: ${directory}`);
+  if (databaseStarted) {
+    await database.stop();
+    console.log(`Stopped disposable PostgreSQL. Local test data/logs: ${directory}`);
+  }
 }

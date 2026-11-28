@@ -7,6 +7,8 @@ import '../../../core/config/app_environment.dart';
 import '../../../core/utils/transaction_request.dart';
 import '../../cart/models/cart_item.dart';
 import '../../checkout/models/checkout_models.dart';
+import '../../checkout/models/delivery_area.dart';
+import '../../checkout/models/delivery_pin.dart';
 import '../../offers/models/store_offer.dart';
 import '../../orders/models/order.dart';
 import '../../products/models/category.dart';
@@ -33,6 +35,7 @@ class StoreState {
     required this.pickupSlots,
     required this.deliverySlots,
     required this.serviceablePincodes,
+    this.deliveryArea,
     this.minimumOrderPaise = 0,
     this.settingsRevision = 0,
     this.baseDeliveryChargePaise = 4900,
@@ -70,6 +73,7 @@ class StoreState {
   final List<FulfilmentSlot> pickupSlots;
   final List<FulfilmentSlot> deliverySlots;
   final Set<String> serviceablePincodes;
+  final DeliveryArea? deliveryArea;
   final int minimumOrderPaise;
   final int settingsRevision;
   final int baseDeliveryChargePaise;
@@ -99,6 +103,32 @@ class StoreState {
   CustomerAddress? get selectedAddress {
     for (final address in addresses) {
       if (address.id == selectedAddressId) return address;
+    }
+    return null;
+  }
+
+  String? deliveryCoverageIssue({String? pincode, DeliveryPin? pin}) {
+    final area = deliveryArea;
+    if (area != null) return pin == null ? null : area.issueFor(pin);
+    if (pincode == null) return null;
+    if (serviceablePincodes.isEmpty) {
+      return 'Delivery area is currently unavailable. Please try again later.';
+    }
+    if (!serviceablePincodes.contains(pincode)) {
+      return 'Delivery is unavailable for PIN code $pincode. Please choose another address.';
+    }
+    return null;
+  }
+
+  String? deliveryAddressIssue(CustomerAddress address) {
+    final issue = deliveryCoverageIssue(
+      pincode: address.pincode,
+      pin: address.deliveryPin,
+    );
+    if (issue != null) return issue;
+    if ((deliveryArea != null || AppEnvironment.hasSupabaseConfig) &&
+        address.deliveryPin?.isValid != true) {
+      return DeliveryArea.pinRequired;
     }
     return null;
   }
@@ -197,6 +227,7 @@ class StoreState {
     List<FulfilmentSlot>? pickupSlots,
     List<FulfilmentSlot>? deliverySlots,
     Set<String>? serviceablePincodes,
+    DeliveryArea? deliveryArea,
     int? minimumOrderPaise,
     int? settingsRevision,
     int? baseDeliveryChargePaise,
@@ -215,6 +246,7 @@ class StoreState {
     bool clearProfile = false,
     bool clearLastOrder = false,
     bool clearSelectedOffer = false,
+    bool clearDeliveryArea = false,
   }) {
     return StoreState(
       profile: clearProfile ? null : profile ?? this.profile,
@@ -231,6 +263,9 @@ class StoreState {
       pickupSlots: pickupSlots ?? this.pickupSlots,
       deliverySlots: deliverySlots ?? this.deliverySlots,
       serviceablePincodes: serviceablePincodes ?? this.serviceablePincodes,
+      deliveryArea: clearDeliveryArea
+          ? null
+          : deliveryArea ?? this.deliveryArea,
       minimumOrderPaise: minimumOrderPaise ?? this.minimumOrderPaise,
       settingsRevision: settingsRevision ?? this.settingsRevision,
       baseDeliveryChargePaise:
@@ -324,6 +359,7 @@ class StoreController extends Notifier<StoreState> {
     required List<FulfilmentSlot> pickupSlots,
     required List<FulfilmentSlot> deliverySlots,
     required Set<String> serviceablePincodes,
+    DeliveryArea? deliveryArea,
     required int minimumOrderPaise,
     required int baseDeliveryChargePaise,
     required int freeDeliveryThresholdPaise,
@@ -382,6 +418,8 @@ class StoreController extends Notifier<StoreState> {
       pickupSlots: pickupSlots,
       deliverySlots: deliverySlots,
       serviceablePincodes: serviceablePincodes,
+      deliveryArea: deliveryArea,
+      clearDeliveryArea: deliveryArea == null,
       minimumOrderPaise: minimumOrderPaise,
       settingsRevision: settingsRevision,
       baseDeliveryChargePaise: baseDeliveryChargePaise,
@@ -687,11 +725,8 @@ class StoreController extends Notifier<StoreState> {
       if (address == null) {
         throw const StoreValidationException('Select a delivery address.');
       }
-      if (!state.serviceablePincodes.contains(address.pincode)) {
-        throw StoreValidationException(
-          'Delivery is not available for PIN ${address.pincode}.',
-        );
-      }
+      final issue = state.deliveryAddressIssue(address);
+      if (issue != null) throw StoreValidationException(issue);
     }
 
     final timestamp = DateTime.now();

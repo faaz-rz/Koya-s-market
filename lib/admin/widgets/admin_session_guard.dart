@@ -71,7 +71,7 @@ class _AdminSessionGuardState extends ConsumerState<AdminSessionGuard>
     _validating = true;
     try {
       final auth = _auth;
-      if (auth.currentUser == null || !await auth.isApprovedAdmin()) {
+      if (!auth.hasEmailVerification || !await auth.isApprovedAdmin()) {
         await _lock('unauthorized');
       }
     } catch (_) {

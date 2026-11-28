@@ -3,8 +3,16 @@ import '../models/checkout_models.dart';
 import 'address_editor_form.dart';
 
 class AddressEditorDialog extends StatefulWidget {
-  const AddressEditorDialog({this.address, super.key});
+  const AddressEditorDialog({
+    this.address,
+    this.initialName = '',
+    this.initialPhone = '',
+    this.checkDeliveryCoverage,
+    super.key,
+  });
   final CustomerAddress? address;
+  final String initialName, initialPhone;
+  final DeliveryCoverageCheck? checkDeliveryCoverage;
   @override
   State<AddressEditorDialog> createState() => _AddressEditorDialogState();
 }
@@ -23,6 +31,9 @@ class _AddressEditorDialogState extends State<AddressEditorDialog> {
         child: AddressEditorForm(
           key: _form,
           address: widget.address,
+          initialName: widget.initialName,
+          initialPhone: widget.initialPhone,
+          checkDeliveryCoverage: widget.checkDeliveryCoverage,
           showSaveButton: false,
           onLocatingChanged: (busy) => setState(() => _locating = busy),
           onSave: (saved) => Navigator.of(context).pop(saved),

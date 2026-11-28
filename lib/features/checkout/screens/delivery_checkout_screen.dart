@@ -16,6 +16,7 @@ import '../../store/data/supabase_store_repository.dart';
 import '../../store/providers/store_provider.dart';
 import '../models/checkout_models.dart';
 import '../widgets/checkout_progress.dart';
+import '../widgets/delivery_address_notice.dart';
 import '../widgets/selection_card.dart';
 
 class DeliveryCheckoutScreen extends ConsumerStatefulWidget {
@@ -53,20 +54,28 @@ class _DeliveryCheckoutScreenState
   }
 
   Future<void> _addAddress([CustomerAddress? current]) async {
+    final store = ref.read(storeProvider);
+    final profile = store.profile;
     final address = await showDialog<CustomerAddress>(
       context: context,
       animationStyle: AppMotion.dialogStyle(context),
-      builder: (context) => AddressEditorDialog(address: current),
+      builder: (context) => AddressEditorDialog(
+        address: current,
+        initialName: profile?.name ?? '',
+        initialPhone: profile?.phone ?? '',
+        checkDeliveryCoverage: store.deliveryCoverageIssue,
+      ),
     );
-    if (address != null && mounted) {
-      final customerId = ref.read(storeProvider).profile?.id;
+    if (address != null &&
+        mounted &&
+        ref.read(storeProvider).profile?.id == profile?.id) {
       try {
         final saved = AppEnvironment.hasSupabaseConfig
             ? await (current == null
                   ? SupabaseStoreRepository().addAddress(address)
                   : SupabaseStoreRepository().updateAddress(address))
             : address;
-        if (!mounted || ref.read(storeProvider).profile?.id != customerId) {
+        if (!mounted || ref.read(storeProvider).profile?.id != profile?.id) {
           return;
         }
         if (current == null) {
@@ -98,9 +107,9 @@ class _DeliveryCheckoutScreenState
   Widget build(BuildContext context) {
     final store = ref.watch(storeProvider);
     final selectedAddress = store.selectedAddress;
-    final serviceable =
-        selectedAddress != null &&
-        store.serviceablePincodes.contains(selectedAddress.pincode);
+    final selectedIssue = selectedAddress == null
+        ? null
+        : store.deliveryAddressIssue(selectedAddress);
     return Scaffold(
       appBar: AppBar(title: const Text('Delivery details')),
       body: SafeArea(
@@ -145,9 +154,8 @@ class _DeliveryCheckoutScreenState
                   ),
                   const SizedBox(height: AppSpacing.md),
                   ...store.addresses.map((address) {
-                    final available = store.serviceablePincodes.contains(
-                      address.pincode,
-                    );
+                    final available =
+                        store.deliveryAddressIssue(address) == null;
                     return Padding(
                       padding: const EdgeInsets.only(bottom: AppSpacing.md),
                       child: SelectionCard(
@@ -187,29 +195,18 @@ class _DeliveryCheckoutScreenState
                       ),
                     );
                   }),
+                  if (selectedIssue != null)
+                    DeliveryAddressNotice(message: selectedIssue),
                   if (selectedAddress?.deliveryPin != null)
                     DeliveryPinSummary(pin: selectedAddress!.deliveryPin!),
-                  if (selectedAddress != null &&
-                      selectedAddress.deliveryPin == null)
+                  if (selectedAddress != null)
                     TextButton.icon(
                       onPressed: () => _addAddress(selectedAddress),
                       icon: const Icon(Icons.edit_location_alt_outlined),
-                      label: const Text('Add a delivery pin'),
-                    ),
-                  if (selectedAddress != null && !serviceable)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(AppSpacing.md),
-                      decoration: BoxDecoration(
-                        color: AppColors.of(context).errorSoft,
-                        borderRadius: BorderRadius.circular(AppRadii.md),
-                      ),
-                      child: Text(
-                        'We do not deliver to PIN ${selectedAddress.pincode} yet. Choose another address.',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.of(context).error,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      label: Text(
+                        selectedAddress.deliveryPin == null
+                            ? 'Add a delivery pin'
+                            : 'Edit address',
                       ),
                     ),
                   const SizedBox(height: AppSpacing.xxxl),
@@ -289,7 +286,7 @@ class _DeliveryCheckoutScreenState
                   KoyasButton(
                     label: 'Continue to payment',
                     icon: Icons.arrow_forward_rounded,
-                    onPressed: serviceable
+                    onPressed: selectedAddress != null && selectedIssue == null
                         ? () => context.push('/checkout/payment')
                         : null,
                   ),
