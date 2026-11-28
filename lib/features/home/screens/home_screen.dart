@@ -175,7 +175,7 @@ class _HomeHeader extends StatelessWidget {
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: () => context.go('/profile'),
+                onTap: () => context.go('/profile/addresses'),
                 borderRadius: BorderRadius.circular(AppRadii.md),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),

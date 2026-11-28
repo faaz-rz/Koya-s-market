@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/router/app_router.dart';
+import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/four_dot_loader.dart';
 import '../../orders/widgets/order_status_ui.dart';
 import '../../store/providers/store_provider.dart';
@@ -197,3 +198,47 @@ class CustomerAlertSettings extends ConsumerWidget {
     );
   }
 }
+
+class OrderAlertSettingsTile extends StatelessWidget {
+  const OrderAlertSettingsTile({super.key});
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    key: const Key('order-alert-settings'),
+    leading: const Icon(Icons.notifications_none_rounded),
+    title: const Text('Order alerts'),
+    subtitle: const Text('Pickup and delivery updates'),
+    trailing: const Icon(Icons.chevron_right_rounded),
+    onTap: () => showOrderAlertSettings(context),
+  );
+}
+
+Future<void> showOrderAlertSettings(BuildContext context) =>
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            0,
+            AppSpacing.lg,
+            AppSpacing.lg,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Order alerts',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const CustomerAlertSettings(),
+            ],
+          ),
+        ),
+      ),
+    );

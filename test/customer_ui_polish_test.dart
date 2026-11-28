@@ -75,12 +75,7 @@ void main() {
             ),
             findsNothing,
           );
-          expect(
-            find.text(
-              'Shop for delivery or pickup',
-            ),
-            findsOneWidget,
-          );
+          expect(find.text('Shop for delivery or pickup'), findsOneWidget);
         }
         expect(tester.takeException(), isNull);
       }
@@ -236,6 +231,7 @@ void main() {
           '/order/${state.orders.first.id}',
           '/orders',
           '/profile',
+          '/profile/addresses',
         ]) {
           router.go(path);
           await tester.pumpAndSettle();
@@ -250,6 +246,39 @@ void main() {
       },
     );
   }
+
+  testWidgets('Profile shortcuts open saved addresses and order history', (
+    tester,
+  ) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    container.read(storeProvider.notifier).loginDemo();
+    final router = container.read(appRouterProvider)..go('/profile');
+    await tester.pumpWidget(
+      UncontrolledProviderScope(container: container, child: const KoyasApp()),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('profile-saved-addresses')));
+    await tester.pumpAndSettle();
+    expect(
+      router.routerDelegate.currentConfiguration.last.matchedLocation,
+      '/profile/addresses',
+    );
+    expect(find.byTooltip('Address options'), findsWidgets);
+    await tester.tap(find.byKey(const Key('profile-add-address')));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    router.pop();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('profile-your-orders')));
+    await tester.pumpAndSettle();
+    expect(router.routeInformationProvider.value.uri.path, '/orders');
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('home builds visible products lazily while retaining scroll', (
     tester,

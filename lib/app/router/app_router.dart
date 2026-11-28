@@ -102,6 +102,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: '/profile',
                 builder: (context, state) =>
                     const CustomerBackdrop(child: ProfileScreen()),
+                routes: [
+                  GoRoute(
+                    path: 'addresses',
+                    builder: (context, state) => const CustomerBackdrop(
+                      child: ProfileScreen(addressesOnly: true),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

@@ -145,18 +145,7 @@ class CustomerShell extends ConsumerWidget {
                               child: Badge.count(
                                 count: cartCount,
                                 isLabelVisible: cartCount > 0,
-                                child: Container(
-                                  width: 42,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12),
-                                    color: AppColors.of(context).brand600,
-                                  ),
-                                  child: Icon(
-                                    Icons.shopping_cart_outlined,
-                                    color: AppColors.of(context).onBrand,
-                                  ),
-                                ),
+                                child: const Icon(Icons.shopping_bag_outlined),
                               ),
                             ),
                           ),

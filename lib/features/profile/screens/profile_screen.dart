@@ -4,6 +4,7 @@ import '../../cart/providers/cart_persistence.dart';
 import '../../../core/services/network_status.dart';
 import '../../../core/utils/transaction_request.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -24,7 +25,9 @@ import '../../orders/models/order.dart';
 import '../widgets/delete_account_dialog.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({this.addressesOnly = false, super.key});
+
+  final bool addressesOnly;
 
   @override
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
@@ -347,14 +350,63 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
+  Future<void> _showSupport() => showDialog<void>(
+    context: context,
+    animationStyle: AppMotion.dialogStyle(context),
+    builder: (context) => AlertDialog(
+      icon: const Icon(Icons.support_agent_rounded),
+      title: const Text('Help and support'),
+      content: const Text(
+        'For help with an order, call Koya Stores at +91 95029 26383. '
+        'Have your order number handy.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () async {
+            await Clipboard.setData(
+              const ClipboardData(text: '+91 95029 26383'),
+            );
+            if (!context.mounted) return;
+            Navigator.of(context).pop();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Store number copied.')),
+            );
+          },
+          child: const Text('Copy number'),
+        ),
+        FilledButton.icon(
+          onPressed: () async {
+            final uri = Uri(scheme: 'tel', path: '+919502926383');
+            try {
+              if (await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+                return;
+              }
+            } catch (_) {
+              // Devices without a dialer can still copy the number.
+            }
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Could not open the phone app.')),
+            );
+          },
+          icon: const Icon(Icons.call_outlined),
+          label: const Text('Call store'),
+        ),
+      ],
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final store = ref.watch(storeProvider);
-    final profile = store.profile;
+    final theme = Theme.of(context);
+    final colors = AppColors.of(context);
+    final addressesOnly = widget.addressesOnly;
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: const Text('Profile'),
+        centerTitle: false,
+        automaticallyImplyLeading: addressesOnly,
+        title: Text(addressesOnly ? 'Saved addresses' : 'Profile'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(
@@ -365,258 +417,441 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720),
+            constraints: const BoxConstraints(maxWidth: 640),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                KoyasSurface(
-                  elevated: true,
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 68,
-                        height: 68,
-                        decoration: BoxDecoration(
-                          color: AppColors.of(context).brandSoft,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
+              children: addressesOnly
+                  ? [
+                      FilledButton.icon(
+                        key: const Key('profile-add-address'),
+                        onPressed: _saveAddress,
+                        icon: const Icon(Icons.add_location_alt_outlined),
+                        label: const Text('Add an address'),
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      if (store.addresses.isEmpty)
+                        const KoyasSurface(
                           child: Text(
-                            _initials(profile?.name ?? 'Guest'),
-                            style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(
-                                  color: AppColors.of(context).brand700,
-                                ),
+                            'Add a delivery address to use it at checkout.',
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.lg),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              profile?.name ?? 'Guest shopper',
-                              style: Theme.of(context).textTheme.titleLarge,
+                        )
+                      else
+                        for (final address in store.addresses)
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: AppSpacing.sm,
                             ),
-                            const SizedBox(height: AppSpacing.xs),
-                            Text(
-                              profile?.email ?? 'Not signed in',
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: AppColors.of(context).inkSecondary,
-                                  ),
+                            child: _SavedAddress(
+                              address: address,
+                              issue: store.deliveryAddressIssue(address),
+                              onEdit: () => _saveAddress(address),
+                              onMakeDefault: () => _setDefault(address),
+                              onDelete: () => _deleteAddress(address),
                             ),
-                            if (profile?.phone.isNotEmpty == true)
-                              Text(
-                                profile!.phone,
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(
-                                      color: AppColors.of(context).inkSecondary,
-                                    ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: 'Edit profile',
-                        onPressed: _editProfile,
-                        icon: const Icon(Icons.edit_outlined),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xxxl),
-                _SectionTitle(
-                  title: 'Saved addresses',
-                  actionLabel: 'Add',
-                  onAction: _saveAddress,
-                ),
-                const SizedBox(height: AppSpacing.md),
-                ...store.addresses.map(
-                  (address) => Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                    child: KoyasSurface(
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.location_on_outlined,
-                            color: AppColors.of(context).brand600,
                           ),
-                          const SizedBox(width: AppSpacing.md),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Wrap(
-                                  spacing: AppSpacing.sm,
-                                  crossAxisAlignment: WrapCrossAlignment.center,
+                    ]
+                  : [
+                      _AccountHeader(
+                        profile: store.profile,
+                        onEdit: _editProfile,
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final narrow =
+                              constraints.maxWidth < 280 ||
+                              MediaQuery.textScalerOf(context).scale(14) > 19;
+                          final orders = _ProfileShortcut(
+                            key: const Key('profile-your-orders'),
+                            icon: Icons.receipt_long_outlined,
+                            title: 'Your orders',
+                            onTap: () => context.go('/orders'),
+                          );
+                          final addresses = _ProfileShortcut(
+                            key: const Key('profile-saved-addresses'),
+                            icon: Icons.location_on_outlined,
+                            title: 'Saved addresses',
+                            onTap: () => context.push('/profile/addresses'),
+                          );
+                          return narrow
+                              ? Column(
                                   children: [
-                                    Text(
-                                      address.label,
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.titleSmall,
-                                    ),
-                                    if (address.isDefault) ...[
-                                      const Text('· Default'),
-                                    ],
+                                    orders,
+                                    const SizedBox(height: AppSpacing.sm),
+                                    addresses,
                                   ],
-                                ),
-                                const SizedBox(height: AppSpacing.xs),
-                                Text(
-                                  address.formatted,
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: AppColors.of(
-                                          context,
-                                        ).inkSecondary,
-                                      ),
-                                ),
-                              ],
-                            ),
+                                )
+                              : IntrinsicHeight(
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Expanded(child: orders),
+                                      const SizedBox(width: AppSpacing.sm),
+                                      Expanded(child: addresses),
+                                    ],
+                                  ),
+                                );
+                        },
+                      ),
+                      const _ProfileSection(
+                        title: 'Preferences',
+                        children: [
+                          AppearanceSetting(),
+                          Divider(height: 1),
+                          OrderAlertSettingsTile(),
+                        ],
+                      ),
+                      _ProfileSection(
+                        title: 'Help and privacy',
+                        children: [
+                          ListTile(
+                            leading: const Icon(Icons.support_agent_rounded),
+                            title: const Text('Help and support'),
+                            subtitle: const Text('Contact Koya Stores'),
+                            trailing: const Icon(Icons.chevron_right_rounded),
+                            onTap: _showSupport,
                           ),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                store.deliveryAddressIssue(address) == null
-                                    ? Icons.check_circle_outline_rounded
-                                    : Icons.error_outline_rounded,
-                                color:
-                                    store.deliveryAddressIssue(address) == null
-                                    ? AppColors.of(context).success
-                                    : AppColors.of(context).error,
-                              ),
-                              PopupMenuButton<String>(
-                                tooltip: 'Address options',
-                                onSelected: (value) {
-                                  if (value == 'edit') _saveAddress(address);
-                                  if (value == 'default') {
-                                    _setDefault(address);
-                                  }
-                                  if (value == 'delete') {
-                                    _deleteAddress(address);
-                                  }
-                                },
-                                itemBuilder: (context) => [
-                                  const PopupMenuItem(
-                                    value: 'edit',
-                                    child: Text('Edit'),
-                                  ),
-                                  if (!address.isDefault)
-                                    const PopupMenuItem(
-                                      value: 'default',
-                                      child: Text('Make default'),
-                                    ),
-                                  const PopupMenuItem(
-                                    value: 'delete',
-                                    child: Text('Delete'),
-                                  ),
-                                ],
-                              ),
-                            ],
+                          const Divider(height: 1),
+                          ListTile(
+                            key: const Key('profile-privacy-policy'),
+                            leading: const Icon(Icons.privacy_tip_outlined),
+                            title: const Text('Privacy policy'),
+                            trailing: const Icon(
+                              Icons.open_in_new_rounded,
+                              size: 18,
+                            ),
+                            onTap: () => _openExternal(
+                              AppEnvironment.privacyPolicyUrl,
+                              'Privacy policy',
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                Text(
-                  'Preferences',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: AppSpacing.md),
-                KoyasSurface(
-                  padding: EdgeInsets.zero,
-                  child: Column(
-                    children: [
-                      const AppearanceSetting(),
-                      const Divider(height: 1),
-                      const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: CustomerAlertSettings(),
-                      ),
-                      ListTile(
-                        leading: const Icon(Icons.help_outline_rounded),
-                        title: const Text('Help and support'),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Call Koya Stores at +91 95029 26383.',
-                            ),
+                      _ProfileSection(
+                        title: 'Account',
+                        children: [
+                          ListTile(
+                            leading: const Icon(Icons.logout_rounded),
+                            title: const Text('Log out'),
+                            trailing: const Icon(Icons.chevron_right_rounded),
+                            onTap: _logout,
                           ),
-                        ),
+                          const Divider(height: 1),
+                          ListTile(
+                            key: const Key('profile-delete-account'),
+                            enabled: !_deletingAccount,
+                            leading: Icon(
+                              Icons.delete_outline_rounded,
+                              color: colors.error,
+                            ),
+                            title: Text(
+                              'Delete account',
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                color: colors.error,
+                              ),
+                            ),
+                            trailing: const Icon(Icons.chevron_right_rounded),
+                            onTap: _deletingAccount ? null : _deleteAccount,
+                          ),
+                        ],
                       ),
+                      const SizedBox(height: AppSpacing.xxl),
+                      const Center(child: _AppVersionLabel()),
                     ],
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xxl),
-                Text(
-                  'Privacy and account',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: AppSpacing.md),
-                KoyasSurface(
-                  padding: EdgeInsets.zero,
-                  child: Column(
-                    children: [
-                      ListTile(
-                        key: const Key('profile-privacy-policy'),
-                        leading: const Icon(Icons.privacy_tip_outlined),
-                        title: const Text('Privacy policy'),
-                        subtitle: const Text(
-                          'How Koya Stores handles your personal information',
-                        ),
-                        trailing: const Icon(Icons.open_in_new_rounded),
-                        onTap: () => _openExternal(
-                          AppEnvironment.privacyPolicyUrl,
-                          'Privacy policy',
-                        ),
-                      ),
-                      const Divider(height: 1),
-                      ListTile(
-                        key: const Key('profile-delete-account'),
-                        enabled: !_deletingAccount,
-                        leading: Icon(
-                          Icons.delete_forever_outlined,
-                          color: AppColors.of(context).error,
-                        ),
-                        title: const Text('Delete account'),
-                        subtitle: const Text(
-                          'Permanently remove your account and personal data',
-                        ),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: _deletingAccount ? null : _deleteAccount,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xxl),
-                OutlinedButton.icon(
-                  onPressed: _logout,
-                  icon: const Icon(Icons.logout_rounded),
-                  label: const Text('Log out'),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                Center(child: const _AppVersionLabel()),
-              ],
             ),
           ),
         ),
       ),
     );
   }
+}
 
-  String _initials(String name) => name
-      .trim()
-      .split(RegExp(r'\s+'))
-      .where((part) => part.isNotEmpty)
-      .take(2)
-      .map((part) => part[0].toUpperCase())
-      .join();
+class _AccountHeader extends StatelessWidget {
+  const _AccountHeader({required this.profile, required this.onEdit});
+
+  final CustomerProfile? profile;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = profile?.name.trim() ?? '';
+    final initials = name
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .take(2)
+        .map((part) => part.characters.first.toUpperCase())
+        .join();
+    final text = Theme.of(context).textTheme;
+    final colors = AppColors.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.brand700,
+        borderRadius: BorderRadius.circular(AppRadii.xxl),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                ExcludeSemantics(
+                  child: Container(
+                    width: 52,
+                    height: 52,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: colors.onBrand.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(AppRadii.lg),
+                    ),
+                    child: initials.isEmpty
+                        ? Icon(
+                            Icons.person_outline_rounded,
+                            color: colors.onBrand,
+                          )
+                        : Padding(
+                            padding: const EdgeInsets.all(AppSpacing.sm),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                initials,
+                                style: text.titleLarge?.copyWith(
+                                  color: colors.onBrand,
+                                ),
+                              ),
+                            ),
+                          ),
+                  ),
+                ),
+                if (profile != null) ...[
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: Tooltip(
+                        message: 'Edit profile',
+                        child: OutlinedButton.icon(
+                          onPressed: onEdit,
+                          icon: const Icon(Icons.edit_outlined, size: 16),
+                          label: const Text('Edit'),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(48, 48),
+                            foregroundColor: colors.onBrand,
+                            side: BorderSide(
+                              color: colors.onBrand.withValues(alpha: 0.42),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.md,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              name.isEmpty ? 'Your account' : name,
+              style: text.headlineMedium?.copyWith(color: colors.onBrand),
+            ),
+            for (final detail in [profile?.email, profile?.phone])
+              if (detail != null && detail.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: AppSpacing.xs),
+                  child: Text(
+                    detail,
+                    style: text.bodyMedium?.copyWith(
+                      color: colors.onBrand.withValues(alpha: 0.9),
+                    ),
+                  ),
+                ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileShortcut extends StatelessWidget {
+  const _ProfileShortcut({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+    super.key,
+  });
+
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    return KoyasSurface(
+      onTap: onTap,
+      radius: AppRadii.lg,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: colors.brandSoft,
+              borderRadius: BorderRadius.circular(AppRadii.md),
+            ),
+            child: Icon(icon, color: colors.brand700, size: 20),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(title, style: Theme.of(context).textTheme.labelLarge),
+          ),
+          Icon(
+            Icons.chevron_right_rounded,
+            color: colors.inkSecondary,
+            size: 18,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileSection extends StatelessWidget {
+  const _ProfileSection({required this.title, required this.children});
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.xxl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            title,
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          KoyasSurface(
+            radius: AppRadii.lg,
+            padding: EdgeInsets.zero,
+            child: ListTileTheme(
+              iconColor: colors.brand700,
+              child: Column(children: children),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+enum _AddressAction { edit, makeDefault, delete }
+
+class _SavedAddress extends StatelessWidget {
+  const _SavedAddress({
+    required this.address,
+    required this.issue,
+    required this.onEdit,
+    required this.onMakeDefault,
+    required this.onDelete,
+  });
+
+  final CustomerAddress address;
+  final String? issue;
+  final VoidCallback onEdit;
+  final VoidCallback onMakeDefault;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final text = Theme.of(context).textTheme;
+    return KoyasSurface(
+      radius: AppRadii.lg,
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.xs,
+        AppSpacing.xs,
+        AppSpacing.md,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.md),
+            child: Icon(Icons.location_on_outlined, color: colors.brand700),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.md),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: AppSpacing.sm,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(address.label, style: text.titleMedium),
+                      if (address.isDefault)
+                        Text(
+                          'Default',
+                          style: text.labelMedium?.copyWith(
+                            color: colors.brand700,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(address.formatted, style: text.bodyMedium),
+                  if (issue != null) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      issue!,
+                      style: text.bodySmall?.copyWith(color: colors.error),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          PopupMenuButton<_AddressAction>(
+            tooltip: 'Address options',
+            onSelected: (action) => switch (action) {
+              _AddressAction.edit => onEdit(),
+              _AddressAction.makeDefault => onMakeDefault(),
+              _AddressAction.delete => onDelete(),
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem(
+                value: _AddressAction.edit,
+                child: Text('Edit'),
+              ),
+              if (!address.isDefault)
+                const PopupMenuItem(
+                  value: _AddressAction.makeDefault,
+                  child: Text('Make default'),
+                ),
+              const PopupMenuItem(
+                value: _AddressAction.delete,
+                child: Text('Delete'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _AppVersionLabel extends StatefulWidget {
@@ -629,44 +864,21 @@ class _AppVersionLabel extends StatefulWidget {
 class _AppVersionLabelState extends State<_AppVersionLabel> {
   late final Future<String> _version = PackageInfo.fromPlatform()
       .then((info) => info.version)
-      .onError((_, _) => '1.1.5');
+      .onError((_, _) => '');
 
   @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<String>(
-      future: _version,
-      builder: (context, snapshot) => Text(
-        'Koya Stores · Version ${snapshot.data ?? '…'}',
+  Widget build(BuildContext context) => FutureBuilder<String>(
+    future: _version,
+    builder: (context, snapshot) {
+      final version = snapshot.data ?? '';
+      return Text(
+        version.isEmpty ? 'Koya Stores' : 'Koya Stores · Version $version',
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
           color: AppColors.of(context).inkTertiary,
         ),
-      ),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({
-    required this.title,
-    required this.actionLabel,
-    required this.onAction,
-  });
-
-  final String title;
-  final String actionLabel;
-  final VoidCallback onAction;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(title, style: Theme.of(context).textTheme.titleLarge),
-        ),
-        TextButton(onPressed: onAction, child: Text(actionLabel)),
-      ],
-    );
-  }
+      );
+    },
+  );
 }
 
 class _ProfileEditorDialog extends StatefulWidget {
@@ -698,6 +910,7 @@ class _ProfileEditorDialogState extends State<_ProfileEditorDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Edit profile'),
+      scrollable: true,
       content: SizedBox(
         width: 420,
         child: Form(

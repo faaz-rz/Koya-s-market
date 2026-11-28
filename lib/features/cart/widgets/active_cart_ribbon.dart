@@ -18,7 +18,6 @@ class ActiveCartRibbon extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = AppColors.of(context);
     final cartCount = ref.watch(
       storeProvider.select((store) => store.cartCount),
     );
@@ -26,6 +25,8 @@ class ActiveCartRibbon extends ConsumerWidget {
       storeProvider.select((store) => store.subtotalPaise),
     );
 
+    final colors = AppColors.of(context);
+    final text = Theme.of(context).textTheme;
     final reduceMotion =
         MediaQuery.disableAnimationsOf(context) ||
         MediaQuery.accessibleNavigationOf(context);
@@ -60,11 +61,11 @@ class ActiveCartRibbon extends ConsumerWidget {
                 alignment: Alignment.center,
                 heightFactor: 1,
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 640),
+                  constraints: const BoxConstraints(maxWidth: 480),
                   child: Semantics(
                     label: largeText ? 'View cart' : null,
                     child: Material(
-                      color: colors.brand600,
+                      color: colors.brand700,
                       elevation: 4,
                       shadowColor: colors.shadow,
                       borderRadius: BorderRadius.circular(AppRadii.lg),
@@ -83,7 +84,7 @@ class ActiveCartRibbon extends ConsumerWidget {
                                 width: 42,
                                 height: 42,
                                 decoration: BoxDecoration(
-                                  color: colors.onBrand.withValues(alpha: 0.16),
+                                  color: colors.onBrand.withValues(alpha: 0.14),
                                   borderRadius: BorderRadius.circular(
                                     AppRadii.md,
                                   ),
@@ -103,23 +104,19 @@ class ActiveCartRibbon extends ConsumerWidget {
                                       '$cartCount ${cartCount == 1 ? 'item' : 'items'} in cart',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .labelLarge
-                                          ?.copyWith(
-                                            color: colors.onBrand,
-                                            fontWeight: FontWeight.w800,
-                                          ),
+                                      style: text.labelLarge?.copyWith(
+                                        color: colors.onBrand,
+                                        fontWeight: FontWeight.w800,
+                                      ),
                                     ),
                                     Text(
                                       formatPrice(subtotalPaise),
                                       maxLines: 1,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                            color: colors.onBrand,
-                                          ),
+                                      style: text.bodySmall?.copyWith(
+                                        color: colors.onBrand.withValues(
+                                          alpha: 0.82,
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -128,15 +125,14 @@ class ActiveCartRibbon extends ConsumerWidget {
                               if (!largeText)
                                 Text(
                                   'View cart',
-                                  style: Theme.of(context).textTheme.labelLarge
-                                      ?.copyWith(
-                                        color: colors.onBrand,
-                                        fontWeight: FontWeight.w800,
-                                      ),
+                                  style: text.labelLarge?.copyWith(
+                                    color: colors.onBrand,
+                                    fontWeight: FontWeight.w800,
+                                  ),
                                 ),
-                              const SizedBox(width: AppSpacing.xs),
+                              const SizedBox(width: AppSpacing.sm),
                               Icon(
-                                Icons.arrow_forward_ios_rounded,
+                                Icons.arrow_forward_rounded,
                                 color: colors.onBrand,
                                 size: 16,
                               ),
